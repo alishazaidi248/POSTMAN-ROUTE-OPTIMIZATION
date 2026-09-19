@@ -1,0 +1,616 @@
+generator client {
+  provider        = "prisma-client-js"
+  previewFeatures = ["postgresqlExtensions"]
+}
+
+datasource db {
+  provider   = "postgresql"
+  url        = env("DATABASE_URL")
+  extensions = [postgis]
+}
+
+// ──────────────────────────────────────────────────────────────────────────
+// ENUMS
+// ──────────────────────────────────────────────────────────────────────────
+
+enum UserRole {
+  SUPER_ADMIN
+  ADMIN
+  POSTMAN
+}
+
+enum UserStatus {
+  ACTIVE
+  INACTIVE
+  SUSPENDED
+}
+
+enum BeatStatus {
+  ACTIVE
+  INACTIVE
+}
+
+enum PostmanStatus {
+  ACTIVE
+  ON_LEAVE
+  INACTIVE
+}
+
+enum VehicleStatus {
+  AVAILABLE
+  ASSIGNED
+  IN_USE
+  CHARGING
+  MAINTENANCE
+  INACTIVE
+}
+
+enum ParcelPriority {
+  LOW
+  NORMAL
+  HIGH
+  URGENT
+}
+
+enum DeliveryStatus {
+  RECEIVED
+  SORTED
+  ASSIGNED
+  OUT_FOR_DELIVERY
+  DELIVERED
+  RECIPIENT_UNAVAILABLE
+  REJECTED
+  WRONG_ADDRESS
+  ADDRESS_NOT_FOUND
+  RESCHEDULED
+  RETURNED
+  FAILED
+  CANCELLED
+}
+
+enum GeocodingStatus {
+  PENDING
+  SUCCESS
+  FAILED
+  MANUAL
+}
+
+enum ImportFileType {
+  CSV
+  XLSX
+  XLS
+  PDF
+  JSON
+}
+
+enum ImportStatus {
+  UPLOADED
+  PROCESSING
+  PREVIEW_READY
+  CONFIRMED
+  CANCELLED
+  FAILED
+}
+
+enum ImportRowStatus {
+  VALID
+  INVALID
+  DUPLICATE
+  MISSING_DATA
+  GEOCODING_PENDING
+  GEOCODING_FAILED
+  NEEDS_REVIEW
+  IMPORTED
+}
+
+enum ExceptionReason {
+  GEOCODING_FAILED
+  NO_BEAT_MATCH
+  MULTIPLE_BEAT_MATCH
+  INVALID_ADDRESS
+  INVALID_COORDINATES
+  NO_POSTMAN_ASSIGNED
+  INACTIVE_POSTMAN
+  OUTSIDE_POST_OFFICE
+}
+
+enum ExceptionAction {
+  VIEWED
+  ADDRESS_CORRECTED
+  GEOCODING_RETRIED
+  MANUALLY_ASSIGNED
+  BEAT_CHANGED
+  IGNORED
+}
+
+enum OptimizationStatus {
+  PENDING
+  RUNNING
+  COMPLETED
+  FAILED
+}
+
+enum NotificationSeverity {
+  INFO
+  WARNING
+  CRITICAL
+}
+
+// ──────────────────────────────────────────────────────────────────────────
+// CORE / ORG
+// ──────────────────────────────────────────────────────────────────────────
+
+model PostOffice {
+  id          String   @id @default(uuid())
+  code        String   @unique
+  name        String
+  addressLine String
+  city        String
+  state       String
+  pincode     String
+  latitude    Float
+  longitude   Float
+  isActive    Boolean  @default(true)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  users              User[]
+  beats              Beat[]
+  postmen            Postman[]
+  vehicles           Vehicle[]
+  deliveries         Delivery[]
+  imports            DeliveryImport[]
+  optimizationReqs   OptimizationRequest[]
+
+  @@index([pincode])
+}
+
+model User {
+  id           String     @id @default(uuid())
+  email        String     @unique
+  passwordHash String
+  name         String
+  role         UserRole
+  status       UserStatus @default(ACTIVE)
+  postOfficeId String?
+  postOffice   PostOffice? @relation(fields: [postOfficeId], references: [id])
+  // Links a POSTMAN-role login to their field-worker record. Null for
+  // ADMIN/SUPER_ADMIN users. Required for the mobile app to resolve
+  // "which Postman is this login" without trusting a client-supplied id.
+  postmanId    String?    @unique
+  postman      Postman?   @relation(fields: [postmanId], references: [id])
+  lastLoginAt  DateTime?
+  createdAt    DateTime   @default(now())
+  updatedAt    DateTime   @updatedAt
+
+  refreshTokens   RefreshToken[]
+  auditLogs       AuditLog[]
+  deliveryImports DeliveryImport[]
+  notifications   Notification[]
+
+  @@index([postOfficeId])
+}
+
+model RefreshToken {
+  id        String   @id @default(uuid())
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  tokenHash String   @unique
+  expiresAt DateTime
+  revokedAt DateTime?
+  createdAt DateTime @default(now())
+
+  @@index([userId])
+}
+
+// ──────────────────────────────────────────────────────────────────────────
+// BEATS / POSTMEN / VEHICLES
+// ──────────────────────────────────────────────────────────────────────────
+
+model Beat {
+  id              String     @id @default(uuid())
+  postOfficeId    String
+  postOffice      PostOffice @relation(fields: [postOfficeId], references: [id])
+  beatNumber      String     @map("beat_number")
+  name            String
+  boundary        Unsupported("geometry(Polygon,4326)")?
+  centerLatitude  Float
+  centerLongitude Float
+  status          BeatStatus @default(ACTIVE)
+  metadata        Json?
+  createdAt       DateTime   @default(now())
+  updatedAt       DateTime   @updatedAt
+
+  postmanAssignments PostmanBeatAssignment[]
+  deliveries         Delivery[]
+  assignmentHistory  DeliveryAssignmentHistory[]
+  postmen            Postman[]
+
+  @@unique([postOfficeId, beatNumber])
+  @@index([postOfficeId])
+}
+
+model Postman {
+  id                 String        @id @default(uuid())
+  employeeId         String        @unique
+  postOfficeId       String
+  postOffice         PostOffice    @relation(fields: [postOfficeId], references: [id])
+  name               String
+  phone              String
+  email              String?
+  address             String?
+  emergencyContact   String?
+  joiningDate        DateTime?
+  status             PostmanStatus @default(ACTIVE)
+  assignedBeatId     String?
+  assignedBeat       Beat?         @relation(fields: [assignedBeatId], references: [id])
+  profilePhotoUrl    String?
+  currentLocation    Unsupported("geography(Point,4326)")?
+  lastActiveAt       DateTime?
+  createdAt          DateTime      @default(now())
+  updatedAt          DateTime      @updatedAt
+
+  beatAssignments      PostmanBeatAssignment[]
+  vehicleAssignments   Vehicle[]
+  deliveries           Delivery[]
+  locationHistory      PostmanLocationHistory[]
+  deliveryAttempts     DeliveryAttempt[]
+  assignmentHistory    DeliveryAssignmentHistory[]
+  routes               Route[]
+  user                 User?
+
+  @@index([postOfficeId])
+  @@index([assignedBeatId])
+}
+
+model PostmanBeatAssignment {
+  id         String   @id @default(uuid())
+  postmanId  String
+  postman    Postman  @relation(fields: [postmanId], references: [id], onDelete: Cascade)
+  beatId     String
+  beat       Beat     @relation(fields: [beatId], references: [id])
+  startDate  DateTime @default(now())
+  endDate    DateTime?
+  isActive   Boolean  @default(true)
+
+  @@index([postmanId])
+  @@index([beatId])
+}
+
+model Vehicle {
+  id                        String        @id @default(uuid())
+  assetId                   String        @unique
+  postOfficeId              String
+  postOffice                PostOffice    @relation(fields: [postOfficeId], references: [id])
+  model                     String
+  batteryCapacityWh         Int
+  currentBatteryPercentage  Int           @default(100)
+  status                    VehicleStatus @default(AVAILABLE)
+  assignedPostmanId         String?
+  assignedPostman           Postman?      @relation(fields: [assignedPostmanId], references: [id])
+  lastMaintenanceAt         DateTime?
+  createdAt                 DateTime      @default(now())
+  updatedAt                 DateTime      @updatedAt
+
+  batteryLogs VehicleBatteryLog[]
+
+  @@index([postOfficeId])
+}
+
+model VehicleBatteryLog {
+  id                String   @id @default(uuid())
+  vehicleId         String
+  vehicle           Vehicle  @relation(fields: [vehicleId], references: [id])
+  batteryPercentage Int
+  recordedAt        DateTime @default(now())
+
+  @@index([vehicleId, recordedAt])
+}
+
+// ──────────────────────────────────────────────────────────────────────────
+// RECIPIENTS / ADDRESSES / DELIVERIES
+// ──────────────────────────────────────────────────────────────────────────
+
+model Recipient {
+  id          String   @id @default(uuid())
+  name        String
+  phone       String?
+  altPhone    String?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  addresses  Address[]
+  deliveries Delivery[]
+
+  @@index([phone])
+}
+
+model Address {
+  id                  String          @id @default(uuid())
+  recipientId         String?
+  recipient           Recipient?      @relation(fields: [recipientId], references: [id])
+  addressLine1        String
+  addressLine2        String?
+  area                String?
+  city                String
+  state               String
+  pincode             String
+  latitude            Float?
+  longitude           Float?
+  location            Unsupported("geography(Point,4326)")?
+  geocodingStatus     GeocodingStatus @default(PENDING)
+  geocodingSource     String?
+  geocodingConfidence Float?
+  geocodedAt          DateTime?
+  createdAt           DateTime        @default(now())
+  updatedAt           DateTime        @updatedAt
+
+  deliveries Delivery[]
+
+  @@index([pincode])
+  @@index([recipientId])
+}
+
+model Delivery {
+  id                 String         @id @default(uuid())
+  trackingId         String         @unique
+  recipientId        String
+  recipient          Recipient      @relation(fields: [recipientId], references: [id])
+  addressId          String
+  address            Address        @relation(fields: [addressId], references: [id])
+  parcelType         String?
+  parcelCount        Int            @default(1)
+  priority           ParcelPriority @default(NORMAL)
+  urgency            String?
+  serviceTimeMinutes Int?
+  status             DeliveryStatus @default(RECEIVED)
+  postOfficeId       String
+  postOffice         PostOffice     @relation(fields: [postOfficeId], references: [id])
+  beatId             String?
+  beat               Beat?          @relation(fields: [beatId], references: [id])
+  assignedPostmanId  String?
+  assignedPostman    Postman?       @relation(fields: [assignedPostmanId], references: [id])
+  importRowId        String?        @unique
+  importRow          DeliveryImportRow? @relation(fields: [importRowId], references: [id])
+  createdAt          DateTime       @default(now())
+  updatedAt          DateTime       @updatedAt
+
+  statusHistory     DeliveryStatusHistory[]
+  attempts          DeliveryAttempt[]
+  assignmentHistory DeliveryAssignmentHistory[]
+  exceptions        AssignmentException[]
+  routeStops        RouteStop[]
+
+  @@index([postOfficeId])
+  @@index([beatId])
+  @@index([assignedPostmanId])
+  @@index([status])
+}
+
+model DeliveryStatusHistory {
+  id         String         @id @default(uuid())
+  deliveryId String
+  delivery   Delivery       @relation(fields: [deliveryId], references: [id])
+  fromStatus DeliveryStatus?
+  toStatus   DeliveryStatus
+  reason     String?
+  changedBy  String?
+  createdAt  DateTime       @default(now())
+
+  @@index([deliveryId])
+}
+
+model DeliveryAttempt {
+  id          String    @id @default(uuid())
+  deliveryId  String
+  delivery    Delivery  @relation(fields: [deliveryId], references: [id])
+  postmanId   String?
+  postman     Postman?  @relation(fields: [postmanId], references: [id])
+  outcome     DeliveryStatus
+  notes       String?
+  attemptedAt DateTime  @default(now())
+
+  @@index([deliveryId])
+}
+
+model DeliveryAssignmentHistory {
+  id           String   @id @default(uuid())
+  deliveryId   String
+  delivery     Delivery @relation(fields: [deliveryId], references: [id])
+  beatId       String?
+  beat         Beat?    @relation(fields: [beatId], references: [id])
+  postmanId    String?
+  postman      Postman? @relation(fields: [postmanId], references: [id])
+  reason       String?
+  changedBy    String?
+  isOverride   Boolean  @default(false)
+  createdAt    DateTime @default(now())
+
+  @@index([deliveryId])
+}
+
+model AssignmentException {
+  id          String          @id @default(uuid())
+  deliveryId  String
+  delivery    Delivery        @relation(fields: [deliveryId], references: [id])
+  reason      ExceptionReason
+  details     String?
+  resolvedAt  DateTime?
+  lastAction  ExceptionAction?
+  createdAt   DateTime        @default(now())
+
+  @@index([deliveryId])
+  @@index([reason])
+}
+
+// ──────────────────────────────────────────────────────────────────────────
+// IMPORTS
+// ──────────────────────────────────────────────────────────────────────────
+
+model DeliveryImport {
+  id                    String         @id @default(uuid())
+  postOfficeId          String
+  postOffice            PostOffice     @relation(fields: [postOfficeId], references: [id])
+  uploadedById          String
+  uploadedBy            User           @relation(fields: [uploadedById], references: [id])
+  originalFilename      String
+  storedFilename        String
+  fileType              ImportFileType
+  columnMapping         Json?
+  sheetName             String?
+  totalRows             Int            @default(0)
+  validRows             Int            @default(0)
+  invalidRows           Int            @default(0)
+  duplicateRows         Int            @default(0)
+  missingDataRows       Int            @default(0)
+  geocodingFailedRows   Int            @default(0)
+  assignmentFailedRows  Int            @default(0)
+  successfulRows        Int            @default(0)
+  status                ImportStatus   @default(UPLOADED)
+  errorSummary          String?
+  createdAt             DateTime       @default(now())
+  updatedAt             DateTime       @updatedAt
+
+  rows DeliveryImportRow[]
+
+  @@index([postOfficeId])
+}
+
+model DeliveryImportRow {
+  id             String          @id @default(uuid())
+  importId       String
+  import         DeliveryImport  @relation(fields: [importId], references: [id])
+  rowNumber      Int
+  rawData        Json
+  normalizedData Json?
+  status         ImportRowStatus
+  errors         Json?
+  ocrConfidence  Float?
+  createdAt      DateTime        @default(now())
+
+  delivery Delivery?
+
+  @@index([importId])
+  @@index([status])
+}
+
+// ──────────────────────────────────────────────────────────────────────────
+// LOCATION / ROUTES
+// ──────────────────────────────────────────────────────────────────────────
+
+model PostmanLocationHistory {
+  id         String   @id @default(uuid())
+  postmanId  String
+  postman    Postman  @relation(fields: [postmanId], references: [id])
+  latitude   Float
+  longitude  Float
+  location   Unsupported("geography(Point,4326)")?
+  batteryPct Int?
+  isMock     Boolean  @default(false)
+  recordedAt DateTime @default(now())
+
+  @@index([postmanId, recordedAt])
+}
+
+model Route {
+  id           String   @id @default(uuid())
+  postmanId    String
+  postman      Postman  @relation(fields: [postmanId], references: [id])
+  planDate     DateTime
+  status       String   @default("PLANNED")
+  plannedGeoJson Json?
+  actualGeoJson  Json?
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  stops  RouteStop[]
+  events RouteEvent[]
+
+  @@index([postmanId, planDate])
+}
+
+model RouteStop {
+  id           String    @id @default(uuid())
+  routeId      String
+  route        Route     @relation(fields: [routeId], references: [id])
+  deliveryId   String
+  delivery     Delivery  @relation(fields: [deliveryId], references: [id])
+  sequence     Int
+  status       String    @default("PENDING")
+  arrivedAt    DateTime?
+  completedAt  DateTime?
+
+  @@index([routeId])
+}
+
+model RouteEvent {
+  id        String   @id @default(uuid())
+  routeId   String
+  route     Route    @relation(fields: [routeId], references: [id])
+  eventType String
+  payload   Json?
+  createdAt DateTime @default(now())
+
+  @@index([routeId])
+}
+
+// ──────────────────────────────────────────────────────────────────────────
+// NOTIFICATIONS / AUDIT / OPTIMIZATION
+// ──────────────────────────────────────────────────────────────────────────
+
+model Notification {
+  id        String               @id @default(uuid())
+  userId    String?
+  user      User?                @relation(fields: [userId], references: [id])
+  type      String
+  message   String
+  severity  NotificationSeverity @default(INFO)
+  isRead    Boolean              @default(false)
+  metadata  Json?
+  createdAt DateTime             @default(now())
+
+  @@index([userId, isRead])
+}
+
+model AuditLog {
+  id         String   @id @default(uuid())
+  userId     String?
+  user       User?    @relation(fields: [userId], references: [id])
+  action     String
+  entityType String
+  entityId   String?
+  oldValue   Json?
+  newValue   Json?
+  reason     String?
+  ipAddress  String?
+  createdAt  DateTime @default(now())
+
+  @@index([entityType, entityId])
+  @@index([action])
+}
+
+model OptimizationRequest {
+  id           String              @id @default(uuid())
+  postOfficeId String
+  postOffice   PostOffice          @relation(fields: [postOfficeId], references: [id])
+  requestType  String
+  parameters   Json?
+  status       OptimizationStatus  @default(PENDING)
+  createdAt    DateTime            @default(now())
+  updatedAt    DateTime            @updatedAt
+
+  results OptimizationResult[]
+
+  @@index([postOfficeId])
+}
+
+model OptimizationResult {
+  id                     String               @id @default(uuid())
+  optimizationRequestId  String
+  optimizationRequest    OptimizationRequest  @relation(fields: [optimizationRequestId], references: [id])
+  resultData             Json
+  source                 String               @default("MOCK")
+  createdAt              DateTime             @default(now())
+
+  @@index([optimizationRequestId])
+}

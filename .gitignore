@@ -1,0 +1,11 @@
+node_modules/
+dist/
+build/
+*.tsbuildinfo
+.env
+*.log
+backend/uploads/tmp/*
+!backend/uploads/tmp/.gitkeep
+backend/uploads/rejected/*
+!backend/uploads/rejected/.gitkeep
+.DS_Store

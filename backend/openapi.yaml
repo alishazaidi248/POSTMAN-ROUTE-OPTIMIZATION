@@ -1,0 +1,89 @@
+openapi: 3.0.3
+info:
+  title: Postal Delivery Operations & Optimization System API
+  version: 0.1.0
+  description: >
+    Admin API for postal delivery operations across multiple post offices,
+    beats, postmen and deliveries. See /api/v1/* routers in source for the
+    authoritative, up-to-date contract; this document covers the primary
+    resources.
+servers:
+  - url: /api/v1
+security:
+  - bearerAuth: []
+components:
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+paths:
+  /auth/login:
+    post:
+      summary: Authenticate and receive access/refresh tokens
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [email, password]
+              properties:
+                email: { type: string, format: email }
+                password: { type: string, minLength: 8 }
+      responses:
+        "200": { description: OK }
+        "401": { description: Invalid credentials }
+  /dashboard/summary:
+    get:
+      summary: Aggregate dashboard cards, workload and recent activity
+      responses:
+        "200": { description: OK }
+  /deliveries:
+    get:
+      summary: Search deliveries with filters and pagination
+      parameters:
+        - in: query
+          name: q
+          schema: { type: string }
+        - in: query
+          name: status
+          schema: { type: string }
+        - in: query
+          name: page
+          schema: { type: integer }
+      responses:
+        "200": { description: OK }
+  /imports/upload:
+    post:
+      summary: Upload a CSV/XLSX/PDF delivery file and receive an import preview
+      requestBody:
+        content:
+          multipart/form-data:
+            schema:
+              type: object
+              properties:
+                file: { type: string, format: binary }
+      responses:
+        "201": { description: Import created with preview }
+  /imports/{id}/confirm:
+    post:
+      summary: Confirm a previewed import and write deliveries to the database
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema: { type: string }
+      responses:
+        "200": { description: Import confirmed }
+  /beats:
+    get:
+      summary: List beats (with GeoJSON boundary) scoped to the caller's post office
+      responses:
+        "200": { description: OK }
+  /maps/deliveries:
+    get:
+      summary: GeoJSON FeatureCollection of delivery points for the map
+      responses:
+        "200": { description: OK }
