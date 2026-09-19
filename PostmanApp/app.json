@@ -1,0 +1,70 @@
+{
+  "expo": {
+    "name": "PostmanApp",
+    "slug": "PostmanApp",
+    "version": "1.0.0",
+    "orientation": "portrait",
+    "icon": "./assets/icon.png",
+    "userInterfaceStyle": "light",
+    "scheme": "postmanapp",
+    "ios": {
+      "supportsTablet": true,
+      "bundleIdentifier": "in.postal.postmanapp",
+      "infoPlist": {
+        "NSLocationWhenInUseUsageDescription": "Used to show your position on the delivery map and record delivery locations while you are on a route.",
+        "NSLocationAlwaysAndWhenInUseUsageDescription": "Used to keep your route location up to date while the app is in the background during an active delivery run.",
+        "UIBackgroundModes": [
+          "location",
+          "location"
+        ],
+        "ITSAppUsesNonExemptEncryption": false
+      }
+    },
+    "android": {
+      "package": "in.postal.postmanapp",
+      "adaptiveIcon": {
+        "backgroundColor": "#E6F4FE",
+        "foregroundImage": "./assets/android-icon-foreground.png",
+        "backgroundImage": "./assets/android-icon-background.png",
+        "monochromeImage": "./assets/android-icon-monochrome.png"
+      },
+      "predictiveBackGestureEnabled": false,
+      "permissions": [
+        "ACCESS_FINE_LOCATION",
+        "ACCESS_COARSE_LOCATION",
+        "ACCESS_BACKGROUND_LOCATION"
+      ]
+    },
+    "web": {
+      "favicon": "./assets/favicon.png"
+    },
+    "plugins": [
+      "expo-asset",
+      "@maplibre/maplibre-react-native",
+      [
+        "expo-location",
+        {
+          "locationAlwaysAndWhenInUsePermission": "Allow $(PRODUCT_NAME) to use your location to display it on the delivery map and record route progress."
+        }
+      ],
+      "expo-notifications",
+      [
+        "expo-build-properties",
+        {
+          "android": {
+            "useLegacyPackaging": true
+          }
+        }
+      ]
+    ],
+    "extra": {
+      "API_BASE_URL": "http://192.168.31.12:4001/api/v1",
+      "MAP_STYLE_URL": "https://demotiles.maplibre.org/style.json",
+      "OSRM_BASE_URL": "",
+      "eas": {
+        "projectId": "ff335d6b-f3bd-4332-a86c-f16852709542"
+      }
+    },
+    "owner": "priyankashinde30"
+  }
+}
