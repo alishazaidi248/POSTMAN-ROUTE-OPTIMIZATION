@@ -11,6 +11,8 @@ import { EmptyState } from "../../components/common/EmptyState";
 import { WebMapView } from "../../components/map/WebMapView.web";
 import { RouteSummaryCard } from "../../components/route/RouteSummaryCard";
 import { useMapScreenData } from "./useMapScreenData";
+import { validateAndLogCoordinates } from "../../utils/coordinates";
+import { computeBoundsForPoints, toCornerBounds } from "../../utils/mapBounds";
 import { env } from "../../config/env";
 import { colors } from "../../theme/colors";
 import { spacing } from "../../theme/spacing";
@@ -22,7 +24,10 @@ type Nav = CompositeNavigationProp<
   BottomTabNavigationProp<MainTabParamList>
 >;
 
-const DEFAULT_CENTER: [number, number] = [72.9345, 19.1436]; // Bhandup West, matches backend seed data
+// Last-resort fallback only (Bhandup West, matches backend seed data) — used
+// solely if bounds can't be computed at all (should be unreachable, since
+// the empty-state check below already covers "no plottable stops").
+const DEFAULT_CENTER: [number, number] = [72.9345, 19.1436];
 
 // Web map — a separate implementation (maplibre-gl, browser JS library) from
 // the native iOS/Android screen (@maplibre/maplibre-react-native), which has
@@ -30,8 +35,18 @@ const DEFAULT_CENTER: [number, number] = [72.9345, 19.1436]; // Bhandup West, ma
 // src/components/map/WebMapView.web.tsx.
 export function MapScreen() {
   const navigation = useNavigation<Nav>();
-  const { isLoading, isError, refetch, route, statusByDeliveryId, completedIds, current, next, recipientNameByDeliveryId } =
-    useMapScreenData();
+  const {
+    isLoading,
+    isError,
+    refetch,
+    route,
+    statusByDeliveryId,
+    completedIds,
+    current,
+    next,
+    recipientNameByDeliveryId,
+    unroutedStops
+  } = useMapScreenData();
   const { permission, fix, requestPermission } = useLocation("ACTIVE_ROUTE");
   const [mapStyleFailed, setMapStyleFailed] = React.useState(false);
 
@@ -61,15 +76,29 @@ export function MapScreen() {
     );
   }
 
-  if (!route) {
+  const stops = route ? route.solution.stops : unroutedStops;
+  // Defensive re-validation at render time (in addition to
+  // useMapScreenData's own filtering of unroutedStops) — route.solution.stops
+  // comes from the backend optimizer and isn't pre-filtered the same way, so
+  // a bad geocode there shouldn't be plotted or allowed to skew the bounds.
+  const mapStops = validateAndLogCoordinates(
+    stops,
+    (s) => ({ latitude: s.latitude, longitude: s.longitude }),
+    (s) => `route stop ${s.deliveryId}`
+  );
+
+  if (mapStops.length === 0) {
     return (
       <EmptyState
-        title="No route generated yet"
-        message="Your route will appear here once today's deliveries are optimized."
+        title="No deliveries to show on the map"
+        message="Assigned deliveries with a known, valid address will appear here."
       />
     );
   }
 
+  const boundsPoints: [number, number][] = mapStops.map((s) => [s.longitude, s.latitude]);
+  if (fix) boundsPoints.push([fix.longitude, fix.latitude]);
+  const bounds = computeBoundsForPoints(boundsPoints);
   const center: [number, number] = fix ? [fix.longitude, fix.latitude] : DEFAULT_CENTER;
 
   if (mapStyleFailed) {
@@ -88,7 +117,9 @@ export function MapScreen() {
         <WebMapView
           styleUrl={env.mapStyleUrl}
           center={center}
-          stops={route.solution.stops}
+          bounds={bounds ? toCornerBounds(bounds) : null}
+          stops={mapStops}
+          showRouteLine={!!route}
           statusByDeliveryId={statusByDeliveryId}
           currentDeliveryId={current?.deliveryId ?? null}
           onSelectDelivery={(deliveryId) =>
@@ -99,14 +130,23 @@ export function MapScreen() {
       </View>
 
       <View style={styles.summaryWrap}>
-        <RouteSummaryCard
-          route={route}
-          completed={completedIds.size}
-          total={route.solution.stops.length}
-          currentStop={current}
-          nextStop={next}
-          recipientNameByDeliveryId={recipientNameByDeliveryId}
-        />
+        {route ? (
+          <RouteSummaryCard
+            route={route}
+            completed={completedIds.size}
+            total={stops.length}
+            currentStop={current}
+            nextStop={next}
+            recipientNameByDeliveryId={recipientNameByDeliveryId}
+            hasRoadGeometry={false}
+          />
+        ) : (
+          <View style={styles.noRouteBanner}>
+            <Text style={styles.noRouteText}>
+              No optimized route yet — showing {stops.length} assigned {stops.length === 1 ? "delivery" : "deliveries"}.
+            </Text>
+          </View>
+        )}
       </View>
     </View>
   );
@@ -118,5 +158,7 @@ const styles = StyleSheet.create({
   summaryWrap: { padding: spacing.md },
   permissionContainer: { flex: 1, alignItems: "center", justifyContent: "center", padding: spacing.xl, gap: spacing.md },
   permissionTitle: { ...typography.sectionTitle, color: colors.textPrimary },
-  permissionBody: { ...typography.body, color: colors.textSecondary, textAlign: "center" }
+  permissionBody: { ...typography.body, color: colors.textSecondary, textAlign: "center" },
+  noRouteBanner: { backgroundColor: colors.surface, borderRadius: 12, borderWidth: 1, borderColor: colors.border, padding: spacing.md },
+  noRouteText: { ...typography.body, color: colors.textSecondary, textAlign: "center" }
 });

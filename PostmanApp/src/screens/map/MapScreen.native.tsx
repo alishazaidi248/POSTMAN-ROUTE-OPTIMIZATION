@@ -13,6 +13,8 @@ import { DeliveryMarker } from "../../components/map/DeliveryMarker";
 import { RoutePolyline } from "../../components/route/RoutePolyline";
 import { RouteSummaryCard } from "../../components/route/RouteSummaryCard";
 import { useMapScreenData } from "./useMapScreenData";
+import { validateAndLogCoordinates } from "../../utils/coordinates";
+import { computeBoundsForPoints, toFlatBounds } from "../../utils/mapBounds";
 import { env } from "../../config/env";
 import { colors } from "../../theme/colors";
 import { spacing } from "../../theme/spacing";
@@ -24,14 +26,27 @@ type Nav = CompositeNavigationProp<
   BottomTabNavigationProp<MainTabParamList>
 >;
 
-const DEFAULT_CENTER: [number, number] = [72.9345, 19.1436]; // Bhandup West, matches backend seed data
+// Last-resort fallback only (Bhandup West, matches backend seed data) — used
+// solely if bounds can't be computed at all (should be unreachable, since
+// the empty-state check below already covers "no plottable stops").
+const DEFAULT_CENTER: [number, number] = [72.9345, 19.1436];
 
 // iOS/Android map — @maplibre/maplibre-react-native (native module, requires
 // a dev-client build). Web uses a separate implementation: MapScreen.web.tsx.
 export function MapScreen() {
   const navigation = useNavigation<Nav>();
-  const { isLoading, isError, refetch, route, statusByDeliveryId, completedIds, current, next, recipientNameByDeliveryId } =
-    useMapScreenData();
+  const {
+    isLoading,
+    isError,
+    refetch,
+    route,
+    statusByDeliveryId,
+    completedIds,
+    current,
+    next,
+    recipientNameByDeliveryId,
+    unroutedStops
+  } = useMapScreenData();
   const { permission, fix, requestPermission } = useLocation("ACTIVE_ROUTE");
   const [mapStyleFailed, setMapStyleFailed] = useState(false);
 
@@ -61,16 +76,29 @@ export function MapScreen() {
     );
   }
 
-  if (!route) {
+  const stops = route ? route.solution.stops : unroutedStops;
+  // Defensive re-validation at render time (in addition to
+  // useMapScreenData's own filtering of unroutedStops) — route.solution.stops
+  // comes from the backend optimizer and isn't pre-filtered the same way, so
+  // a bad geocode there shouldn't be plotted or allowed to skew the bounds.
+  const mapStops = validateAndLogCoordinates(
+    stops,
+    (s) => ({ latitude: s.latitude, longitude: s.longitude }),
+    (s) => `route stop ${s.deliveryId}`
+  );
+
+  if (mapStops.length === 0) {
     return (
       <EmptyState
-        title="No route generated yet"
-        message="Your route will appear here once today's deliveries are optimized."
+        title="No deliveries to show on the map"
+        message="Assigned deliveries with a known, valid address will appear here."
       />
     );
   }
 
-  const center: [number, number] = fix ? [fix.longitude, fix.latitude] : DEFAULT_CENTER;
+  const boundsPoints: [number, number][] = mapStops.map((s) => [s.longitude, s.latitude]);
+  if (fix) boundsPoints.push([fix.longitude, fix.latitude]);
+  const bounds = computeBoundsForPoints(boundsPoints);
 
   if (mapStyleFailed) {
     return (
@@ -86,10 +114,16 @@ export function MapScreen() {
     <View style={styles.container}>
       <View style={styles.mapContainer}>
         <Map style={styles.map} mapStyle={env.mapStyleUrl} onDidFailLoadingMap={() => setMapStyleFailed(true)}>
-          <Camera initialViewState={{ center, zoom: 13 }} />
+          <Camera
+            initialViewState={
+              bounds
+                ? { bounds: toFlatBounds(bounds), padding: { top: 60, bottom: 60, left: 40, right: 40 } }
+                : { center: DEFAULT_CENTER, zoom: 13 }
+            }
+          />
           <UserLocation accuracy animated />
-          <RoutePolyline stops={route.solution.stops} />
-          {route.solution.stops.map((stop) => (
+          {route ? <RoutePolyline stops={mapStops} /> : null}
+          {mapStops.map((stop) => (
             <DeliveryMarker
               key={stop.deliveryId}
               stop={stop}
@@ -104,14 +138,23 @@ export function MapScreen() {
       </View>
 
       <View style={styles.summaryWrap}>
-        <RouteSummaryCard
-          route={route}
-          completed={completedIds.size}
-          total={route.solution.stops.length}
-          currentStop={current}
-          nextStop={next}
-          recipientNameByDeliveryId={recipientNameByDeliveryId}
-        />
+        {route ? (
+          <RouteSummaryCard
+            route={route}
+            completed={completedIds.size}
+            total={stops.length}
+            currentStop={current}
+            nextStop={next}
+            recipientNameByDeliveryId={recipientNameByDeliveryId}
+            hasRoadGeometry={false}
+          />
+        ) : (
+          <View style={styles.noRouteBanner}>
+            <Text style={styles.noRouteText}>
+              No optimized route yet — showing {stops.length} assigned {stops.length === 1 ? "delivery" : "deliveries"}.
+            </Text>
+          </View>
+        )}
       </View>
     </View>
   );
@@ -124,5 +167,7 @@ const styles = StyleSheet.create({
   summaryWrap: { padding: spacing.md },
   permissionContainer: { flex: 1, alignItems: "center", justifyContent: "center", padding: spacing.xl, gap: spacing.md },
   permissionTitle: { ...typography.sectionTitle, color: colors.textPrimary },
-  permissionBody: { ...typography.body, color: colors.textSecondary, textAlign: "center" }
+  permissionBody: { ...typography.body, color: colors.textSecondary, textAlign: "center" },
+  noRouteBanner: { backgroundColor: colors.surface, borderRadius: 12, borderWidth: 1, borderColor: colors.border, padding: spacing.md },
+  noRouteText: { ...typography.body, color: colors.textSecondary, textAlign: "center" }
 });

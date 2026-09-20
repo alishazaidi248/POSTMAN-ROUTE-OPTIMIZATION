@@ -13,6 +13,7 @@ export type AccountStackParamList = {
   AccountHome: undefined;
   Profile: undefined;
   Settings: undefined;
+  IdCard: undefined;
 };
 
 export type MapStackParamList = {

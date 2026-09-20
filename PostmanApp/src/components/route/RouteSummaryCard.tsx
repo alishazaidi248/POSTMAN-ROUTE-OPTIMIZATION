@@ -14,13 +14,27 @@ interface Props {
   currentStop: OptimizationStop | null;
   nextStop: OptimizationStop | null;
   recipientNameByDeliveryId: Record<string, string>;
+  /** True once the backend returns real road-network geometry (OSRM or
+   * equivalent) for this route. Currently always false — no routing engine
+   * is wired up yet (see docs/mobile-architecture.md Known Limitations) —
+   * so the map's dashed line is a straight-line stop-to-stop connector, not
+   * a road path, and that must never be presented as a real route. */
+  hasRoadGeometry: boolean;
 }
 
 // Deliberately says "Optimized Route" / "Generated Route", never "optimal
 // route" — the backend's optimizer is a placeholder pending the research
 // engine, and the app must not fabricate a claim the system can't back
 // (spec §15, §49).
-export function RouteSummaryCard({ route, completed, total, currentStop, nextStop, recipientNameByDeliveryId }: Props) {
+export function RouteSummaryCard({
+  route,
+  completed,
+  total,
+  currentStop,
+  nextStop,
+  recipientNameByDeliveryId,
+  hasRoadGeometry
+}: Props) {
   const remaining = total - completed;
   return (
     <View style={styles.card}>
@@ -53,6 +67,12 @@ export function RouteSummaryCard({ route, completed, total, currentStop, nextSto
         </View>
       ) : null}
 
+      {!hasRoadGeometry ? (
+        <Text style={styles.roadWarning}>
+          Road route unavailable — the dashed line is a straight-line guide between stops, not a driving/walking path.
+        </Text>
+      ) : null}
+
       <Text style={styles.version}>Route v{route.version} · {route.solution.algorithm}</Text>
     </View>
   );
@@ -78,5 +98,6 @@ const styles = StyleSheet.create({
   stopBlock: { marginTop: spacing.sm },
   stopLabel: { ...typography.label, color: colors.textSecondary },
   stopValue: { ...typography.bodyStrong, color: colors.textPrimary },
+  roadWarning: { ...typography.caption, color: colors.warning, marginTop: spacing.sm },
   version: { ...typography.caption, color: colors.textDisabled, marginTop: spacing.sm }
 });

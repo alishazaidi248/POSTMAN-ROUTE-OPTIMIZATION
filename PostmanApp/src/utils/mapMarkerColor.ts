@@ -1,7 +1,6 @@
 import { colors } from "../theme/colors";
 import { DeliveryStatus } from "../types/delivery";
-
-const FAILED_LIKE: DeliveryStatus[] = ["FAILED", "REJECTED", "WRONG_ADDRESS", "ADDRESS_NOT_FOUND", "RETURNED", "CANCELLED"];
+import { classifyDeliveryStatus } from "./status";
 
 /**
  * Shared status->color mapping for delivery markers. Deliberately has no
@@ -9,11 +8,15 @@ const FAILED_LIKE: DeliveryStatus[] = ["FAILED", "REJECTED", "WRONG_ADDRESS", "A
  * components/map/DeliveryMarker.tsx (@maplibre/maplibre-react-native) and
  * components/map/WebMapView.web.tsx (maplibre-gl) can import it without
  * pulling the other platform's native/web-only map package into their
- * bundle.
+ * bundle. Uses the same canonical classification as the filter chips and
+ * stats (src/utils/status.ts) rather than its own status list, so a marker
+ * is never colored inconsistently with how that same delivery is filtered
+ * or counted elsewhere.
  */
 export function markerColor(status: DeliveryStatus, isCurrent: boolean): string {
   if (isCurrent) return colors.mapCurrent;
-  if (status === "DELIVERED") return colors.mapCompleted;
-  if (FAILED_LIKE.includes(status)) return colors.mapFailed;
+  const bucket = classifyDeliveryStatus(status);
+  if (bucket === "COMPLETED") return colors.mapCompleted;
+  if (bucket === "FAILED") return colors.mapFailed;
   return colors.mapPending;
 }

@@ -19,6 +19,8 @@ function readExtra(key: string): string | undefined {
 
 export const env: AppEnv = {
   apiBaseUrl: readExtra("API_BASE_URL") ?? "http://localhost:4000/api/v1",
-  mapStyleUrl: readExtra("MAP_STYLE_URL") ?? "https://demotiles.maplibre.org/style.json",
+  // Fallback matches .env.example's default — a real OSM-derived basemap,
+  // never MapLibre's own near-empty demo style (see .env.example for why).
+  mapStyleUrl: readExtra("MAP_STYLE_URL") ?? "https://tiles.openfreemap.org/styles/liberty",
   osrmBaseUrl: readExtra("OSRM_BASE_URL")
 };

@@ -64,6 +64,7 @@ export function AccountScreen() {
       ) : null}
 
       <View style={styles.list}>
+        <ListItem label="ID Card" onPress={() => navigation.navigate("IdCard")} />
         <ListItem label="Profile" onPress={() => navigation.navigate("Profile")} />
         <ListItem label="Settings" onPress={() => navigation.navigate("Settings")} />
       </View>

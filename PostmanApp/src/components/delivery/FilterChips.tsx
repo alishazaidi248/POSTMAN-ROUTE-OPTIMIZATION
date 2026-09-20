@@ -14,7 +14,7 @@ interface Props {
 
 export function FilterChips({ value, onChange }: Props) {
   return (
-    <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.row}>
+    <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.scrollView} contentContainerStyle={styles.row}>
       {FILTERS.map((filter) => {
         const active = filter === value;
         return (
@@ -35,8 +35,22 @@ export function FilterChips({ value, onChange }: Props) {
 }
 
 const styles = StyleSheet.create({
-  row: { gap: spacing.sm, paddingHorizontal: spacing.md, paddingVertical: spacing.sm },
+  // react-native-web's ScrollView applies `flexGrow: 1` as part of its own
+  // unconditional base style (node_modules/react-native-web/src/exports/
+  // ScrollView/index.js `commonStyle`), regardless of what this component
+  // passes — native has no such default. Left unset, this ScrollView became
+  // a second flex-growing sibling next to the delivery FlatList (also
+  // flex: 1), and the two split the remaining vertical space, leaving a
+  // large mostly-empty box around this short one-line filter row. Override
+  // it back to content-sized height.
+  scrollView: { flexGrow: 0, flexShrink: 0 },
+  // `horizontal` on ScrollView makes native inject flexDirection: "row" into
+  // the content container automatically; react-native-web does not reliably
+  // do the same, so without it explicitly here the chips stack into a tall
+  // vertical column instead of a horizontal row (this was the actual bug).
+  row: { flexDirection: "row", alignItems: "center", gap: spacing.sm, paddingHorizontal: spacing.md, paddingVertical: spacing.sm },
   chip: {
+    flexShrink: 0,
     paddingVertical: spacing.xs,
     paddingHorizontal: spacing.md,
     borderRadius: radius.pill,

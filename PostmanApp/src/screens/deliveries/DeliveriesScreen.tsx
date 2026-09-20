@@ -69,6 +69,7 @@ export function DeliveriesScreen() {
       <FlatList
         data={filteredRows}
         keyExtractor={(item) => item.id}
+        style={styles.list}
         contentContainerStyle={styles.listContent}
         refreshControl={
           <RefreshControl refreshing={deliveriesQuery.isRefetching} onRefresh={() => deliveriesQuery.refetch()} />
@@ -109,5 +110,12 @@ const styles = StyleSheet.create({
   statChip: { alignItems: "center" },
   statValue: { ...typography.sectionTitle, color: colors.textPrimary },
   statLabel: { ...typography.caption, color: colors.textSecondary },
+  // FlatList/ScrollView need an explicit `flex: 1` on `style` (not just
+  // `contentContainerStyle`) on web — without it, react-native-web doesn't
+  // bound the list's height, so its full content grows the whole page
+  // instead of scrolling internally, pushing the bottom tab bar off-screen.
+  // Native platforms are more forgiving here, which is why this only
+  // surfaced on the web build.
+  list: { flex: 1 },
   listContent: { padding: spacing.md, flexGrow: 1 }
 });

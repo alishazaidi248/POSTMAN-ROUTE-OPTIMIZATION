@@ -50,16 +50,38 @@ export function canTransition(current: DeliveryStatus, next: DeliveryStatus): bo
 }
 
 const TERMINAL: DeliveryStatus[] = ["DELIVERED", "RETURNED", "CANCELLED"];
-const FAILED_LIKE: DeliveryStatus[] = [
+
+export function isTerminal(status: DeliveryStatus): boolean {
+  return TERMINAL.includes(status);
+}
+
+/**
+ * The single authoritative classification of every DeliveryStatus into
+ * exactly one of three buckets — used for both the filter chips below and
+ * (in effect) for the delivery statistics header, which reads
+ * `GET /me/stats` rather than recomputing this locally. Mirrored exactly in
+ * the backend at `backend/src/utils/deliveryStatusClassification.ts`
+ * (`classifyDeliveryStatus`) — keep both definitions in sync; see that
+ * file's comment for the business reasoning (why RETURNED/CANCELLED count
+ * as FAILED rather than REMAINING or their own bucket).
+ */
+export type DeliveryStatusBucket = "COMPLETED" | "FAILED" | "REMAINING";
+
+const COMPLETED_STATUSES: DeliveryStatus[] = ["DELIVERED"];
+const FAILED_STATUSES: DeliveryStatus[] = [
   "FAILED",
   "REJECTED",
   "WRONG_ADDRESS",
   "ADDRESS_NOT_FOUND",
-  "RECIPIENT_UNAVAILABLE"
+  "RECIPIENT_UNAVAILABLE",
+  "RETURNED",
+  "CANCELLED"
 ];
 
-export function isTerminal(status: DeliveryStatus): boolean {
-  return TERMINAL.includes(status);
+export function classifyDeliveryStatus(status: DeliveryStatus): DeliveryStatusBucket {
+  if (COMPLETED_STATUSES.includes(status)) return "COMPLETED";
+  if (FAILED_STATUSES.includes(status)) return "FAILED";
+  return "REMAINING";
 }
 
 export function matchesFilter(status: DeliveryStatus, filter: DeliveryFilter): boolean {
@@ -67,14 +89,41 @@ export function matchesFilter(status: DeliveryStatus, filter: DeliveryFilter): b
     case "ALL":
       return true;
     case "COMPLETED":
-      return status === "DELIVERED";
+      return classifyDeliveryStatus(status) === "COMPLETED";
     case "FAILED":
-      return FAILED_LIKE.includes(status) || status === "RETURNED" || status === "CANCELLED";
+      return classifyDeliveryStatus(status) === "FAILED";
     case "RESCHEDULED":
       return status === "RESCHEDULED";
     case "PENDING":
-      return !isTerminal(status) && status !== "RESCHEDULED" && !FAILED_LIKE.includes(status);
+      return classifyDeliveryStatus(status) === "REMAINING" && status !== "RESCHEDULED";
     default:
       return true;
   }
+}
+
+/**
+ * Computes the same {completed, failed, remaining, total} shape as the
+ * backend's GET /me/stats, from a local list of delivery statuses. Not used
+ * to drive the UI (the backend is authoritative — see
+ * `src/api/postmanApi.ts` getStats, and the "no two competing definitions
+ * of Total" requirement), but exercised by tests to prove the mobile and
+ * backend classifications agree, and available for callers (e.g. offline
+ * fallbacks) that only have a local delivery list to work with.
+ */
+export function computeDeliveryStats(statuses: DeliveryStatus[]): {
+  total: number;
+  completed: number;
+  failed: number;
+  remaining: number;
+} {
+  let completed = 0;
+  let failed = 0;
+  let remaining = 0;
+  for (const status of statuses) {
+    const bucket = classifyDeliveryStatus(status);
+    if (bucket === "COMPLETED") completed += 1;
+    else if (bucket === "FAILED") failed += 1;
+    else remaining += 1;
+  }
+  return { total: completed + failed + remaining, completed, failed, remaining };
 }

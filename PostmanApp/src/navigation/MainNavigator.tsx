@@ -9,6 +9,7 @@ import { MapScreen } from "../screens/map/MapScreen";
 import { AccountScreen } from "../screens/account/AccountScreen";
 import { ProfileScreen } from "../screens/account/ProfileScreen";
 import { SettingsScreen } from "../screens/account/SettingsScreen";
+import { IdCardScreen } from "../screens/account/IdCardScreen";
 import { colors } from "../theme/colors";
 
 const Tab = createBottomTabNavigator<MainTabParamList>();
@@ -39,6 +40,7 @@ function AccountStackNavigator() {
       <AccountStack.Screen name="AccountHome" component={AccountScreen} options={{ title: "Account" }} />
       <AccountStack.Screen name="Profile" component={ProfileScreen} options={{ title: "Profile" }} />
       <AccountStack.Screen name="Settings" component={SettingsScreen} options={{ title: "Settings" }} />
+      <AccountStack.Screen name="IdCard" component={IdCardScreen} options={{ title: "ID Card" }} />
     </AccountStack.Navigator>
   );
 }
