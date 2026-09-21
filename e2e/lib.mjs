@@ -51,6 +51,11 @@ export function reporter(title) {
     check(name, ok, detail) {
       results.push({ name, ok: !!ok });
       console.log(`  ${ok ? "PASS" : "FAIL"}  ${name}${ok || detail === undefined ? "" : `\n        -> ${String(detail).slice(0, 300)}`}`);
+      // In GitHub Actions a failed check becomes an annotation on the run's summary page (no log download needed)
+      if (!ok && process.env.GITHUB_ACTIONS) {
+        const message = String(detail ?? "").slice(0, 700).replace(/%/g, "%25").replace(/\r?\n/g, "%0A");
+        console.log(`::error title=${title.replace(/[:,]/g, " ")}::${name.replace(/[:,]/g, " ")} -> ${message}`);
+      }
     },
     results
   };
