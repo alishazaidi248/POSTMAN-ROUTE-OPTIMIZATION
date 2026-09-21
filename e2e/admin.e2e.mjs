@@ -71,8 +71,13 @@ export async function adminE2E() {
     // ── 3. upload the beat list (structured: several rows per beat) ──────────────────────────────────────────
     await page.goto(`${ADMIN_URL}/map`, { waitUntil: "networkidle2" });
     await waitFor(page, () => [...document.querySelectorAll("button")].some((b) => b.innerText.trim() === "Upload Beat List"), null, 15000);
-    await click("Upload Beat List");
-    await waitFor(page, () => !!document.querySelector('[data-testid="beat-file-input"]'), null, 8000);
+    // The map page loads its beats and tiles first; on a slow machine the button may not react to the first click, so retry.
+    let opened = false;
+    for (let attempt = 0; attempt < 6 && !opened; attempt++) {
+      await click("Upload Beat List");
+      opened = !!(await waitFor(page, () => !!document.querySelector('[data-testid="beat-file-input"]'), null, 6000));
+    }
+    if (!opened) throw new Error(`the Upload Beat List wizard did not open. Page text: ${(await text()).slice(0, 400)}`);
     await (await page.$('[data-testid="beat-file-input"]')).uploadFile(path.join(HERE, "fixtures", "beat-list.csv"));
     await waitFor(page, () => !!document.querySelector('[data-testid="file-name"]'), null, 15000);
     r.check("the uploaded file's name and row count are shown", /beat-list\.csv/.test(await text()) && /6 rows found/.test(await text()), await text());
