@@ -2,6 +2,7 @@ import { Router } from "express";
 import { prisma } from "../config/prisma";
 import { requireAuth } from "../middleware/auth";
 import { asyncHandler } from "../utils/asyncHandler";
+import { AppError } from "../utils/AppError";
 
 export const notificationsRouter = Router();
 notificationsRouter.use(requireAuth);
@@ -21,8 +22,13 @@ notificationsRouter.get(
 notificationsRouter.post(
   "/:id/read",
   asyncHandler(async (req, res) => {
-    const updated = await prisma.notification.update({ where: { id: req.params.id }, data: { isRead: true } });
-    res.json(updated);
+    // Only the caller's own (or broadcast) notifications: someone else's id is simply not found.
+    const result = await prisma.notification.updateMany({
+      where: { id: req.params.id, OR: [{ userId: req.user!.sub }, { userId: null }] },
+      data: { isRead: true }
+    });
+    if (result.count === 0) throw AppError.notFound("Notification not found");
+    res.json(await prisma.notification.findUniqueOrThrow({ where: { id: req.params.id } }));
   })
 );
 

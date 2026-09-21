@@ -3,7 +3,6 @@
   "version": "1.0.0",
   "main": "index.ts",
   "dependencies": {
-    "--legacy-peer-deps": "^0.0.1-security.6",
     "@hookform/resolvers": "^5.9.1",
     "@maplibre/maplibre-react-native": "^11.4.0",
     "@react-native-async-storage/async-storage": "2.2.0",
@@ -73,6 +72,10 @@
     ],
     "collectCoverageFrom": [
       "src/**/*.{ts,tsx}"
+    ],
+    "testPathIgnorePatterns": [
+      "/node_modules/",
+      "/__tests__/_support/"
     ]
   },
   "private": true

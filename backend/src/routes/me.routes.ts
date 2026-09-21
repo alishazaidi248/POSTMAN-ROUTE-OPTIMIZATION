@@ -6,8 +6,9 @@ import { requireAuth, requireRole } from "../middleware/auth";
 import { validate } from "../middleware/validate";
 import { asyncHandler } from "../utils/asyncHandler";
 import { resolveSelfPostman } from "../services/postmanSelf.service";
-import { getOptimizationService } from "../services/optimization";
+import { getOrPlanRoute, recalculateRoute, toPostmanRoute } from "../services/routePlanner.service";
 import { recordAudit } from "../services/audit.service";
+import { FinishedStatus, listFinishedDeliveries } from "../services/deliveryHistory.service";
 
 /**
  * Self-service endpoints for the React Native postman app (spec §36 gap
@@ -22,16 +23,17 @@ meRouter.get(
   "/profile",
   asyncHandler(async (req, res) => {
     const postman = await resolveSelfPostman(req);
-    const [beat, latestLocation] = await Promise.all([
+    const [beat, latestLocation, postOffice] = await Promise.all([
       postman.assignedBeatId
         ? prisma.beat.findUnique({ where: { id: postman.assignedBeatId } })
         : Promise.resolve(null),
       prisma.postmanLocationHistory.findFirst({
         where: { postmanId: postman.id },
         orderBy: { recordedAt: "desc" }
-      })
+      }),
+      prisma.postOffice.findUnique({ where: { id: postman.postOfficeId }, select: { id: true, name: true, code: true } })
     ]);
-    res.json({ postman, beat, lastKnownLocation: latestLocation });
+    res.json({ postman, beat, postOffice, lastKnownLocation: latestLocation });
   })
 );
 
@@ -101,36 +103,81 @@ meRouter.get(
   })
 );
 
+const historyQuerySchema = z.object({
+  query: z.object({
+    before: z.string().datetime().optional(),
+    since: z.string().datetime().optional(),
+    outcome: z.enum(["DELIVERED", "RETURNED"]).optional(),
+    page: z.coerce.number().int().min(1).max(10_000).optional(),
+    pageSize: z.coerce.number().int().min(1).max(100).optional()
+  })
+});
+
+/**
+ * The postman's PAST work: deliveries finished (delivered / returned) before `before` (default: the start of the
+ * server's today) and, optionally, since `since`. Newest first, paged, with a per-outcome summary of the whole window.
+ * Always the caller's own deliveries: the postman comes from the token, never from a parameter.
+ */
 meRouter.get(
-  "/route",
+  "/deliveries/history",
+  validate(historyQuerySchema),
   asyncHandler(async (req, res) => {
     const postman = await resolveSelfPostman(req);
+    const q = req.query as Record<string, string | undefined>;
+    const startOfToday = new Date();
+    startOfToday.setHours(0, 0, 0, 0);
+    const page = Number(q.page ?? 1);
+    const pageSize = Number(q.pageSize ?? 30);
+    const result = await listFinishedDeliveries(postman.id, {
+      before: q.before ? new Date(q.before) : startOfToday,
+      since: q.since ? new Date(q.since) : undefined,
+      outcome: q.outcome as FinishedStatus | undefined,
+      page,
+      pageSize
+    });
+    res.json({ ...result, page, pageSize });
+  })
+);
 
-    // Optimization results aren't stored on Route/RouteStop yet (spec §4/§18
-    // gap) — the current source of truth is the most recent completed
-    // OptimizationRequest scoped to this postman.
-    const latestRequest = await prisma.optimizationRequest.findFirst({
-      where: {
-        postOfficeId: postman.postOfficeId,
-        status: "COMPLETED",
-        parameters: { path: ["postmanId"], equals: postman.id }
-      },
-      orderBy: { createdAt: "desc" },
-      include: { results: { orderBy: { createdAt: "desc" }, take: 1 } }
+const routeQuerySchema = z.object({
+  query: z
+    .object({
+      // The app's live GPS fix, when it wants the route to begin exactly there.
+      startLat: z.coerce.number().min(-90).max(90).optional(),
+      startLng: z.coerce.number().min(-180).max(180).optional(),
+      refresh: z.enum(["true", "false"]).optional()
+      // There is deliberately no algorithm parameter: the server always runs its one pipeline
+      // (DBSCAN -> NN -> 2-opt -> ALNS). Anything a client sends besides these fields is dropped.
+    })
+    .refine((q) => (q.startLat === undefined) === (q.startLng === undefined), {
+      message: "startLat and startLng must be supplied together"
+    })
+});
+
+/**
+ * The postman's current optimized route (the server's one pipeline over a road travel-time
+ * matrix, with road geometry when a routing engine is configured), without the optimizer's
+ * diagnostics - see toPostmanRoute(). Served from the stored result while the set of active
+ * deliveries is unchanged; otherwise refreshed first — see
+ * services/routePlanner.service.ts for the freshness rules.
+ */
+meRouter.get(
+  "/route",
+  validate(routeQuerySchema),
+  asyncHandler(async (req, res) => {
+    const postman = await resolveSelfPostman(req);
+    const { startLat, startLng, refresh } = req.query as Record<string, string | undefined>;
+
+    const route = await getOrPlanRoute(postman, {
+      refresh: refresh === "true",
+      start:
+        startLat !== undefined && startLng !== undefined
+          ? { latitude: Number(startLat), longitude: Number(startLng) }
+          : undefined,
+      trigger: "MANUAL"
     });
 
-    if (!latestRequest || latestRequest.results.length === 0) {
-      return res.json({ route: null });
-    }
-
-    res.json({
-      routeId: latestRequest.id,
-      version: latestRequest.results.length,
-      trigger: latestRequest.requestType,
-      status: latestRequest.status,
-      generatedAt: latestRequest.results[0].createdAt,
-      solution: latestRequest.results[0].resultData
-    });
+    res.json(route ? toPostmanRoute(route) : { route: null });
   })
 );
 
@@ -144,64 +191,38 @@ const reoptimizeSchema = z.object({
       "DELIVERY_FAILED",
       "ROUTE_DEVIATION",
       "MANUAL"
-    ])
+    ]),
+    start: z
+      .object({ latitude: z.number().min(-90).max(90), longitude: z.number().min(-180).max(180) })
+      .optional()
   })
 });
 
+// Forces a full re-optimization of the remaining deliveries. (A route no longer
+// needs an assigned beat: the optimizer only needs delivery coordinates.)
 meRouter.post(
   "/route/reoptimize",
   validate(reoptimizeSchema),
   asyncHandler(async (req, res) => {
     const postman = await resolveSelfPostman(req);
-    if (!postman.assignedBeatId) {
-      return res.status(409).json({ message: "Postman has no assigned beat" });
-    }
 
-    const remaining = await prisma.delivery.findMany({
-      where: {
-        assignedPostmanId: postman.id,
-        status: { in: ["ASSIGNED", "OUT_FOR_DELIVERY", "RESCHEDULED"] }
-      },
-      select: { id: true }
+    const route = await recalculateRoute(postman, {
+      trigger: req.body.trigger,
+      start: req.body.start
     });
-
-    if (remaining.length === 0) {
+    if (!route) {
       return res.json({ route: null, message: "No remaining deliveries to route" });
     }
 
-    const problem = {
-      postOfficeId: postman.postOfficeId,
-      beatId: postman.assignedBeatId,
-      postmanId: postman.id,
-      deliveryIds: remaining.map((d) => d.id),
-      requestType: "REOPTIMIZE" as const
-    };
-
-    const request = await prisma.optimizationRequest.create({
-      data: {
-        postOfficeId: postman.postOfficeId,
-        requestType: "REOPTIMIZE",
-        parameters: problem,
-        status: "RUNNING"
-      }
-    });
-
-    const solution = await getOptimizationService().reoptimize(problem, req.body.trigger);
-
-    const result = await prisma.optimizationResult.create({
-      data: { optimizationRequestId: request.id, resultData: solution as any, source: "MOCK" }
-    });
-
-    await prisma.optimizationRequest.update({ where: { id: request.id }, data: { status: "COMPLETED" } });
     await recordAudit({
       req,
       action: "ROUTE_REOPTIMIZED",
       entityType: "OptimizationRequest",
-      entityId: request.id,
+      entityId: route.routeId,
       reason: req.body.trigger
     });
 
-    res.status(201).json({ routeId: request.id, generatedAt: result.createdAt, solution });
+    res.status(201).json(toPostmanRoute(route));
   })
 );
 

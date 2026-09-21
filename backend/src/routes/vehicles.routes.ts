@@ -2,13 +2,13 @@ import { Router } from "express";
 import { z } from "zod";
 import { prisma } from "../config/prisma";
 import { VehicleStatus } from "@prisma/client";
-import { requireAuth, requireRole, resolvePostOfficeScope, assertCanWriteToPostOffice, assertOwnsResource } from "../middleware/auth";
+import { requireAuth, requireRole, resolvePostOfficeScope, assertCanWriteToPostOffice, assertOwnsResource, adminOnly, assertSameOffice } from "../middleware/auth";
 import { validate } from "../middleware/validate";
 import { asyncHandler } from "../utils/asyncHandler";
 import { recordAudit } from "../services/audit.service";
 
 export const vehiclesRouter = Router();
-vehiclesRouter.use(requireAuth);
+vehiclesRouter.use(requireAuth, adminOnly);
 
 vehiclesRouter.get(
   "/",
@@ -65,6 +65,7 @@ vehiclesRouter.put(
     if (req.body.assignedPostmanId) {
       const postman = await prisma.postman.findUniqueOrThrow({ where: { id: req.body.assignedPostmanId } });
       assertOwnsResource(req, postman.postOfficeId);
+      assertSameOffice(postman.postOfficeId, before.postOfficeId);
     }
 
     const { lastMaintenanceAt, ...rest } = req.body;

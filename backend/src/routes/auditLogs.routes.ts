@@ -1,6 +1,6 @@
 import { Router } from "express";
 import { prisma } from "../config/prisma";
-import { requireAuth, requireRole } from "../middleware/auth";
+import { requireAuth, requireRole, resolvePostOfficeScope } from "../middleware/auth";
 import { asyncHandler } from "../utils/asyncHandler";
 
 export const auditLogsRouter = Router();
@@ -13,7 +13,11 @@ auditLogsRouter.get(
     const take = Math.min(200, Number(pageSize) || 50);
     const skip = (Math.max(1, Number(page) || 1) - 1) * take;
 
+    // An ADMIN sees only what happened in their own post office (what the users of
+    // that office did); a SUPER_ADMIN sees everything, or one office via ?postOfficeId=.
+    const postOfficeId = resolvePostOfficeScope(req);
     const where = {
+      ...(postOfficeId ? { user: { postOfficeId } } : {}),
       ...(entityType ? { entityType } : {}),
       ...(action ? { action } : {})
     };

@@ -26,6 +26,17 @@ export function formatDate(iso: string): string {
   return new Date(iso).toLocaleDateString([], { weekday: "long", month: "long", day: "numeric" });
 }
 
+/** "Today, 3:24 PM", "Yesterday, 9:10 AM" or "Sep 20, 3:24 PM": when something happened, in words a person reads at a glance. */
+export function formatDateTime(iso: string, now: Date = new Date()): string {
+  const when = new Date(iso);
+  const dayStart = (d: Date) => new Date(d.getFullYear(), d.getMonth(), d.getDate()).getTime();
+  const daysAgo = Math.round((dayStart(now) - dayStart(when)) / 86_400_000);
+  const time = formatTime(iso);
+  if (daysAgo === 0) return `Today, ${time}`;
+  if (daysAgo === 1) return `Yesterday, ${time}`;
+  return `${when.toLocaleDateString([], { month: "short", day: "numeric" })}, ${time}`;
+}
+
 export function formatRelativeTime(iso: string): string {
   const diffMs = Date.now() - new Date(iso).getTime();
   const diffMin = Math.round(diffMs / 60000);

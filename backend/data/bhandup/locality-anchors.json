@@ -1,0 +1,234 @@
+{
+ "ISHWAR NAGAR BHANDUP WEST": {
+  "lat": 19.139,
+  "lng": 72.9352,
+  "osmName": "Ishwar Nagar",
+  "osm": "node/245675397",
+  "kind": "",
+  "candidates": 1
+ },
+ "MANGATRAM PETROL PUMP": {
+  "lat": 19.139003,
+  "lng": 72.930682,
+  "osmName": "Mangatram Petrol Pump",
+  "osm": "node/4624037658",
+  "kind": "bus_stop",
+  "candidates": 3
+ },
+ "SUBHASH NAGAR": {
+  "lat": 19.157277,
+  "lng": 72.943644,
+  "osmName": "Subhash Nagar",
+  "osm": "node/10848131522",
+  "kind": "neighbourhood",
+  "candidates": 1
+ },
+ "DATTA MANDIR ROAD": {
+  "lat": 19.1568,
+  "lng": 72.941744,
+  "osmName": "Datta Mandir Rd",
+  "osm": "way/787353121",
+  "kind": "residential",
+  "candidates": 2
+ },
+ "LAKE ROAD": {
+  "lat": 19.160956,
+  "lng": 72.93314,
+  "osmName": "Lake Road",
+  "osm": "way/214042015",
+  "kind": "residential",
+  "candidates": 5
+ },
+ "TANAJI WADI": {
+  "lat": 19.159275,
+  "lng": 72.929066,
+  "osmName": "Tanajiwadi",
+  "osm": "node/245676654",
+  "kind": "neighbourhood",
+  "candidates": 1
+ },
+ "GOVIND NAGAR": {
+  "lat": 19.15691,
+  "lng": 72.931117,
+  "osmName": "Govind Nagar",
+  "osm": "node/5841547870",
+  "kind": "neighbourhood",
+  "candidates": 1
+ },
+ "MILIND NAGAR": {
+  "lat": 19.157614,
+  "lng": 72.931972,
+  "osmName": "Milind Nagar",
+  "osm": "node/5841547869",
+  "kind": "neighbourhood",
+  "candidates": 1
+ },
+ "TEMBHIPADA": {
+  "lat": 19.156084,
+  "lng": 72.927366,
+  "osmName": "Tembhipada",
+  "osm": "node/245676608",
+  "kind": "neighbourhood",
+  "candidates": 1
+ },
+ "GAONDEVI AREA": {
+  "lat": 19.151167,
+  "lng": 72.943643,
+  "osmName": "Gaondevi Mandir",
+  "osm": "node/4746727121",
+  "kind": "place_of_worship",
+  "candidates": 1
+ },
+ "BHATTIPADA": {
+  "lat": 19.149142,
+  "lng": 72.93721,
+  "osmName": "Bhattipada",
+  "osm": "node/245675975",
+  "kind": "neighbourhood",
+  "candidates": 1
+ },
+ "JANGAL MANGAL ROAD": {
+  "lat": 19.145589,
+  "lng": 72.928753,
+  "osmName": "Jangal Mangal Road",
+  "osm": "way/1127574399",
+  "kind": "secondary",
+  "candidates": 2
+ },
+ "TANK ROAD": {
+  "lat": 19.14722,
+  "lng": 72.933599,
+  "osmName": "Tank Road",
+  "osm": "way/151581217",
+  "kind": "tertiary",
+  "candidates": 3
+ },
+ "SARVODAYA NAGAR": {
+  "lat": 19.163544,
+  "lng": 72.946321,
+  "osmName": "Sarvodaya Nagar",
+  "osm": "node/3232946141",
+  "kind": "neighbourhood",
+  "candidates": 1
+ },
+ "GANESH NAGAR": {
+  "lat": 19.151548,
+  "lng": 72.930062,
+  "osmName": "Ganesh Nagar",
+  "osm": "node/5841547697",
+  "kind": "neighbourhood",
+  "candidates": 1
+ },
+ "SAI HILL": {
+  "lat": 19.150469,
+  "lng": 72.926951,
+  "osmName": "Sai Hill Road",
+  "osm": "way/124864456",
+  "kind": "residential",
+  "candidates": 1
+ },
+ "SAI VIHAR": {
+  "lat": 19.148374,
+  "lng": 72.926725,
+  "osmName": "Sai Vihar Path",
+  "osm": "way/1190595723",
+  "kind": "residential",
+  "candidates": 2
+ },
+ "KOKAN NAGAR": {
+  "lat": 19.146547,
+  "lng": 72.92885,
+  "osmName": "Kokan Nagar",
+  "osm": "node/10309251532",
+  "kind": "neighbourhood",
+  "candidates": 2
+ },
+ "MAHARASHTRA NAGAR": {
+  "lat": 19.139807,
+  "lng": 72.92639,
+  "osmName": "Maharashtra Nagar Road",
+  "osm": "way/214042122",
+  "kind": "residential",
+  "candidates": 3
+ },
+ "PRATAP NAGAR": {
+  "lat": 19.13936,
+  "lng": 72.920428,
+  "osmName": "Pratap Nagar",
+  "osm": "node/5843139503",
+  "kind": "neighbourhood",
+  "candidates": 1
+ },
+ "FARID NAGAR": {
+  "lat": 19.139515,
+  "lng": 72.923434,
+  "osmName": "Farid Nagar",
+  "osm": "node/3680461765",
+  "kind": "neighbourhood",
+  "candidates": 1
+ },
+ "HANUMAN NAGAR": {
+  "lat": 19.141276,
+  "lng": 72.920761,
+  "osmName": "Hanuman Nagar",
+  "osm": "node/5843139504",
+  "kind": "neighbourhood",
+  "candidates": 2
+ },
+ "PRAKASH NAGAR": {
+  "lat": 19.162198,
+  "lng": 72.933705,
+  "osmName": "Prakash Nagar",
+  "osm": "node/13975033637",
+  "kind": "neighbourhood",
+  "candidates": 1
+ },
+ "KANJUR STATION ROAD": {
+  "lat": 19.131406,
+  "lng": 72.927896,
+  "osmName": "Kanjur Station Road",
+  "osm": "way/214041905",
+  "kind": "residential",
+  "candidates": 3
+ },
+ "FORTIS HOSPITAL": {
+  "lat": 19.16229,
+  "lng": 72.942339,
+  "osmName": "Fortis Hospital",
+  "osm": "node/5940644285",
+  "kind": "bus_stop",
+  "candidates": 2
+ },
+ "RUNWAL GREEN": {
+  "lat": 19.160538,
+  "lng": 72.944477,
+  "osmName": "Runwal Greens",
+  "osm": "way/627628778",
+  "kind": "",
+  "candidates": 3
+ },
+ "RUNWAL FOREST": {
+  "lat": 19.136515,
+  "lng": 72.931624,
+  "osmName": "Runwal Forest",
+  "osm": "way/431485397",
+  "kind": "",
+  "candidates": 1
+ },
+ "BHANDUP POLICE STATION": {
+  "lat": 19.15075,
+  "lng": 72.937541,
+  "osmName": "Bhandup Police Station",
+  "osm": "node/4644026853",
+  "kind": "bus_stop",
+  "candidates": 2
+ },
+ "SONAPUR": {
+  "lat": 19.162858,
+  "lng": 72.934172,
+  "osmName": "Sonapur",
+  "osm": "node/245677009",
+  "kind": "neighbourhood",
+  "candidates": 11
+ }
+}

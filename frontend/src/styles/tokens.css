@@ -1,33 +1,48 @@
 :root {
-  --color-red-900: #7a0d17;
-  --color-red-700: #a01822;
-  --color-red-600: #c22030;
-  --color-red-100: #fbe8e9;
-  --color-red-50: #fdf4f4;
+  /* One brand colour (postal red), used sparingly: the active item, primary buttons, links. */
+  --color-primary: #b3202a;
+  --color-primary-hover: #9a1a23;
+  --color-primary-soft: #fbeeee;
 
-  --color-ink-900: #1c1c1e;
-  --color-ink-700: #3a3a3d;
-  --color-ink-500: #6b6b6f;
-  --color-ink-300: #a6a6aa;
-  --color-ink-100: #e4e4e6;
+  /* Kept under their old names so every existing page follows the calmer palette. */
+  --color-red-900: #1f2937;
+  --color-red-700: var(--color-primary);
+  --color-red-600: var(--color-primary-hover);
+  --color-red-100: var(--color-primary-soft);
+  --color-red-50: #f8fafc;
 
-  --color-bg: #f7f6f4;
+  --color-ink-900: #111827;
+  --color-ink-700: #374151;
+  --color-ink-500: #6b7280;
+  --color-ink-300: #9ca3af;
+  --color-ink-100: #eef0f3;
+
+  --color-bg: #f5f6f8;
   --color-surface: #ffffff;
-  --color-border: #dcdad6;
+  --color-border: #e2e5ea;
+  --color-border-strong: #cfd4dc;
 
-  --color-success: #1f7a3d;
-  --color-success-bg: #e6f4ea;
-  --color-warning: #9a6a00;
-  --color-warning-bg: #fdf2dc;
-  --color-danger: #b3261e;
-  --color-danger-bg: #fbe9e8;
-  --color-info: #0b5c8a;
-  --color-info-bg: #e6f1f8;
+  --color-success: #1e7a55;
+  --color-success-bg: #e7f4ee;
+  --color-warning: #94620a;
+  --color-warning-bg: #fdf3dc;
+  --color-danger: #b42318;
+  --color-danger-bg: #fdecea;
+  --color-info: #1d5f8f;
+  --color-info-bg: #e8f1f8;
 
-  --font-sans: "Segoe UI", "Noto Sans", -apple-system, system-ui, sans-serif;
-  --radius-sm: 3px;
-  --radius-md: 6px;
-  --shadow-card: 0 1px 2px rgba(0, 0, 0, 0.06), 0 1px 1px rgba(0, 0, 0, 0.04);
+  /* Map states */
+  --map-verified: #2e7d5b;
+  --map-pending: #d08a00;
+  --map-review: #c0392b;
+  --map-neutral: #64748b;
+
+  --font-sans: "Inter", "Segoe UI", "Noto Sans", -apple-system, system-ui, sans-serif;
+  --radius-sm: 6px;
+  --radius-md: 8px;
+  --radius-lg: 12px;
+  --shadow-card: 0 1px 2px rgba(16, 24, 40, 0.05);
+  --shadow-pop: 0 8px 24px rgba(16, 24, 40, 0.14);
 
   --space-1: 4px;
   --space-2: 8px;
@@ -35,6 +50,10 @@
   --space-4: 16px;
   --space-5: 24px;
   --space-6: 32px;
+
+  --header-h: 52px;
+  --sidebar-w: 232px;
+  --sidebar-w-rail: 60px;
 }
 
 * { box-sizing: border-box; }
@@ -47,8 +66,12 @@ body {
   background: var(--color-bg);
   color: var(--color-ink-900);
   font-size: 14px;
+  line-height: 1.45;
+  overflow: hidden; /* the application shell scrolls its own content area, never the page */
 }
 
-a { color: var(--color-red-700); }
+a { color: var(--color-primary); }
 
 button { font-family: inherit; }
+
+:focus-visible { outline: 2px solid var(--color-primary); outline-offset: 2px; }

@@ -20,3 +20,18 @@ export function markerColor(status: DeliveryStatus, isCurrent: boolean): string 
   if (bucket === "FAILED") return colors.mapFailed;
   return colors.mapPending;
 }
+
+/** Marker fill for a StopView state (utils/routeView.ts): the next stop is
+ * blue, the rest of the round amber, finished stops green, failed ones red. */
+export function stateColor(state: "NEXT" | "PENDING" | "DONE" | "FAILED"): string {
+  switch (state) {
+    case "NEXT":
+      return colors.mapCurrent;
+    case "DONE":
+      return colors.mapCompleted;
+    case "FAILED":
+      return colors.mapFailed;
+    default:
+      return colors.mapPending;
+  }
+}

@@ -28,8 +28,14 @@ export function LoginPage() {
     try {
       await login(values.email, values.password);
       navigate("/", { replace: true });
-    } catch {
-      setServerError("Invalid email or password.");
+    } catch (err: any) {
+      const status = err?.response?.status;
+      setServerError(
+        status === 401 ? "Invalid email or password."
+        : status === 429 ? "Too many sign-in attempts. Wait a few minutes and try again."
+        : !err?.response && !err?.message?.startsWith("This panel") ? "Cannot reach the server. Try again in a moment."
+        : err?.response?.data?.error?.message ?? err?.message ?? "Could not sign in."
+      );
     }
   }
 

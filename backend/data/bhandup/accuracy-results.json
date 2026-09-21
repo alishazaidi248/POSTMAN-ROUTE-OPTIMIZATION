@@ -1,0 +1,4523 @@
+{
+ "generatedAt": "2026-09-21T01:44:07.866Z",
+ "system": {
+  "geocoding": {
+   "total": 130,
+   "imported": 130,
+   "tiers": {
+    "nominatim-area": 79,
+    "nominatim-pincode": 51
+   },
+   "exact": 0,
+   "areaLevel": 79,
+   "pincodeLevel": 51,
+   "failed": 0,
+   "withCoordinates": 130,
+   "distinctCoordinates": 17,
+   "insideBhandupWest": 50
+  },
+  "perDelivery": [
+   {
+    "n": 1,
+    "name": "Aarav Sharma",
+    "phone": "9800000001",
+    "locality": "JANTA MARKET",
+    "mainArea": "CHOPRA CHAWL",
+    "truthBeat": 1,
+    "imported": true,
+    "geocodingStatus": "SUCCESS",
+    "geocodingSource": "nominatim-area",
+    "confidence": 0.4,
+    "lat": 19.1619088,
+    "lng": 72.997823,
+    "assignedBeat": null,
+    "exceptions": [
+     "NO_BEAT_MATCH"
+    ]
+   },
+   {
+    "n": 2,
+    "name": "Priya Patil",
+    "phone": "9800000002",
+    "locality": "JANTA MARKET",
+    "mainArea": "CHOPRA BLDG",
+    "truthBeat": 1,
+    "imported": true,
+    "geocodingStatus": "SUCCESS",
+    "geocodingSource": "nominatim-area",
+    "confidence": 0.4,
+    "lat": 19.1619088,
+    "lng": 72.997823,
+    "assignedBeat": null,
+    "exceptions": [
+     "NO_BEAT_MATCH"
+    ]
+   },
+   {
+    "n": 3,
+    "name": "Rohan Deshmukh",
+    "phone": "9800000003",
+    "locality": "JANTA MARKET",
+    "mainArea": "MAHENDRA SPLENDOUR",
+    "truthBeat": 1,
+    "imported": true,
+    "geocodingStatus": "SUCCESS",
+    "geocodingSource": "nominatim-area",
+    "confidence": 0.4,
+    "lat": 19.1619088,
+    "lng": 72.997823,
+    "assignedBeat": null,
+    "exceptions": [
+     "NO_BEAT_MATCH"
+    ]
+   },
+   {
+    "n": 4,
+    "name": "Sneha Kulkarni",
+    "phone": "9800000004",
+    "locality": "JANTA MARKET",
+    "mainArea": "G K W QUARTERS A,B,C,D,E,F,G",
+    "truthBeat": 1,
+    "imported": true,
+    "geocodingStatus": "SUCCESS",
+    "geocodingSource": "nominatim-area",
+    "confidence": 0.4,
+    "lat": 19.1619088,
+    "lng": 72.997823,
+    "assignedBeat": null,
+    "exceptions": [
+     "NO_BEAT_MATCH"
+    ]
+   },
+   {
+    "n": 5,
+    "name": "Aditya Joshi",
+    "phone": "9800000005",
+    "locality": "MANGATRAM PETROL PUMP TO GANDHI NAGAR",
+    "mainArea": "RUNWAL FOREST BUILDING 8 TOWER",
+    "truthBeat": 1,
+    "imported": true,
+    "geocodingStatus": "SUCCESS",
+    "geocodingSource": "nominatim-pincode",
+    "confidence": 0.25,
+    "lat": 19.054999,
+    "lng": 72.8692035,
+    "assignedBeat": null,
+    "exceptions": [
+     "NO_BEAT_MATCH"
+    ]
+   },
+   {
+    "n": 6,
+    "name": "Neha Pawar",
+    "phone": "9800000006",
+    "locality": "BARJOR BAUG",
+    "mainArea": "FAIR",
+    "truthBeat": 2,
+    "imported": true,
+    "geocodingStatus": "SUCCESS",
+    "geocodingSource": "nominatim-pincode",
+    "confidence": 0.25,
+    "lat": 19.054999,
+    "lng": 72.8692035,
+    "assignedBeat": null,
+    "exceptions": [
+     "NO_BEAT_MATCH"
+    ]
+   },
+   {
+    "n": 7,
+    "name": "Vikram Shinde",
+    "phone": "9800000007",
+    "locality": "BARJOR BAUG",
+    "mainArea": "DENA BANK",
+    "truthBeat": 2,
+    "imported": true,
+    "geocodingStatus": "SUCCESS",
+    "geocodingSource": "nominatim-pincode",
+    "confidence": 0.25,
+    "lat": 19.054999,
+    "lng": 72.8692035,
+    "assignedBeat": null,
+    "exceptions": [
+     "NO_BEAT_MATCH"
+    ]
+   },
+   {
+    "n": 8,
+    "name": "Pooja More",
+    "phone": "9800000008",
+    "locality": "BARJOR BAUG",
+    "mainArea": "MANGLA HOSPITAL",
+    "truthBeat": 2,
+    "imported": true,
+    "geocodingStatus": "SUCCESS",
+    "geocodingSource": "nominatim-pincode",
+    "confidence": 0.25,
+    "lat": 19.054999,
+    "lng": 72.8692035,
+    "assignedBeat": null,
+    "exceptions": [
+     "NO_BEAT_MATCH"
+    ]
+   },
+   {
+    "n": 9,
+    "name": "Rahul Jadhav",
+    "phone": "9800000009",
+    "locality": "BARJOR BAUG",
+    "mainArea": "SHIVKRUPA PATPEDHI",
+    "truthBeat": 2,
+    "imported": true,
+    "geocodingStatus": "SUCCESS",
+    "geocodingSource": "nominatim-pincode",
+    "confidence": 0.25,
+    "lat": 19.054999,
+    "lng": 72.8692035,
+    "assignedBeat": null,
+    "exceptions": [
+     "NO_BEAT_MATCH"
+    ]
+   },
+   {
+    "n": 10,
+    "name": "Ananya Mehta",
+    "phone": "9800000010",
+    "locality": "BARJOR BAUG",
+    "mainArea": "FAIR SHOP",
+    "truthBeat": 2,
+    "imported": true,
+    "geocodingStatus": "SUCCESS",
+    "geocodingSource": "nominatim-pincode",
+    "confidence": 0.25,
+    "lat": 19.054999,
+    "lng": 72.8692035,
+    "assignedBeat": null,
+    "exceptions": [
+     "NO_BEAT_MATCH"
+    ]
+   },
+   {
+    "n": 11,
+    "name": "Siddharth Gupta",
+    "phone": "9800000011",
+    "locality": "L.B.S MARG BHANDUP WEST",
+    "mainArea": "MANALI APT",
+    "truthBeat": 3,
+    "imported": true,
+    "geocodingStatus": "SUCCESS",
+    "geocodingSource": "nominatim-pincode",
+    "confidence": 0.25,
+    "lat": 19.054999,
+    "lng": 72.8692035,
+    "assignedBeat": null,
+    "exceptions": [
+     "NO_BEAT_MATCH"
+    ]
+   },
+   {
+    "n": 12,
+    "name": "Kavya Nair",
+    "phone": "9800000012",
+    "locality": "L.B.S MARG BHANDUP WEST",
+    "mainArea": "PIPERMENT WALA COMPOUND",
+    "truthBeat": 3,
+    "imported": true,
+    "geocodingStatus": "SUCCESS",
+    "geocodingSource": "nominatim-pincode",
+    "confidence": 0.25,
+    "lat": 19.054999,
+    "lng": 72.8692035,
+    "assignedBeat": null,
+    "exceptions": [
+     "NO_BEAT_MATCH"
+    ]
+   },
+   {
+    "n": 13,
+    "name": "Akash Sawant",
+    "phone": "9800000013",
+    "locality": "L.B.S MARG BHANDUP WEST",
+    "mainArea": "BHANDUP STATION ROAD",
+    "truthBeat": 3,
+    "imported": true,
+    "geocodingStatus": "SUCCESS",
+    "geocodingSource": "nominatim-pincode",
+    "confidence": 0.25,
+    "lat": 19.054999,
+    "lng": 72.8692035,
+    "assignedBeat": null,
+    "exceptions": [
+     "NO_BEAT_MATCH"
+    ]
+   },
+   {
+    "n": 14,
+    "name": "Riya Chavan",
+    "phone": "9800000014",
+    "locality": "L.B.S MARG BHANDUP WEST",
+    "mainArea": "DEVDARSHAN BUILDING",
+    "truthBeat": 3,
+    "imported": true,
+    "geocodingStatus": "SUCCESS",
+    "geocodingSource": "nominatim-pincode",
+    "confidence": 0.25,
+    "lat": 19.054999,
+    "lng": 72.8692035,
+    "assignedBeat": null,
+    "exceptions": [
+     "NO_BEAT_MATCH"
+    ]
+   },
+   {
+    "n": 15,
+    "name": "Nikhil Bhosale",
+    "phone": "9800000015",
+    "locality": "L.B.S MARG BHANDUP WEST",
+    "mainArea": "GURUNANAK HIGH SCHOOL",
+    "truthBeat": 3,
+    "imported": true,
+    "geocodingStatus": "SUCCESS",
+    "geocodingSource": "nominatim-pincode",
+    "confidence": 0.25,
+    "lat": 19.054999,
+    "lng": 72.8692035,
+    "assignedBeat": null,
+    "exceptions": [
+     "NO_BEAT_MATCH"
+    ]
+   },
+   {
+    "n": 16,
+    "name": "Isha Shah",
+    "phone": "9800000016",
+    "locality": "BHANDUP VILLAGE ROAD",
+    "mainArea": "KASTGURI VIDYALAYA",
+    "truthBeat": 4,
+    "imported": true,
+    "geocodingStatus": "SUCCESS",
+    "geocodingSource": "nominatim-area",
+    "confidence": 0.4,
+    "lat": 19.1554204,
+    "lng": 72.9434303,
+    "assignedBeat": null,
+    "exceptions": [
+     "MULTIPLE_BEAT_MATCH"
+    ]
+   },
+   {
+    "n": 17,
+    "name": "Kunal Mishra",
+    "phone": "9800000017",
+    "locality": "BHANDUP VILLAGE ROAD",
+    "mainArea": "SHRIRAM VIDYALAYA",
+    "truthBeat": 4,
+    "imported": true,
+    "geocodingStatus": "SUCCESS",
+    "geocodingSource": "nominatim-area",
+    "confidence": 0.4,
+    "lat": 19.1554204,
+    "lng": 72.9434303,
+    "assignedBeat": null,
+    "exceptions": [
+     "MULTIPLE_BEAT_MATCH"
+    ]
+   },
+   {
+    "n": 18,
+    "name": "Tanvi Kadam",
+    "phone": "9800000018",
+    "locality": "BHANDUP VILLAGE ROAD",
+    "mainArea": "BHANDUP NIGHT HIGH SCHOOL",
+    "truthBeat": 4,
+    "imported": true,
+    "geocodingStatus": "SUCCESS",
+    "geocodingSource": "nominatim-area",
+    "confidence": 0.4,
+    "lat": 19.1554204,
+    "lng": 72.9434303,
+    "assignedBeat": null,
+    "exceptions": [
+     "MULTIPLE_BEAT_MATCH"
+    ]
+   },
+   {
+    "n": 19,
+    "name": "Yash Thakur",
+    "phone": "9800000019",
+    "locality": "BHANDUP VILLAGE ROAD",
+    "mainArea": "JANSEWA SANGH VIDYALAYA",
+    "truthBeat": 4,
+    "imported": true,
+    "geocodingStatus": "SUCCESS",
+    "geocodingSource": "nominatim-area",
+    "confidence": 0.4,
+    "lat": 19.1554204,
+    "lng": 72.9434303,
+    "assignedBeat": null,
+    "exceptions": [
+     "MULTIPLE_BEAT_MATCH"
+    ]
+   },
+   {
+    "n": 20,
+    "name": "Simran Singh",
+    "phone": "9800000020",
+    "locality": "BHANDUP VILLAGE ROAD",
+    "mainArea": "SATYAM APARTMENT 6 FLOOR",
+    "truthBeat": 4,
+    "imported": true,
+    "geocodingStatus": "SUCCESS",
+    "geocodingSource": "nominatim-area",
+    "confidence": 0.4,
+    "lat": 19.1554204,
+    "lng": 72.9434303,
+    "assignedBeat": null,
+    "exceptions": [
+     "MULTIPLE_BEAT_MATCH"
+    ]
+   },
+   {
+    "n": 21,
+    "name": "Aarav Sharma",
+    "phone": "9800000021",
+    "locality": "VILLAGE ROAD",
+    "mainArea": "SANTOSHI NAGAR SHOPLINE 1 TO 12",
+    "truthBeat": 5,
+    "imported": true,
+    "geocodingStatus": "SUCCESS",
+    "geocodingSource": "nominatim-area",
+    "confidence": 0.4,
+    "lat": 19.0284842,
+    "lng": 72.8978568,
+    "assignedBeat": null,
+    "exceptions": [
+     "NO_BEAT_MATCH"
+    ]
+   },
+   {
+    "n": 22,
+    "name": "Priya Patil",
+    "phone": "9800000022",
+    "locality": "VILLAGE ROAD",
+    "mainArea": "SANTOSHI NAGAR CHAWL 1 TO 7",
+    "truthBeat": 5,
+    "imported": true,
+    "geocodingStatus": "SUCCESS",
+    "geocodingSource": "nominatim-area",
+    "confidence": 0.4,
+    "lat": 19.0284842,
+    "lng": 72.8978568,
+    "assignedBeat": null,
+    "exceptions": [
+     "NO_BEAT_MATCH"
+    ]
+   },
+   {
+    "n": 23,
+    "name": "Rohan Deshmukh",
+    "phone": "9800000023",
+    "locality": "VILLAGE ROAD",
+    "mainArea": "GANESH NIWAS A,B,C",
+    "truthBeat": 5,
+    "imported": true,
+    "geocodingStatus": "SUCCESS",
+    "geocodingSource": "nominatim-area",
+    "confidence": 0.4,
+    "lat": 19.0284842,
+    "lng": 72.8978568,
+    "assignedBeat": null,
+    "exceptions": [
+     "NO_BEAT_MATCH"
+    ]
+   },
+   {
+    "n": 24,
+    "name": "Sneha Kulkarni",
+    "phone": "9800000024",
+    "locality": "VILLAGE ROAD",
+    "mainArea": "BASANT BHUVAN",
+    "truthBeat": 5,
+    "imported": true,
+    "geocodingStatus": "SUCCESS",
+    "geocodingSource": "nominatim-area",
+    "confidence": 0.4,
+    "lat": 19.0284842,
+    "lng": 72.8978568,
+    "assignedBeat": null,
+    "exceptions": [
+     "NO_BEAT_MATCH"
+    ]
+   },
+   {
+    "n": 25,
+    "name": "Aditya Joshi",
+    "phone": "9800000025",
+    "locality": "VILLAGE ROAD",
+    "mainArea": "SAI DARSHAN SOCIETY SHOPLINE",
+    "truthBeat": 5,
+    "imported": true,
+    "geocodingStatus": "SUCCESS",
+    "geocodingSource": "nominatim-area",
+    "confidence": 0.4,
+    "lat": 19.0284842,
+    "lng": 72.8978568,
+    "assignedBeat": null,
+    "exceptions": [
+     "NO_BEAT_MATCH"
+    ]
+   },
+   {
+    "n": 26,
+    "name": "Neha Pawar",
+    "phone": "9800000026",
+    "locality": "BHANDUP POLICE CHOWKI TO SONAPUR LINK ROAD",
+    "mainArea": "SHANGRILA BISCUIT COMPANY",
+    "truthBeat": 6,
+    "imported": true,
+    "geocodingStatus": "SUCCESS",
+    "geocodingSource": "nominatim-pincode",
+    "confidence": 0.25,
+    "lat": 19.054999,
+    "lng": 72.8692035,
+    "assignedBeat": null,
+    "exceptions": [
+     "NO_BEAT_MATCH"
+    ]
+   },
+   {
+    "n": 27,
+    "name": "Vikram Shinde",
+    "phone": "9800000027",
+    "locality": "BHANDUP POLICE CHOWKI TO SONAPUR LINK ROAD",
+    "mainArea": "CORPORA BUILDING 6 FLOOR",
+    "truthBeat": 6,
+    "imported": true,
+    "geocodingStatus": "SUCCESS",
+    "geocodingSource": "nominatim-pincode",
+    "confidence": 0.25,
+    "lat": 19.054999,
+    "lng": 72.8692035,
+    "assignedBeat": null,
+    "exceptions": [
+     "NO_BEAT_MATCH"
+    ]
+   },
+   {
+    "n": 28,
+    "name": "Pooja More",
+    "phone": "9800000028",
+    "locality": "BHANDUP POLICE CHOWKI TO SONAPUR LINK ROAD",
+    "mainArea": "CORPORA SHOPLINE",
+    "truthBeat": 6,
+    "imported": true,
+    "geocodingStatus": "SUCCESS",
+    "geocodingSource": "nominatim-pincode",
+    "confidence": 0.25,
+    "lat": 19.054999,
+    "lng": 72.8692035,
+    "assignedBeat": null,
+    "exceptions": [
+     "NO_BEAT_MATCH"
+    ]
+   },
+   {
+    "n": 29,
+    "name": "Rahul Jadhav",
+    "phone": "9800000029",
+    "locality": "BHANDUP POLICE CHOWKI TO SONAPUR LINK ROAD",
+    "mainArea": "BHARAT INDUSTRIAL ESTATE",
+    "truthBeat": 6,
+    "imported": true,
+    "geocodingStatus": "SUCCESS",
+    "geocodingSource": "nominatim-pincode",
+    "confidence": 0.25,
+    "lat": 19.054999,
+    "lng": 72.8692035,
+    "assignedBeat": null,
+    "exceptions": [
+     "NO_BEAT_MATCH"
+    ]
+   },
+   {
+    "n": 30,
+    "name": "Ananya Mehta",
+    "phone": "9800000030",
+    "locality": "BHANDUP POLICE CHOWKI TO SONAPUR LINK ROAD",
+    "mainArea": "FILIX TOWER 10 FLOORS",
+    "truthBeat": 6,
+    "imported": true,
+    "geocodingStatus": "SUCCESS",
+    "geocodingSource": "nominatim-pincode",
+    "confidence": 0.25,
+    "lat": 19.054999,
+    "lng": 72.8692035,
+    "assignedBeat": null,
+    "exceptions": [
+     "NO_BEAT_MATCH"
+    ]
+   },
+   {
+    "n": 31,
+    "name": "Siddharth Gupta",
+    "phone": "9800000031",
+    "locality": "L.B.S. ROAD, BHANDUP WEST",
+    "mainArea": "GUARUDWARA ROYALS METAL",
+    "truthBeat": 7,
+    "imported": true,
+    "geocodingStatus": "SUCCESS",
+    "geocodingSource": "nominatim-pincode",
+    "confidence": 0.25,
+    "lat": 19.054999,
+    "lng": 72.8692035,
+    "assignedBeat": null,
+    "exceptions": [
+     "NO_BEAT_MATCH"
+    ]
+   },
+   {
+    "n": 32,
+    "name": "Kavya Nair",
+    "phone": "9800000032",
+    "locality": "L.B.S. ROAD, BHANDUP WEST",
+    "mainArea": "RADHA BAUG 1 TO 15 GALA",
+    "truthBeat": 7,
+    "imported": true,
+    "geocodingStatus": "SUCCESS",
+    "geocodingSource": "nominatim-pincode",
+    "confidence": 0.25,
+    "lat": 19.054999,
+    "lng": 72.8692035,
+    "assignedBeat": null,
+    "exceptions": [
+     "NO_BEAT_MATCH"
+    ]
+   },
+   {
+    "n": 33,
+    "name": "Akash Sawant",
+    "phone": "9800000033",
+    "locality": "L.B.S. ROAD, BHANDUP WEST",
+    "mainArea": "BHIM NAGAR ZOPADPATTI",
+    "truthBeat": 7,
+    "imported": true,
+    "geocodingStatus": "SUCCESS",
+    "geocodingSource": "nominatim-pincode",
+    "confidence": 0.25,
+    "lat": 19.054999,
+    "lng": 72.8692035,
+    "assignedBeat": null,
+    "exceptions": [
+     "NO_BEAT_MATCH"
+    ]
+   },
+   {
+    "n": 34,
+    "name": "Riya Chavan",
+    "phone": "9800000034",
+    "locality": "L.B.S. ROAD, BHANDUP WEST",
+    "mainArea": "RIHAL COMPOUND 1 TO 30 GALA",
+    "truthBeat": 7,
+    "imported": true,
+    "geocodingStatus": "SUCCESS",
+    "geocodingSource": "nominatim-pincode",
+    "confidence": 0.25,
+    "lat": 19.054999,
+    "lng": 72.8692035,
+    "assignedBeat": null,
+    "exceptions": [
+     "NO_BEAT_MATCH"
+    ]
+   },
+   {
+    "n": 35,
+    "name": "Nikhil Bhosale",
+    "phone": "9800000035",
+    "locality": "L.B.S. ROAD, BHANDUP WEST",
+    "mainArea": "GALA SHOPPING LINE 1 TO 15",
+    "truthBeat": 7,
+    "imported": true,
+    "geocodingStatus": "SUCCESS",
+    "geocodingSource": "nominatim-pincode",
+    "confidence": 0.25,
+    "lat": 19.054999,
+    "lng": 72.8692035,
+    "assignedBeat": null,
+    "exceptions": [
+     "NO_BEAT_MATCH"
+    ]
+   },
+   {
+    "n": 36,
+    "name": "Isha Shah",
+    "phone": "9800000036",
+    "locality": "LAKE ROAD",
+    "mainArea": "AVTAR VILLA",
+    "truthBeat": 8,
+    "imported": true,
+    "geocodingStatus": "SUCCESS",
+    "geocodingSource": "nominatim-area",
+    "confidence": 0.4,
+    "lat": 19.1586837,
+    "lng": 72.9335361,
+    "assignedBeat": null,
+    "exceptions": [
+     "MULTIPLE_BEAT_MATCH"
+    ]
+   },
+   {
+    "n": 37,
+    "name": "Kunal Mishra",
+    "phone": "9800000037",
+    "locality": "LAKE ROAD",
+    "mainArea": "MANIK INDUSTRIAL COMPANY",
+    "truthBeat": 8,
+    "imported": true,
+    "geocodingStatus": "SUCCESS",
+    "geocodingSource": "nominatim-area",
+    "confidence": 0.4,
+    "lat": 19.1586837,
+    "lng": 72.9335361,
+    "assignedBeat": null,
+    "exceptions": [
+     "MULTIPLE_BEAT_MATCH"
+    ]
+   },
+   {
+    "n": 38,
+    "name": "Tanvi Kadam",
+    "phone": "9800000038",
+    "locality": "LAKE ROAD",
+    "mainArea": "MAHARASHTRA WINE SHOP",
+    "truthBeat": 8,
+    "imported": true,
+    "geocodingStatus": "SUCCESS",
+    "geocodingSource": "nominatim-area",
+    "confidence": 0.4,
+    "lat": 19.1586837,
+    "lng": 72.9335361,
+    "assignedBeat": null,
+    "exceptions": [
+     "MULTIPLE_BEAT_MATCH"
+    ]
+   },
+   {
+    "n": 39,
+    "name": "Yash Thakur",
+    "phone": "9800000039",
+    "locality": "LAKE ROAD",
+    "mainArea": "RAM KUTIR CHAWL",
+    "truthBeat": 8,
+    "imported": true,
+    "geocodingStatus": "SUCCESS",
+    "geocodingSource": "nominatim-area",
+    "confidence": 0.4,
+    "lat": 19.1586837,
+    "lng": 72.9335361,
+    "assignedBeat": null,
+    "exceptions": [
+     "MULTIPLE_BEAT_MATCH"
+    ]
+   },
+   {
+    "n": 40,
+    "name": "Simran Singh",
+    "phone": "9800000040",
+    "locality": "LAKE ROAD",
+    "mainArea": "SARVODYA FORGING COMPANY",
+    "truthBeat": 8,
+    "imported": true,
+    "geocodingStatus": "SUCCESS",
+    "geocodingSource": "nominatim-area",
+    "confidence": 0.4,
+    "lat": 19.1586837,
+    "lng": 72.9335361,
+    "assignedBeat": null,
+    "exceptions": [
+     "MULTIPLE_BEAT_MATCH"
+    ]
+   },
+   {
+    "n": 41,
+    "name": "Aarav Sharma",
+    "phone": "9800000041",
+    "locality": "RAM NAGAR",
+    "mainArea": "PANCHAM SHETH CHAWL",
+    "truthBeat": 9,
+    "imported": true,
+    "geocodingStatus": "SUCCESS",
+    "geocodingSource": "nominatim-area",
+    "confidence": 0.4,
+    "lat": 19.1759,
+    "lng": 72.832,
+    "assignedBeat": null,
+    "exceptions": [
+     "NO_BEAT_MATCH"
+    ]
+   },
+   {
+    "n": 42,
+    "name": "Priya Patil",
+    "phone": "9800000042",
+    "locality": "RAM NAGAR",
+    "mainArea": "LALA VAZIR",
+    "truthBeat": 9,
+    "imported": true,
+    "geocodingStatus": "SUCCESS",
+    "geocodingSource": "nominatim-area",
+    "confidence": 0.4,
+    "lat": 19.1759,
+    "lng": 72.832,
+    "assignedBeat": null,
+    "exceptions": [
+     "NO_BEAT_MATCH"
+    ]
+   },
+   {
+    "n": 43,
+    "name": "Rohan Deshmukh",
+    "phone": "9800000043",
+    "locality": "RAM NAGAR",
+    "mainArea": "R K GUPTA CHAWL",
+    "truthBeat": 9,
+    "imported": true,
+    "geocodingStatus": "SUCCESS",
+    "geocodingSource": "nominatim-area",
+    "confidence": 0.4,
+    "lat": 19.1759,
+    "lng": 72.832,
+    "assignedBeat": null,
+    "exceptions": [
+     "NO_BEAT_MATCH"
+    ]
+   },
+   {
+    "n": 44,
+    "name": "Sneha Kulkarni",
+    "phone": "9800000044",
+    "locality": "RAM NAGAR",
+    "mainArea": "SURAJ PURAN PANDEY CHAWL",
+    "truthBeat": 9,
+    "imported": true,
+    "geocodingStatus": "SUCCESS",
+    "geocodingSource": "nominatim-area",
+    "confidence": 0.4,
+    "lat": 19.1759,
+    "lng": 72.832,
+    "assignedBeat": null,
+    "exceptions": [
+     "NO_BEAT_MATCH"
+    ]
+   },
+   {
+    "n": 45,
+    "name": "Aditya Joshi",
+    "phone": "9800000045",
+    "locality": "RAM NAGAR",
+    "mainArea": "ASHTVINAYAK SOCIETY",
+    "truthBeat": 9,
+    "imported": true,
+    "geocodingStatus": "SUCCESS",
+    "geocodingSource": "nominatim-area",
+    "confidence": 0.4,
+    "lat": 19.1759,
+    "lng": 72.832,
+    "assignedBeat": null,
+    "exceptions": [
+     "NO_BEAT_MATCH"
+    ]
+   },
+   {
+    "n": 46,
+    "name": "Neha Pawar",
+    "phone": "9800000046",
+    "locality": "GOVIND NAGAR",
+    "mainArea": "SHUKLA BHAVAN",
+    "truthBeat": 10,
+    "imported": true,
+    "geocodingStatus": "SUCCESS",
+    "geocodingSource": "nominatim-area",
+    "confidence": 0.4,
+    "lat": 19.1569097,
+    "lng": 72.9311165,
+    "assignedBeat": null,
+    "exceptions": [
+     "MULTIPLE_BEAT_MATCH"
+    ]
+   },
+   {
+    "n": 47,
+    "name": "Vikram Shinde",
+    "phone": "9800000047",
+    "locality": "GOVIND NAGAR",
+    "mainArea": "NOOR MOHMMAD CHAWL",
+    "truthBeat": 10,
+    "imported": true,
+    "geocodingStatus": "SUCCESS",
+    "geocodingSource": "nominatim-area",
+    "confidence": 0.4,
+    "lat": 19.1569097,
+    "lng": 72.9311165,
+    "assignedBeat": null,
+    "exceptions": [
+     "MULTIPLE_BEAT_MATCH"
+    ]
+   },
+   {
+    "n": 48,
+    "name": "Pooja More",
+    "phone": "9800000048",
+    "locality": "GOVIND NAGAR",
+    "mainArea": "PUNJABI CHAWL",
+    "truthBeat": 10,
+    "imported": true,
+    "geocodingStatus": "SUCCESS",
+    "geocodingSource": "nominatim-area",
+    "confidence": 0.4,
+    "lat": 19.1569097,
+    "lng": 72.9311165,
+    "assignedBeat": null,
+    "exceptions": [
+     "MULTIPLE_BEAT_MATCH"
+    ]
+   },
+   {
+    "n": 49,
+    "name": "Rahul Jadhav",
+    "phone": "9800000049",
+    "locality": "GOVIND NAGAR",
+    "mainArea": "NITYANAND NIWAS",
+    "truthBeat": 10,
+    "imported": true,
+    "geocodingStatus": "SUCCESS",
+    "geocodingSource": "nominatim-area",
+    "confidence": 0.4,
+    "lat": 19.1569097,
+    "lng": 72.9311165,
+    "assignedBeat": null,
+    "exceptions": [
+     "MULTIPLE_BEAT_MATCH"
+    ]
+   },
+   {
+    "n": 50,
+    "name": "Ananya Mehta",
+    "phone": "9800000050",
+    "locality": "GOVIND NAGAR",
+    "mainArea": "GAYAKWD SADAN",
+    "truthBeat": 10,
+    "imported": true,
+    "geocodingStatus": "SUCCESS",
+    "geocodingSource": "nominatim-area",
+    "confidence": 0.4,
+    "lat": 19.1569097,
+    "lng": 72.9311165,
+    "assignedBeat": null,
+    "exceptions": [
+     "MULTIPLE_BEAT_MATCH"
+    ]
+   },
+   {
+    "n": 51,
+    "name": "Siddharth Gupta",
+    "phone": "9800000051",
+    "locality": "GAONDEVI AREA",
+    "mainArea": "NEHA NEX BUILDING 7 FLOORS",
+    "truthBeat": 11,
+    "imported": true,
+    "geocodingStatus": "SUCCESS",
+    "geocodingSource": "nominatim-pincode",
+    "confidence": 0.25,
+    "lat": 19.054999,
+    "lng": 72.8692035,
+    "assignedBeat": null,
+    "exceptions": [
+     "NO_BEAT_MATCH"
+    ]
+   },
+   {
+    "n": 52,
+    "name": "Kavya Nair",
+    "phone": "9800000052",
+    "locality": "GAONDEVI AREA",
+    "mainArea": "PATULWADI ZOPADPATTI",
+    "truthBeat": 11,
+    "imported": true,
+    "geocodingStatus": "SUCCESS",
+    "geocodingSource": "nominatim-pincode",
+    "confidence": 0.25,
+    "lat": 19.054999,
+    "lng": 72.8692035,
+    "assignedBeat": null,
+    "exceptions": [
+     "NO_BEAT_MATCH"
+    ]
+   },
+   {
+    "n": 53,
+    "name": "Akash Sawant",
+    "phone": "9800000053",
+    "locality": "GAONDEVI AREA",
+    "mainArea": "ZAKARIA NIWAS ZOPADPATTI",
+    "truthBeat": 11,
+    "imported": true,
+    "geocodingStatus": "SUCCESS",
+    "geocodingSource": "nominatim-pincode",
+    "confidence": 0.25,
+    "lat": 19.054999,
+    "lng": 72.8692035,
+    "assignedBeat": null,
+    "exceptions": [
+     "NO_BEAT_MATCH"
+    ]
+   },
+   {
+    "n": 54,
+    "name": "Riya Chavan",
+    "phone": "9800000054",
+    "locality": "GAONDEVI AREA",
+    "mainArea": "ZAKARIA COMPANY GALA",
+    "truthBeat": 11,
+    "imported": true,
+    "geocodingStatus": "SUCCESS",
+    "geocodingSource": "nominatim-pincode",
+    "confidence": 0.25,
+    "lat": 19.054999,
+    "lng": 72.8692035,
+    "assignedBeat": null,
+    "exceptions": [
+     "NO_BEAT_MATCH"
+    ]
+   },
+   {
+    "n": 55,
+    "name": "Nikhil Bhosale",
+    "phone": "9800000055",
+    "locality": "GAONDEVI AREA",
+    "mainArea": "ZAKARIYA SHOPLINE",
+    "truthBeat": 11,
+    "imported": true,
+    "geocodingStatus": "SUCCESS",
+    "geocodingSource": "nominatim-pincode",
+    "confidence": 0.25,
+    "lat": 19.054999,
+    "lng": 72.8692035,
+    "assignedBeat": null,
+    "exceptions": [
+     "NO_BEAT_MATCH"
+    ]
+   },
+   {
+    "n": 56,
+    "name": "Isha Shah",
+    "phone": "9800000056",
+    "locality": "BHATTIPADA",
+    "mainArea": "BABU SHETTY CHAWL",
+    "truthBeat": 12,
+    "imported": true,
+    "geocodingStatus": "SUCCESS",
+    "geocodingSource": "nominatim-area",
+    "confidence": 0.4,
+    "lat": 19.1491416,
+    "lng": 72.9372099,
+    "assignedBeat": null,
+    "exceptions": [
+     "MULTIPLE_BEAT_MATCH"
+    ]
+   },
+   {
+    "n": 57,
+    "name": "Kunal Mishra",
+    "phone": "9800000057",
+    "locality": "BHATTIPADA",
+    "mainArea": "VIJAY SHANKAR SHUKLA CHAWL",
+    "truthBeat": 12,
+    "imported": true,
+    "geocodingStatus": "SUCCESS",
+    "geocodingSource": "nominatim-area",
+    "confidence": 0.4,
+    "lat": 19.1491416,
+    "lng": 72.9372099,
+    "assignedBeat": null,
+    "exceptions": [
+     "MULTIPLE_BEAT_MATCH"
+    ]
+   },
+   {
+    "n": 58,
+    "name": "Tanvi Kadam",
+    "phone": "9800000058",
+    "locality": "BHATTIPADA",
+    "mainArea": "RAM LAKHAN SHUKLA CHAWL",
+    "truthBeat": 12,
+    "imported": true,
+    "geocodingStatus": "SUCCESS",
+    "geocodingSource": "nominatim-area",
+    "confidence": 0.4,
+    "lat": 19.1491416,
+    "lng": 72.9372099,
+    "assignedBeat": null,
+    "exceptions": [
+     "MULTIPLE_BEAT_MATCH"
+    ]
+   },
+   {
+    "n": 59,
+    "name": "Yash Thakur",
+    "phone": "9800000059",
+    "locality": "BHATTIPADA",
+    "mainArea": "TULSI NIWAS/RAMA NIWAS",
+    "truthBeat": 12,
+    "imported": true,
+    "geocodingStatus": "SUCCESS",
+    "geocodingSource": "nominatim-area",
+    "confidence": 0.4,
+    "lat": 19.1491416,
+    "lng": 72.9372099,
+    "assignedBeat": null,
+    "exceptions": [
+     "MULTIPLE_BEAT_MATCH"
+    ]
+   },
+   {
+    "n": 60,
+    "name": "Simran Singh",
+    "phone": "9800000060",
+    "locality": "BHATTIPADA",
+    "mainArea": "KADAM CHAWL",
+    "truthBeat": 12,
+    "imported": true,
+    "geocodingStatus": "SUCCESS",
+    "geocodingSource": "nominatim-area",
+    "confidence": 0.4,
+    "lat": 19.1491416,
+    "lng": 72.9372099,
+    "assignedBeat": null,
+    "exceptions": [
+     "MULTIPLE_BEAT_MATCH"
+    ]
+   },
+   {
+    "n": 61,
+    "name": "Aarav Sharma",
+    "phone": "9800000061",
+    "locality": "TANK ROAD",
+    "mainArea": "R.R.REALITY BUILDING 4 FLOOR",
+    "truthBeat": 13,
+    "imported": true,
+    "geocodingStatus": "SUCCESS",
+    "geocodingSource": "nominatim-area",
+    "confidence": 0.4,
+    "lat": 19.1468701,
+    "lng": 72.9335878,
+    "assignedBeat": null,
+    "exceptions": [
+     "MULTIPLE_BEAT_MATCH"
+    ]
+   },
+   {
+    "n": 62,
+    "name": "Priya Patil",
+    "phone": "9800000062",
+    "locality": "TANK ROAD",
+    "mainArea": "WING 23 FLOORS",
+    "truthBeat": 13,
+    "imported": true,
+    "geocodingStatus": "SUCCESS",
+    "geocodingSource": "nominatim-area",
+    "confidence": 0.4,
+    "lat": 19.1468701,
+    "lng": 72.9335878,
+    "assignedBeat": null,
+    "exceptions": [
+     "MULTIPLE_BEAT_MATCH"
+    ]
+   },
+   {
+    "n": 63,
+    "name": "Rohan Deshmukh",
+    "phone": "9800000063",
+    "locality": "TANK ROAD",
+    "mainArea": "R L A TOWER 4 FLOOR",
+    "truthBeat": 13,
+    "imported": true,
+    "geocodingStatus": "SUCCESS",
+    "geocodingSource": "nominatim-area",
+    "confidence": 0.4,
+    "lat": 19.1468701,
+    "lng": 72.9335878,
+    "assignedBeat": null,
+    "exceptions": [
+     "MULTIPLE_BEAT_MATCH"
+    ]
+   },
+   {
+    "n": 64,
+    "name": "Sneha Kulkarni",
+    "phone": "9800000064",
+    "locality": "TANK ROAD",
+    "mainArea": "VAKRATUND PALACE A,B WING",
+    "truthBeat": 13,
+    "imported": true,
+    "geocodingStatus": "SUCCESS",
+    "geocodingSource": "nominatim-area",
+    "confidence": 0.4,
+    "lat": 19.1468701,
+    "lng": 72.9335878,
+    "assignedBeat": null,
+    "exceptions": [
+     "MULTIPLE_BEAT_MATCH"
+    ]
+   },
+   {
+    "n": 65,
+    "name": "Aditya Joshi",
+    "phone": "9800000065",
+    "locality": "TANK ROAD",
+    "mainArea": "DEVI MAHALAXMI COTTAGE",
+    "truthBeat": 13,
+    "imported": true,
+    "geocodingStatus": "SUCCESS",
+    "geocodingSource": "nominatim-area",
+    "confidence": 0.4,
+    "lat": 19.1468701,
+    "lng": 72.9335878,
+    "assignedBeat": null,
+    "exceptions": [
+     "MULTIPLE_BEAT_MATCH"
+    ]
+   },
+   {
+    "n": 66,
+    "name": "Neha Pawar",
+    "phone": "9800000066",
+    "locality": "J.M.ROAD, BHANDUP WEST",
+    "mainArea": "JAGRUTI BHARAT DARSHAN C.H.S.",
+    "truthBeat": 14,
+    "imported": true,
+    "geocodingStatus": "SUCCESS",
+    "geocodingSource": "nominatim-area",
+    "confidence": 0.4,
+    "lat": 19.1509693,
+    "lng": 72.9450794,
+    "assignedBeat": 11,
+    "exceptions": []
+   },
+   {
+    "n": 67,
+    "name": "Vikram Shinde",
+    "phone": "9800000067",
+    "locality": "J.M.ROAD, BHANDUP WEST",
+    "mainArea": "SHRI KRISHNA MAHAL",
+    "truthBeat": 14,
+    "imported": true,
+    "geocodingStatus": "SUCCESS",
+    "geocodingSource": "nominatim-area",
+    "confidence": 0.4,
+    "lat": 19.1509693,
+    "lng": 72.9450794,
+    "assignedBeat": 11,
+    "exceptions": []
+   },
+   {
+    "n": 68,
+    "name": "Pooja More",
+    "phone": "9800000068",
+    "locality": "J.M.ROAD, BHANDUP WEST",
+    "mainArea": "MANGALDEEP C.H.S.",
+    "truthBeat": 14,
+    "imported": true,
+    "geocodingStatus": "SUCCESS",
+    "geocodingSource": "nominatim-area",
+    "confidence": 0.4,
+    "lat": 19.1509693,
+    "lng": 72.9450794,
+    "assignedBeat": 11,
+    "exceptions": []
+   },
+   {
+    "n": 69,
+    "name": "Rahul Jadhav",
+    "phone": "9800000069",
+    "locality": "J.M.ROAD, BHANDUP WEST",
+    "mainArea": "GURKHA CHAWL 1,2,3",
+    "truthBeat": 14,
+    "imported": true,
+    "geocodingStatus": "SUCCESS",
+    "geocodingSource": "nominatim-area",
+    "confidence": 0.4,
+    "lat": 19.1509693,
+    "lng": 72.9450794,
+    "assignedBeat": 11,
+    "exceptions": []
+   },
+   {
+    "n": 70,
+    "name": "Ananya Mehta",
+    "phone": "9800000070",
+    "locality": "J.M.ROAD, BHANDUP WEST",
+    "mainArea": "SONAR CHAWL 2",
+    "truthBeat": 14,
+    "imported": true,
+    "geocodingStatus": "SUCCESS",
+    "geocodingSource": "nominatim-area",
+    "confidence": 0.4,
+    "lat": 19.1509693,
+    "lng": 72.9450794,
+    "assignedBeat": 11,
+    "exceptions": []
+   },
+   {
+    "n": 71,
+    "name": "Siddharth Gupta",
+    "phone": "9800000071",
+    "locality": "SAI VIHAR",
+    "mainArea": "SAMARTH VERNICA BLDG",
+    "truthBeat": 15,
+    "imported": true,
+    "geocodingStatus": "SUCCESS",
+    "geocodingSource": "nominatim-area",
+    "confidence": 0.4,
+    "lat": 19.0085521,
+    "lng": 73.0369733,
+    "assignedBeat": null,
+    "exceptions": [
+     "NO_BEAT_MATCH"
+    ]
+   },
+   {
+    "n": 72,
+    "name": "Kavya Nair",
+    "phone": "9800000072",
+    "locality": "SAI VIHAR",
+    "mainArea": "NAVNEET SADAN BLDG-3",
+    "truthBeat": 15,
+    "imported": true,
+    "geocodingStatus": "SUCCESS",
+    "geocodingSource": "nominatim-area",
+    "confidence": 0.4,
+    "lat": 19.0085521,
+    "lng": 73.0369733,
+    "assignedBeat": null,
+    "exceptions": [
+     "NO_BEAT_MATCH"
+    ]
+   },
+   {
+    "n": 73,
+    "name": "Akash Sawant",
+    "phone": "9800000073",
+    "locality": "SAI VIHAR",
+    "mainArea": "RAJARAM YADAV CHAWL",
+    "truthBeat": 15,
+    "imported": true,
+    "geocodingStatus": "SUCCESS",
+    "geocodingSource": "nominatim-area",
+    "confidence": 0.4,
+    "lat": 19.0085521,
+    "lng": 73.0369733,
+    "assignedBeat": null,
+    "exceptions": [
+     "NO_BEAT_MATCH"
+    ]
+   },
+   {
+    "n": 74,
+    "name": "Riya Chavan",
+    "phone": "9800000074",
+    "locality": "SAI VIHAR",
+    "mainArea": "PATIRAM YADAV CHAWL",
+    "truthBeat": 15,
+    "imported": true,
+    "geocodingStatus": "SUCCESS",
+    "geocodingSource": "nominatim-area",
+    "confidence": 0.4,
+    "lat": 19.0085521,
+    "lng": 73.0369733,
+    "assignedBeat": null,
+    "exceptions": [
+     "NO_BEAT_MATCH"
+    ]
+   },
+   {
+    "n": 75,
+    "name": "Nikhil Bhosale",
+    "phone": "9800000075",
+    "locality": "SAI VIHAR",
+    "mainArea": "SUNDAR NIWAS",
+    "truthBeat": 15,
+    "imported": true,
+    "geocodingStatus": "SUCCESS",
+    "geocodingSource": "nominatim-area",
+    "confidence": 0.4,
+    "lat": 19.0085521,
+    "lng": 73.0369733,
+    "assignedBeat": null,
+    "exceptions": [
+     "NO_BEAT_MATCH"
+    ]
+   },
+   {
+    "n": 76,
+    "name": "Isha Shah",
+    "phone": "9800000076",
+    "locality": "SAI HILL",
+    "mainArea": "SARVODAYA SHOPPING CENTER",
+    "truthBeat": 16,
+    "imported": true,
+    "geocodingStatus": "SUCCESS",
+    "geocodingSource": "nominatim-area",
+    "confidence": 0.4,
+    "lat": 19.1504708,
+    "lng": 72.9269511,
+    "assignedBeat": null,
+    "exceptions": [
+     "MULTIPLE_BEAT_MATCH"
+    ]
+   },
+   {
+    "n": 77,
+    "name": "Kunal Mishra",
+    "phone": "9800000077",
+    "locality": "SAI HILL",
+    "mainArea": "OM SHRI SOCIETY",
+    "truthBeat": 16,
+    "imported": true,
+    "geocodingStatus": "SUCCESS",
+    "geocodingSource": "nominatim-area",
+    "confidence": 0.4,
+    "lat": 19.1504708,
+    "lng": 72.9269511,
+    "assignedBeat": null,
+    "exceptions": [
+     "MULTIPLE_BEAT_MATCH"
+    ]
+   },
+   {
+    "n": 78,
+    "name": "Tanvi Kadam",
+    "phone": "9800000078",
+    "locality": "SAI HILL",
+    "mainArea": "BAJARANG NIWAS",
+    "truthBeat": 16,
+    "imported": true,
+    "geocodingStatus": "SUCCESS",
+    "geocodingSource": "nominatim-area",
+    "confidence": 0.4,
+    "lat": 19.1504708,
+    "lng": 72.9269511,
+    "assignedBeat": null,
+    "exceptions": [
+     "MULTIPLE_BEAT_MATCH"
+    ]
+   },
+   {
+    "n": 79,
+    "name": "Yash Thakur",
+    "phone": "9800000079",
+    "locality": "SAI HILL",
+    "mainArea": "ANAND NIWAS",
+    "truthBeat": 16,
+    "imported": true,
+    "geocodingStatus": "SUCCESS",
+    "geocodingSource": "nominatim-area",
+    "confidence": 0.4,
+    "lat": 19.1504708,
+    "lng": 72.9269511,
+    "assignedBeat": null,
+    "exceptions": [
+     "MULTIPLE_BEAT_MATCH"
+    ]
+   },
+   {
+    "n": 80,
+    "name": "Simran Singh",
+    "phone": "9800000080",
+    "locality": "SAI HILL",
+    "mainArea": "YASHODA SMRUTI CHAWL",
+    "truthBeat": 16,
+    "imported": true,
+    "geocodingStatus": "SUCCESS",
+    "geocodingSource": "nominatim-area",
+    "confidence": 0.4,
+    "lat": 19.1504708,
+    "lng": 72.9269511,
+    "assignedBeat": null,
+    "exceptions": [
+     "MULTIPLE_BEAT_MATCH"
+    ]
+   },
+   {
+    "n": 81,
+    "name": "Aarav Sharma",
+    "phone": "9800000081",
+    "locality": "JAIDEV SINGH NAGAR",
+    "mainArea": "KAML NIWAS CHAWL",
+    "truthBeat": 17,
+    "imported": true,
+    "geocodingStatus": "SUCCESS",
+    "geocodingSource": "nominatim-pincode",
+    "confidence": 0.25,
+    "lat": 19.054999,
+    "lng": 72.8692035,
+    "assignedBeat": null,
+    "exceptions": [
+     "NO_BEAT_MATCH"
+    ]
+   },
+   {
+    "n": 82,
+    "name": "Priya Patil",
+    "phone": "9800000082",
+    "locality": "JAIDEV SINGH NAGAR",
+    "mainArea": "SUKH SAGAR SOC.",
+    "truthBeat": 17,
+    "imported": true,
+    "geocodingStatus": "SUCCESS",
+    "geocodingSource": "nominatim-pincode",
+    "confidence": 0.25,
+    "lat": 19.054999,
+    "lng": 72.8692035,
+    "assignedBeat": null,
+    "exceptions": [
+     "NO_BEAT_MATCH"
+    ]
+   },
+   {
+    "n": 83,
+    "name": "Rohan Deshmukh",
+    "phone": "9800000083",
+    "locality": "JAIDEV SINGH NAGAR",
+    "mainArea": "ARUNODAY TOWER A WING",
+    "truthBeat": 17,
+    "imported": true,
+    "geocodingStatus": "SUCCESS",
+    "geocodingSource": "nominatim-pincode",
+    "confidence": 0.25,
+    "lat": 19.054999,
+    "lng": 72.8692035,
+    "assignedBeat": null,
+    "exceptions": [
+     "NO_BEAT_MATCH"
+    ]
+   },
+   {
+    "n": 84,
+    "name": "Sneha Kulkarni",
+    "phone": "9800000084",
+    "locality": "JAIDEV SINGH NAGAR",
+    "mainArea": "ARUNODAY TOWER B WING",
+    "truthBeat": 17,
+    "imported": true,
+    "geocodingStatus": "SUCCESS",
+    "geocodingSource": "nominatim-pincode",
+    "confidence": 0.25,
+    "lat": 19.054999,
+    "lng": 72.8692035,
+    "assignedBeat": null,
+    "exceptions": [
+     "NO_BEAT_MATCH"
+    ]
+   },
+   {
+    "n": 85,
+    "name": "Aditya Joshi",
+    "phone": "9800000085",
+    "locality": "JAIDEV SINGH NAGAR",
+    "mainArea": "HEEN NIKETAN BLDG ABC",
+    "truthBeat": 17,
+    "imported": true,
+    "geocodingStatus": "SUCCESS",
+    "geocodingSource": "nominatim-pincode",
+    "confidence": 0.25,
+    "lat": 19.054999,
+    "lng": 72.8692035,
+    "assignedBeat": null,
+    "exceptions": [
+     "NO_BEAT_MATCH"
+    ]
+   },
+   {
+    "n": 86,
+    "name": "Neha Pawar",
+    "phone": "9800000086",
+    "locality": "MANGATRAM PETROL PUMP",
+    "mainArea": "ROBIN AUTO",
+    "truthBeat": 18,
+    "imported": true,
+    "geocodingStatus": "SUCCESS",
+    "geocodingSource": "nominatim-area",
+    "confidence": 0.4,
+    "lat": 19.1389303,
+    "lng": 72.9309163,
+    "assignedBeat": null,
+    "exceptions": [
+     "MULTIPLE_BEAT_MATCH"
+    ]
+   },
+   {
+    "n": 87,
+    "name": "Vikram Shinde",
+    "phone": "9800000087",
+    "locality": "MANGATRAM PETROL PUMP",
+    "mainArea": "SAI WEIGHT BRIDGE",
+    "truthBeat": 18,
+    "imported": true,
+    "geocodingStatus": "SUCCESS",
+    "geocodingSource": "nominatim-area",
+    "confidence": 0.4,
+    "lat": 19.1389303,
+    "lng": 72.9309163,
+    "assignedBeat": null,
+    "exceptions": [
+     "MULTIPLE_BEAT_MATCH"
+    ]
+   },
+   {
+    "n": 88,
+    "name": "Pooja More",
+    "phone": "9800000088",
+    "locality": "MANGATRAM PETROL PUMP",
+    "mainArea": "JAI HIND OIL MILL COMPANY",
+    "truthBeat": 18,
+    "imported": true,
+    "geocodingStatus": "SUCCESS",
+    "geocodingSource": "nominatim-area",
+    "confidence": 0.4,
+    "lat": 19.1389303,
+    "lng": 72.9309163,
+    "assignedBeat": null,
+    "exceptions": [
+     "MULTIPLE_BEAT_MATCH"
+    ]
+   },
+   {
+    "n": 89,
+    "name": "Rahul Jadhav",
+    "phone": "9800000089",
+    "locality": "MANGATRAM PETROL PUMP",
+    "mainArea": "BOMBAY OIL MILLS CO.",
+    "truthBeat": 18,
+    "imported": true,
+    "geocodingStatus": "SUCCESS",
+    "geocodingSource": "nominatim-area",
+    "confidence": 0.4,
+    "lat": 19.1389303,
+    "lng": 72.9309163,
+    "assignedBeat": null,
+    "exceptions": [
+     "MULTIPLE_BEAT_MATCH"
+    ]
+   },
+   {
+    "n": 90,
+    "name": "Ananya Mehta",
+    "phone": "9800000090",
+    "locality": "MANGATRAM PETROL PUMP",
+    "mainArea": "ADRAK COMPOUND",
+    "truthBeat": 18,
+    "imported": true,
+    "geocodingStatus": "SUCCESS",
+    "geocodingSource": "nominatim-area",
+    "confidence": 0.4,
+    "lat": 19.1389303,
+    "lng": 72.9309163,
+    "assignedBeat": null,
+    "exceptions": [
+     "MULTIPLE_BEAT_MATCH"
+    ]
+   },
+   {
+    "n": 91,
+    "name": "Siddharth Gupta",
+    "phone": "9800000091",
+    "locality": "MAHARASHTRA NAGAR",
+    "mainArea": "UNDE NIWAS",
+    "truthBeat": 19,
+    "imported": true,
+    "geocodingStatus": "SUCCESS",
+    "geocodingSource": "nominatim-area",
+    "confidence": 0.4,
+    "lat": 19.0483928,
+    "lng": 72.9387147,
+    "assignedBeat": null,
+    "exceptions": [
+     "NO_BEAT_MATCH"
+    ]
+   },
+   {
+    "n": 92,
+    "name": "Kavya Nair",
+    "phone": "9800000092",
+    "locality": "MAHARASHTRA NAGAR",
+    "mainArea": "THAKKAR NIWAS",
+    "truthBeat": 19,
+    "imported": true,
+    "geocodingStatus": "SUCCESS",
+    "geocodingSource": "nominatim-area",
+    "confidence": 0.4,
+    "lat": 19.0483928,
+    "lng": 72.9387147,
+    "assignedBeat": null,
+    "exceptions": [
+     "NO_BEAT_MATCH"
+    ]
+   },
+   {
+    "n": 93,
+    "name": "Akash Sawant",
+    "phone": "9800000093",
+    "locality": "MAHARASHTRA NAGAR",
+    "mainArea": "NARAYAN NIWAS",
+    "truthBeat": 19,
+    "imported": true,
+    "geocodingStatus": "SUCCESS",
+    "geocodingSource": "nominatim-area",
+    "confidence": 0.4,
+    "lat": 19.0483928,
+    "lng": 72.9387147,
+    "assignedBeat": null,
+    "exceptions": [
+     "NO_BEAT_MATCH"
+    ]
+   },
+   {
+    "n": 94,
+    "name": "Riya Chavan",
+    "phone": "9800000094",
+    "locality": "MAHARASHTRA NAGAR",
+    "mainArea": "KALPANA NIWAS",
+    "truthBeat": 19,
+    "imported": true,
+    "geocodingStatus": "SUCCESS",
+    "geocodingSource": "nominatim-area",
+    "confidence": 0.4,
+    "lat": 19.0483928,
+    "lng": 72.9387147,
+    "assignedBeat": null,
+    "exceptions": [
+     "NO_BEAT_MATCH"
+    ]
+   },
+   {
+    "n": 95,
+    "name": "Nikhil Bhosale",
+    "phone": "9800000095",
+    "locality": "MAHARASHTRA NAGAR",
+    "mainArea": "PANDURANG NIWAS",
+    "truthBeat": 19,
+    "imported": true,
+    "geocodingStatus": "SUCCESS",
+    "geocodingSource": "nominatim-area",
+    "confidence": 0.4,
+    "lat": 19.0483928,
+    "lng": 72.9387147,
+    "assignedBeat": null,
+    "exceptions": [
+     "NO_BEAT_MATCH"
+    ]
+   },
+   {
+    "n": 96,
+    "name": "Isha Shah",
+    "phone": "9800000096",
+    "locality": "FUGAVALA COMPOUND",
+    "mainArea": "CHAWL NO 1 TO 9",
+    "truthBeat": 20,
+    "imported": true,
+    "geocodingStatus": "SUCCESS",
+    "geocodingSource": "nominatim-pincode",
+    "confidence": 0.25,
+    "lat": 19.054999,
+    "lng": 72.8692035,
+    "assignedBeat": null,
+    "exceptions": [
+     "NO_BEAT_MATCH"
+    ]
+   },
+   {
+    "n": 97,
+    "name": "Kunal Mishra",
+    "phone": "9800000097",
+    "locality": "FUGAVALA COMPOUND",
+    "mainArea": "SHOPLINE 1 TO 22",
+    "truthBeat": 20,
+    "imported": true,
+    "geocodingStatus": "SUCCESS",
+    "geocodingSource": "nominatim-pincode",
+    "confidence": 0.25,
+    "lat": 19.054999,
+    "lng": 72.8692035,
+    "assignedBeat": null,
+    "exceptions": [
+     "NO_BEAT_MATCH"
+    ]
+   },
+   {
+    "n": 98,
+    "name": "Tanvi Kadam",
+    "phone": "9800000098",
+    "locality": "FUGAVALA COMPOUND",
+    "mainArea": "JAITUN BI ALI GOHAR CHAWL",
+    "truthBeat": 20,
+    "imported": true,
+    "geocodingStatus": "SUCCESS",
+    "geocodingSource": "nominatim-pincode",
+    "confidence": 0.25,
+    "lat": 19.054999,
+    "lng": 72.8692035,
+    "assignedBeat": null,
+    "exceptions": [
+     "NO_BEAT_MATCH"
+    ]
+   },
+   {
+    "n": 99,
+    "name": "Yash Thakur",
+    "phone": "9800000099",
+    "locality": "FUGAVALA COMPOUND",
+    "mainArea": "SHIVKRUPA SAHAKAR SADAN",
+    "truthBeat": 20,
+    "imported": true,
+    "geocodingStatus": "SUCCESS",
+    "geocodingSource": "nominatim-pincode",
+    "confidence": 0.25,
+    "lat": 19.054999,
+    "lng": 72.8692035,
+    "assignedBeat": null,
+    "exceptions": [
+     "NO_BEAT_MATCH"
+    ]
+   },
+   {
+    "n": 100,
+    "name": "Simran Singh",
+    "phone": "9800000100",
+    "locality": "FUGAVALA COMPOUND",
+    "mainArea": "DUKAN LINE",
+    "truthBeat": 20,
+    "imported": true,
+    "geocodingStatus": "SUCCESS",
+    "geocodingSource": "nominatim-pincode",
+    "confidence": 0.25,
+    "lat": 19.054999,
+    "lng": 72.8692035,
+    "assignedBeat": null,
+    "exceptions": [
+     "NO_BEAT_MATCH"
+    ]
+   },
+   {
+    "n": 101,
+    "name": "Aarav Sharma",
+    "phone": "9800000101",
+    "locality": "FARID NAGAR",
+    "mainArea": "FARID CHAWL",
+    "truthBeat": 21,
+    "imported": true,
+    "geocodingStatus": "SUCCESS",
+    "geocodingSource": "nominatim-area",
+    "confidence": 0.4,
+    "lat": 19.1395152,
+    "lng": 72.923434,
+    "assignedBeat": null,
+    "exceptions": [
+     "MULTIPLE_BEAT_MATCH"
+    ]
+   },
+   {
+    "n": 102,
+    "name": "Priya Patil",
+    "phone": "9800000102",
+    "locality": "FARID NAGAR",
+    "mainArea": "AFJAL CHAWL",
+    "truthBeat": 21,
+    "imported": true,
+    "geocodingStatus": "SUCCESS",
+    "geocodingSource": "nominatim-area",
+    "confidence": 0.4,
+    "lat": 19.1395152,
+    "lng": 72.923434,
+    "assignedBeat": null,
+    "exceptions": [
+     "MULTIPLE_BEAT_MATCH"
+    ]
+   },
+   {
+    "n": 103,
+    "name": "Rohan Deshmukh",
+    "phone": "9800000103",
+    "locality": "FARID NAGAR",
+    "mainArea": "CHANDRA NIWAS",
+    "truthBeat": 21,
+    "imported": true,
+    "geocodingStatus": "SUCCESS",
+    "geocodingSource": "nominatim-area",
+    "confidence": 0.4,
+    "lat": 19.1395152,
+    "lng": 72.923434,
+    "assignedBeat": null,
+    "exceptions": [
+     "MULTIPLE_BEAT_MATCH"
+    ]
+   },
+   {
+    "n": 104,
+    "name": "Sneha Kulkarni",
+    "phone": "9800000104",
+    "locality": "FARID NAGAR",
+    "mainArea": "SHAM KUNG CHAWL",
+    "truthBeat": 21,
+    "imported": true,
+    "geocodingStatus": "SUCCESS",
+    "geocodingSource": "nominatim-area",
+    "confidence": 0.4,
+    "lat": 19.1395152,
+    "lng": 72.923434,
+    "assignedBeat": null,
+    "exceptions": [
+     "MULTIPLE_BEAT_MATCH"
+    ]
+   },
+   {
+    "n": 105,
+    "name": "Aditya Joshi",
+    "phone": "9800000105",
+    "locality": "FARID NAGAR",
+    "mainArea": "SHANKAR SADAN",
+    "truthBeat": 21,
+    "imported": true,
+    "geocodingStatus": "SUCCESS",
+    "geocodingSource": "nominatim-area",
+    "confidence": 0.4,
+    "lat": 19.1395152,
+    "lng": 72.923434,
+    "assignedBeat": null,
+    "exceptions": [
+     "MULTIPLE_BEAT_MATCH"
+    ]
+   },
+   {
+    "n": 106,
+    "name": "Neha Pawar",
+    "phone": "9800000106",
+    "locality": "N.C. H COLONY",
+    "mainArea": "NAVAL CANTEEN",
+    "truthBeat": 22,
+    "imported": true,
+    "geocodingStatus": "SUCCESS",
+    "geocodingSource": "nominatim-area",
+    "confidence": 0.4,
+    "lat": 19.0539122,
+    "lng": 72.8359569,
+    "assignedBeat": null,
+    "exceptions": [
+     "NO_BEAT_MATCH"
+    ]
+   },
+   {
+    "n": 107,
+    "name": "Vikram Shinde",
+    "phone": "9800000107",
+    "locality": "N.C. H COLONY",
+    "mainArea": "ST XAVIERS SCHOOL",
+    "truthBeat": 22,
+    "imported": true,
+    "geocodingStatus": "SUCCESS",
+    "geocodingSource": "nominatim-area",
+    "confidence": 0.4,
+    "lat": 19.0539122,
+    "lng": 72.8359569,
+    "assignedBeat": null,
+    "exceptions": [
+     "NO_BEAT_MATCH"
+    ]
+   },
+   {
+    "n": 108,
+    "name": "Pooja More",
+    "phone": "9800000108",
+    "locality": "N.C. H COLONY",
+    "mainArea": "NAVAL BUILDING",
+    "truthBeat": 22,
+    "imported": true,
+    "geocodingStatus": "SUCCESS",
+    "geocodingSource": "nominatim-area",
+    "confidence": 0.4,
+    "lat": 19.0539122,
+    "lng": 72.8359569,
+    "assignedBeat": null,
+    "exceptions": [
+     "NO_BEAT_MATCH"
+    ]
+   },
+   {
+    "n": 109,
+    "name": "Rahul Jadhav",
+    "phone": "9800000109",
+    "locality": "N.C. H COLONY",
+    "mainArea": "BUILDING NO 152",
+    "truthBeat": 22,
+    "imported": true,
+    "geocodingStatus": "SUCCESS",
+    "geocodingSource": "nominatim-area",
+    "confidence": 0.4,
+    "lat": 19.0539122,
+    "lng": 72.8359569,
+    "assignedBeat": null,
+    "exceptions": [
+     "NO_BEAT_MATCH"
+    ]
+   },
+   {
+    "n": 110,
+    "name": "Ananya Mehta",
+    "phone": "9800000110",
+    "locality": "N.C. H COLONY",
+    "mainArea": "BUILDING NO 181",
+    "truthBeat": 22,
+    "imported": true,
+    "geocodingStatus": "SUCCESS",
+    "geocodingSource": "nominatim-area",
+    "confidence": 0.4,
+    "lat": 19.0539122,
+    "lng": 72.8359569,
+    "assignedBeat": null,
+    "exceptions": [
+     "NO_BEAT_MATCH"
+    ]
+   },
+   {
+    "n": 111,
+    "name": "Siddharth Gupta",
+    "phone": "9800000111",
+    "locality": "MANGATRAM PETROL PUMP TO GANDHI NAGAR",
+    "mainArea": "MHADA COLONY BUILDING K - 4",
+    "truthBeat": 23,
+    "imported": true,
+    "geocodingStatus": "SUCCESS",
+    "geocodingSource": "nominatim-pincode",
+    "confidence": 0.25,
+    "lat": 19.054999,
+    "lng": 72.8692035,
+    "assignedBeat": null,
+    "exceptions": [
+     "NO_BEAT_MATCH"
+    ]
+   },
+   {
+    "n": 112,
+    "name": "Kavya Nair",
+    "phone": "9800000112",
+    "locality": "MANGATRAM PETROL PUMP TO GANDHI NAGAR",
+    "mainArea": "MHADA COLONY BUILDING K - 5",
+    "truthBeat": 23,
+    "imported": true,
+    "geocodingStatus": "SUCCESS",
+    "geocodingSource": "nominatim-pincode",
+    "confidence": 0.25,
+    "lat": 19.054999,
+    "lng": 72.8692035,
+    "assignedBeat": null,
+    "exceptions": [
+     "NO_BEAT_MATCH"
+    ]
+   },
+   {
+    "n": 113,
+    "name": "Akash Sawant",
+    "phone": "9800000113",
+    "locality": "MANGATRAM PETROL PUMP TO GANDHI NAGAR",
+    "mainArea": "MHADA COLONY BUILDING K - 6",
+    "truthBeat": 23,
+    "imported": true,
+    "geocodingStatus": "SUCCESS",
+    "geocodingSource": "nominatim-pincode",
+    "confidence": 0.25,
+    "lat": 19.054999,
+    "lng": 72.8692035,
+    "assignedBeat": null,
+    "exceptions": [
+     "NO_BEAT_MATCH"
+    ]
+   },
+   {
+    "n": 114,
+    "name": "Riya Chavan",
+    "phone": "9800000114",
+    "locality": "MANGATRAM PETROL PUMP TO GANDHI NAGAR",
+    "mainArea": "MHADA COLONY BUILDING K - 7",
+    "truthBeat": 23,
+    "imported": true,
+    "geocodingStatus": "SUCCESS",
+    "geocodingSource": "nominatim-pincode",
+    "confidence": 0.25,
+    "lat": 19.054999,
+    "lng": 72.8692035,
+    "assignedBeat": null,
+    "exceptions": [
+     "NO_BEAT_MATCH"
+    ]
+   },
+   {
+    "n": 115,
+    "name": "Nikhil Bhosale",
+    "phone": "9800000115",
+    "locality": "MANGATRAM PETROL PUMP TO GANDHI NAGAR",
+    "mainArea": "MHADA COLONY BUILDING K - 8",
+    "truthBeat": 23,
+    "imported": true,
+    "geocodingStatus": "SUCCESS",
+    "geocodingSource": "nominatim-pincode",
+    "confidence": 0.25,
+    "lat": 19.054999,
+    "lng": 72.8692035,
+    "assignedBeat": null,
+    "exceptions": [
+     "NO_BEAT_MATCH"
+    ]
+   },
+   {
+    "n": 116,
+    "name": "Isha Shah",
+    "phone": "9800000116",
+    "locality": "MULUND GOREGAON LINK ROAD",
+    "mainArea": "PANCHSHEEL NAGAR ZOPADPATTI",
+    "truthBeat": 24,
+    "imported": true,
+    "geocodingStatus": "SUCCESS",
+    "geocodingSource": "nominatim-area",
+    "confidence": 0.4,
+    "lat": 19.161413,
+    "lng": 72.9446589,
+    "assignedBeat": null,
+    "exceptions": [
+     "MULTIPLE_BEAT_MATCH"
+    ]
+   },
+   {
+    "n": 117,
+    "name": "Kunal Mishra",
+    "phone": "9800000117",
+    "locality": "MULUND GOREGAON LINK ROAD",
+    "mainArea": "VASUDEV CHAMBER 7 FLOOR",
+    "truthBeat": 24,
+    "imported": true,
+    "geocodingStatus": "SUCCESS",
+    "geocodingSource": "nominatim-area",
+    "confidence": 0.4,
+    "lat": 19.161413,
+    "lng": 72.9446589,
+    "assignedBeat": null,
+    "exceptions": [
+     "MULTIPLE_BEAT_MATCH"
+    ]
+   },
+   {
+    "n": 118,
+    "name": "Tanvi Kadam",
+    "phone": "9800000118",
+    "locality": "MULUND GOREGAON LINK ROAD",
+    "mainArea": "VASUDEV HEIGHT 22 FLOOR",
+    "truthBeat": 24,
+    "imported": true,
+    "geocodingStatus": "SUCCESS",
+    "geocodingSource": "nominatim-area",
+    "confidence": 0.4,
+    "lat": 19.161413,
+    "lng": 72.9446589,
+    "assignedBeat": null,
+    "exceptions": [
+     "MULTIPLE_BEAT_MATCH"
+    ]
+   },
+   {
+    "n": 119,
+    "name": "Yash Thakur",
+    "phone": "9800000119",
+    "locality": "MULUND GOREGAON LINK ROAD",
+    "mainArea": "RAJEEV GANDHI NAGAR ZOPADPATTI",
+    "truthBeat": 24,
+    "imported": true,
+    "geocodingStatus": "SUCCESS",
+    "geocodingSource": "nominatim-area",
+    "confidence": 0.4,
+    "lat": 19.161413,
+    "lng": 72.9446589,
+    "assignedBeat": null,
+    "exceptions": [
+     "MULTIPLE_BEAT_MATCH"
+    ]
+   },
+   {
+    "n": 120,
+    "name": "Simran Singh",
+    "phone": "9800000120",
+    "locality": "MULUND GOREGAON LINK ROAD",
+    "mainArea": "PRATIK INDUSTRIAL ESTATE A,B",
+    "truthBeat": 24,
+    "imported": true,
+    "geocodingStatus": "SUCCESS",
+    "geocodingSource": "nominatim-area",
+    "confidence": 0.4,
+    "lat": 19.161413,
+    "lng": 72.9446589,
+    "assignedBeat": null,
+    "exceptions": [
+     "MULTIPLE_BEAT_MATCH"
+    ]
+   },
+   {
+    "n": 121,
+    "name": "Aarav Sharma",
+    "phone": "9800000121",
+    "locality": "BHANDUP POLICE CHOWKI TO SONAPUR LINK ROAD",
+    "mainArea": "MUNAMA COMPOUND",
+    "truthBeat": 25,
+    "imported": true,
+    "geocodingStatus": "SUCCESS",
+    "geocodingSource": "nominatim-pincode",
+    "confidence": 0.25,
+    "lat": 19.054999,
+    "lng": 72.8692035,
+    "assignedBeat": null,
+    "exceptions": [
+     "NO_BEAT_MATCH"
+    ]
+   },
+   {
+    "n": 122,
+    "name": "Priya Patil",
+    "phone": "9800000122",
+    "locality": "BHANDUP POLICE CHOWKI TO SONAPUR LINK ROAD",
+    "mainArea": "ABDUL MAJEED CHAWL",
+    "truthBeat": 25,
+    "imported": true,
+    "geocodingStatus": "SUCCESS",
+    "geocodingSource": "nominatim-pincode",
+    "confidence": 0.25,
+    "lat": 19.054999,
+    "lng": 72.8692035,
+    "assignedBeat": null,
+    "exceptions": [
+     "NO_BEAT_MATCH"
+    ]
+   },
+   {
+    "n": 123,
+    "name": "Rohan Deshmukh",
+    "phone": "9800000123",
+    "locality": "BHANDUP POLICE CHOWKI TO SONAPUR LINK ROAD",
+    "mainArea": "UMAR COMPOUND",
+    "truthBeat": 25,
+    "imported": true,
+    "geocodingStatus": "SUCCESS",
+    "geocodingSource": "nominatim-pincode",
+    "confidence": 0.25,
+    "lat": 19.054999,
+    "lng": 72.8692035,
+    "assignedBeat": null,
+    "exceptions": [
+     "NO_BEAT_MATCH"
+    ]
+   },
+   {
+    "n": 124,
+    "name": "Sneha Kulkarni",
+    "phone": "9800000124",
+    "locality": "BHANDUP POLICE CHOWKI TO SONAPUR LINK ROAD",
+    "mainArea": "SHAHNAWAZ MANJIL",
+    "truthBeat": 25,
+    "imported": true,
+    "geocodingStatus": "SUCCESS",
+    "geocodingSource": "nominatim-pincode",
+    "confidence": 0.25,
+    "lat": 19.054999,
+    "lng": 72.8692035,
+    "assignedBeat": null,
+    "exceptions": [
+     "NO_BEAT_MATCH"
+    ]
+   },
+   {
+    "n": 125,
+    "name": "Aditya Joshi",
+    "phone": "9800000125",
+    "locality": "BHANDUP POLICE CHOWKI TO SONAPUR LINK ROAD",
+    "mainArea": "BARF WALI GALLI",
+    "truthBeat": 25,
+    "imported": true,
+    "geocodingStatus": "SUCCESS",
+    "geocodingSource": "nominatim-pincode",
+    "confidence": 0.25,
+    "lat": 19.054999,
+    "lng": 72.8692035,
+    "assignedBeat": null,
+    "exceptions": [
+     "NO_BEAT_MATCH"
+    ]
+   },
+   {
+    "n": 126,
+    "name": "Neha Pawar",
+    "phone": "9800000126",
+    "locality": "HAJARE CHAWL",
+    "mainArea": "SUSHILA NIWAS CHAWL",
+    "truthBeat": 26,
+    "imported": true,
+    "geocodingStatus": "SUCCESS",
+    "geocodingSource": "nominatim-pincode",
+    "confidence": 0.25,
+    "lat": 19.054999,
+    "lng": 72.8692035,
+    "assignedBeat": null,
+    "exceptions": [
+     "NO_BEAT_MATCH"
+    ]
+   },
+   {
+    "n": 127,
+    "name": "Vikram Shinde",
+    "phone": "9800000127",
+    "locality": "HAJARE CHAWL",
+    "mainArea": "JADHAV CHAWL",
+    "truthBeat": 26,
+    "imported": true,
+    "geocodingStatus": "SUCCESS",
+    "geocodingSource": "nominatim-pincode",
+    "confidence": 0.25,
+    "lat": 19.054999,
+    "lng": 72.8692035,
+    "assignedBeat": null,
+    "exceptions": [
+     "NO_BEAT_MATCH"
+    ]
+   },
+   {
+    "n": 128,
+    "name": "Pooja More",
+    "phone": "9800000128",
+    "locality": "HAJARE CHAWL",
+    "mainArea": "BHOSLE CHAWL",
+    "truthBeat": 26,
+    "imported": true,
+    "geocodingStatus": "SUCCESS",
+    "geocodingSource": "nominatim-pincode",
+    "confidence": 0.25,
+    "lat": 19.054999,
+    "lng": 72.8692035,
+    "assignedBeat": null,
+    "exceptions": [
+     "NO_BEAT_MATCH"
+    ]
+   },
+   {
+    "n": 129,
+    "name": "Rahul Jadhav",
+    "phone": "9800000129",
+    "locality": "HAJARE CHAWL",
+    "mainArea": "MOHITE CHAWL",
+    "truthBeat": 26,
+    "imported": true,
+    "geocodingStatus": "SUCCESS",
+    "geocodingSource": "nominatim-pincode",
+    "confidence": 0.25,
+    "lat": 19.054999,
+    "lng": 72.8692035,
+    "assignedBeat": null,
+    "exceptions": [
+     "NO_BEAT_MATCH"
+    ]
+   },
+   {
+    "n": 130,
+    "name": "Ananya Mehta",
+    "phone": "9800000130",
+    "locality": "HAJARE CHAWL",
+    "mainArea": "CHAVAN CHAWL",
+    "truthBeat": 26,
+    "imported": true,
+    "geocodingStatus": "SUCCESS",
+    "geocodingSource": "nominatim-pincode",
+    "confidence": 0.25,
+    "lat": 19.054999,
+    "lng": 72.8692035,
+    "assignedBeat": null,
+    "exceptions": [
+     "NO_BEAT_MATCH"
+    ]
+   }
+  ],
+  "perBeat": [
+   {
+    "beat": 1,
+    "hasTerritory": true,
+    "verified": "VERIFIED",
+    "correct": 0,
+    "wrong": 0,
+    "unassigned": 5
+   },
+   {
+    "beat": 2,
+    "hasTerritory": false,
+    "verified": "NEEDS_REVIEW",
+    "correct": 0,
+    "wrong": 0,
+    "unassigned": 5
+   },
+   {
+    "beat": 3,
+    "hasTerritory": false,
+    "verified": "NEEDS_REVIEW",
+    "correct": 0,
+    "wrong": 0,
+    "unassigned": 5
+   },
+   {
+    "beat": 4,
+    "hasTerritory": true,
+    "verified": "VERIFIED",
+    "correct": 0,
+    "wrong": 0,
+    "unassigned": 5
+   },
+   {
+    "beat": 5,
+    "hasTerritory": false,
+    "verified": "NEEDS_REVIEW",
+    "correct": 0,
+    "wrong": 0,
+    "unassigned": 5
+   },
+   {
+    "beat": 6,
+    "hasTerritory": true,
+    "verified": "VERIFIED",
+    "correct": 0,
+    "wrong": 0,
+    "unassigned": 5
+   },
+   {
+    "beat": 7,
+    "hasTerritory": false,
+    "verified": "NEEDS_REVIEW",
+    "correct": 0,
+    "wrong": 0,
+    "unassigned": 5
+   },
+   {
+    "beat": 8,
+    "hasTerritory": true,
+    "verified": "VERIFIED",
+    "correct": 0,
+    "wrong": 0,
+    "unassigned": 5
+   },
+   {
+    "beat": 9,
+    "hasTerritory": true,
+    "verified": "VERIFIED",
+    "correct": 0,
+    "wrong": 0,
+    "unassigned": 5
+   },
+   {
+    "beat": 10,
+    "hasTerritory": true,
+    "verified": "VERIFIED",
+    "correct": 0,
+    "wrong": 0,
+    "unassigned": 5
+   },
+   {
+    "beat": 11,
+    "hasTerritory": true,
+    "verified": "VERIFIED",
+    "correct": 0,
+    "wrong": 0,
+    "unassigned": 5
+   },
+   {
+    "beat": 12,
+    "hasTerritory": true,
+    "verified": "VERIFIED",
+    "correct": 0,
+    "wrong": 0,
+    "unassigned": 5
+   },
+   {
+    "beat": 13,
+    "hasTerritory": true,
+    "verified": "VERIFIED",
+    "correct": 0,
+    "wrong": 0,
+    "unassigned": 5
+   },
+   {
+    "beat": 14,
+    "hasTerritory": true,
+    "verified": "VERIFIED",
+    "correct": 0,
+    "wrong": 5,
+    "unassigned": 0
+   },
+   {
+    "beat": 15,
+    "hasTerritory": true,
+    "verified": "VERIFIED",
+    "correct": 0,
+    "wrong": 0,
+    "unassigned": 5
+   },
+   {
+    "beat": 16,
+    "hasTerritory": true,
+    "verified": "VERIFIED",
+    "correct": 0,
+    "wrong": 0,
+    "unassigned": 5
+   },
+   {
+    "beat": 17,
+    "hasTerritory": true,
+    "verified": "VERIFIED",
+    "correct": 0,
+    "wrong": 0,
+    "unassigned": 5
+   },
+   {
+    "beat": 18,
+    "hasTerritory": true,
+    "verified": "VERIFIED",
+    "correct": 0,
+    "wrong": 0,
+    "unassigned": 5
+   },
+   {
+    "beat": 19,
+    "hasTerritory": true,
+    "verified": "VERIFIED",
+    "correct": 0,
+    "wrong": 0,
+    "unassigned": 5
+   },
+   {
+    "beat": 20,
+    "hasTerritory": true,
+    "verified": "VERIFIED",
+    "correct": 0,
+    "wrong": 0,
+    "unassigned": 5
+   },
+   {
+    "beat": 21,
+    "hasTerritory": true,
+    "verified": "VERIFIED",
+    "correct": 0,
+    "wrong": 0,
+    "unassigned": 5
+   },
+   {
+    "beat": 22,
+    "hasTerritory": false,
+    "verified": "NEEDS_REVIEW",
+    "correct": 0,
+    "wrong": 0,
+    "unassigned": 5
+   },
+   {
+    "beat": 23,
+    "hasTerritory": true,
+    "verified": "VERIFIED",
+    "correct": 0,
+    "wrong": 0,
+    "unassigned": 5
+   },
+   {
+    "beat": 24,
+    "hasTerritory": true,
+    "verified": "VERIFIED",
+    "correct": 0,
+    "wrong": 0,
+    "unassigned": 5
+   },
+   {
+    "beat": 25,
+    "hasTerritory": true,
+    "verified": "VERIFIED",
+    "correct": 0,
+    "wrong": 0,
+    "unassigned": 5
+   },
+   {
+    "beat": 26,
+    "hasTerritory": false,
+    "verified": "NEEDS_REVIEW",
+    "correct": 0,
+    "wrong": 0,
+    "unassigned": 5
+   }
+  ],
+  "byTier": {
+   "nominatim-area": {
+    "correct": 0,
+    "wrong": 5,
+    "unassigned": 74
+   },
+   "nominatim-pincode": {
+    "correct": 0,
+    "wrong": 0,
+    "unassigned": 51
+   }
+  },
+  "wrongPairs": [
+   {
+    "n": 66,
+    "truth": 14,
+    "got": 11
+   },
+   {
+    "n": 67,
+    "truth": 14,
+    "got": 11
+   },
+   {
+    "n": 68,
+    "truth": 14,
+    "got": 11
+   },
+   {
+    "n": 69,
+    "truth": 14,
+    "got": 11
+   },
+   {
+    "n": 70,
+    "truth": 14,
+    "got": 11
+   }
+  ],
+  "unassignedReasons": {
+   "NO_BEAT_MATCH": 80,
+   "MULTIPLE_BEAT_MATCH": 45
+  },
+  "assignment": {
+   "production": {
+    "correct": 0,
+    "wrong": 5,
+    "unassigned": 125
+   },
+   "nearestTerritoryCentre": {
+    "correct": 30,
+    "wrong": 100,
+    "unassigned": 0
+   },
+   "localityNameLookup": {
+    "correct": 94,
+    "wrong": 0,
+    "ambiguous": 36,
+    "unknown": 0
+   },
+   "sharedLocalities": [
+    {
+     "locality": "MANGATRAM PETROL PUMP TO GANDHI NAGAR",
+     "beats": [
+      1,
+      23
+     ]
+    },
+    {
+     "locality": "VILLAGE ROAD",
+     "beats": [
+      2,
+      5
+     ]
+    },
+    {
+     "locality": "SUBHASH NAGAR",
+     "beats": [
+      4,
+      24
+     ]
+    },
+    {
+     "locality": "BHANDUP POLICE CHOWKI TO SONAPUR LINK ROAD",
+     "beats": [
+      6,
+      25
+     ]
+    },
+    {
+     "locality": "L.B.S. ROAD, BHANDUP WEST",
+     "beats": [
+      7,
+      24
+     ]
+    },
+    {
+     "locality": "TULSHIPADA",
+     "beats": [
+      8,
+      25
+     ]
+    },
+    {
+     "locality": "TEMBHIPADA",
+     "beats": [
+      10,
+      11
+     ]
+    },
+    {
+     "locality": "SAI HILL",
+     "beats": [
+      15,
+      16
+     ]
+    },
+    {
+     "locality": "FARID NAGAR",
+     "beats": [
+      20,
+      21
+     ]
+    }
+   ],
+   "beatsWithTerritory": 20,
+   "beatsTotal": 26,
+   "overlappingTerritoryPairs": 68
+  }
+ },
+ "routes": {
+  "beatsWithPlacement": 20,
+  "perBeat": [
+   {
+    "beat": 1,
+    "stops": 5,
+    "exact": true,
+    "reference": 886.447,
+    "exactMs": 0.1875999999999749,
+    "longRunReference": null,
+    "algorithms": [
+     {
+      "name": "Input order",
+      "cost": 1985.3609999999999,
+      "gapPercent": 123.968,
+      "optimal": false,
+      "distanceKm": 19.765,
+      "travelMin": 27.22,
+      "runtimeMs": 0
+     },
+     {
+      "name": "Random order (mean of 30)",
+      "cost": 1595.7786666666664,
+      "gapPercent": 80.02,
+      "optimal": false,
+      "distanceKm": null,
+      "travelMin": null,
+      "runtimeMs": 0.01
+     },
+     {
+      "name": "Nearest Neighbour",
+      "cost": 889.5970000000001,
+      "gapPercent": 0.355,
+      "optimal": false,
+      "distanceKm": 7.766,
+      "travelMin": 12.53,
+      "runtimeMs": 0.15
+     },
+     {
+      "name": "NN + 2-opt",
+      "cost": 886.4470000000001,
+      "gapPercent": 0,
+      "optimal": true,
+      "distanceKm": 7.82,
+      "travelMin": 12.42,
+      "runtimeMs": 0.3
+     },
+     {
+      "name": "DBSCAN + NN",
+      "cost": 889.5970000000001,
+      "gapPercent": 0.355,
+      "optimal": false,
+      "distanceKm": 7.766,
+      "travelMin": 12.53,
+      "runtimeMs": null
+     },
+     {
+      "name": "DBSCAN + NN + 2-opt",
+      "cost": 886.4470000000001,
+      "gapPercent": 0,
+      "optimal": true,
+      "distanceKm": 7.82,
+      "travelMin": 12.42,
+      "runtimeMs": 1
+     },
+     {
+      "name": "DBSCAN + NN + 2-opt + ALNS (production)",
+      "cost": 886.4470000000001,
+      "gapPercent": 0,
+      "optimal": true,
+      "distanceKm": 7.82,
+      "travelMin": 12.42,
+      "runtimeMs": 9.76
+     }
+    ],
+    "alnsStoppedBy": "NO_IMPROVEMENT",
+    "roadMatrix": "ROAD"
+   },
+   {
+    "beat": 4,
+    "stops": 5,
+    "exact": true,
+    "reference": 502.27599999999995,
+    "exactMs": 0.06790000000000873,
+    "longRunReference": null,
+    "algorithms": [
+     {
+      "name": "Input order",
+      "cost": 724.911,
+      "gapPercent": 44.325,
+      "optimal": false,
+      "distanceKm": 5.933,
+      "travelMin": 9.88,
+      "runtimeMs": 0
+     },
+     {
+      "name": "Random order (mean of 30)",
+      "cost": 679.9411999999999,
+      "gapPercent": 35.372,
+      "optimal": false,
+      "distanceKm": null,
+      "travelMin": null,
+      "runtimeMs": 0
+     },
+     {
+      "name": "Nearest Neighbour",
+      "cost": 517.949,
+      "gapPercent": 3.12,
+      "optimal": false,
+      "distanceKm": 3.611,
+      "travelMin": 6.93,
+      "runtimeMs": 0.02
+     },
+     {
+      "name": "NN + 2-opt",
+      "cost": 517.949,
+      "gapPercent": 3.12,
+      "optimal": false,
+      "distanceKm": 3.611,
+      "travelMin": 6.93,
+      "runtimeMs": 0.06
+     },
+     {
+      "name": "DBSCAN + NN",
+      "cost": 517.949,
+      "gapPercent": 3.12,
+      "optimal": false,
+      "distanceKm": 3.611,
+      "travelMin": 6.93,
+      "runtimeMs": null
+     },
+     {
+      "name": "DBSCAN + NN + 2-opt",
+      "cost": 517.949,
+      "gapPercent": 3.12,
+      "optimal": false,
+      "distanceKm": 3.611,
+      "travelMin": 6.93,
+      "runtimeMs": 0
+     },
+     {
+      "name": "DBSCAN + NN + 2-opt + ALNS (production)",
+      "cost": 502.27599999999995,
+      "gapPercent": 0,
+      "optimal": true,
+      "distanceKm": 3.3,
+      "travelMin": 6.65,
+      "runtimeMs": 7.31
+     }
+    ],
+    "alnsStoppedBy": "NO_IMPROVEMENT",
+    "roadMatrix": "ROAD"
+   },
+   {
+    "beat": 6,
+    "stops": 5,
+    "exact": true,
+    "reference": 618.7039999999998,
+    "exactMs": 0.01439999999979591,
+    "longRunReference": null,
+    "algorithms": [
+     {
+      "name": "Input order",
+      "cost": 1125.176,
+      "gapPercent": 81.86,
+      "optimal": false,
+      "distanceKm": 9.66,
+      "travelMin": 15.58,
+      "runtimeMs": 0
+     },
+     {
+      "name": "Random order (mean of 30)",
+      "cost": 1054.6608999999999,
+      "gapPercent": 70.463,
+      "optimal": false,
+      "distanceKm": null,
+      "travelMin": null,
+      "runtimeMs": 0
+     },
+     {
+      "name": "Nearest Neighbour",
+      "cost": 626.773,
+      "gapPercent": 1.304,
+      "optimal": false,
+      "distanceKm": 4.388,
+      "travelMin": 8.87,
+      "runtimeMs": 0.01
+     },
+     {
+      "name": "NN + 2-opt",
+      "cost": 618.704,
+      "gapPercent": 0,
+      "optimal": true,
+      "distanceKm": 4.389,
+      "travelMin": 8.76,
+      "runtimeMs": 0.03
+     },
+     {
+      "name": "DBSCAN + NN",
+      "cost": 626.773,
+      "gapPercent": 1.304,
+      "optimal": false,
+      "distanceKm": 4.388,
+      "travelMin": 8.87,
+      "runtimeMs": null
+     },
+     {
+      "name": "DBSCAN + NN + 2-opt",
+      "cost": 618.704,
+      "gapPercent": 0,
+      "optimal": true,
+      "distanceKm": 4.389,
+      "travelMin": 8.76,
+      "runtimeMs": 0
+     },
+     {
+      "name": "DBSCAN + NN + 2-opt + ALNS (production)",
+      "cost": 618.704,
+      "gapPercent": 0,
+      "optimal": true,
+      "distanceKm": 4.389,
+      "travelMin": 8.76,
+      "runtimeMs": 4.64
+     }
+    ],
+    "alnsStoppedBy": "NO_IMPROVEMENT",
+    "roadMatrix": "ROAD"
+   },
+   {
+    "beat": 8,
+    "stops": 5,
+    "exact": true,
+    "reference": 770.8989999999999,
+    "exactMs": 0.015100000000074942,
+    "longRunReference": null,
+    "algorithms": [
+     {
+      "name": "Input order",
+      "cost": 881.863,
+      "gapPercent": 14.394,
+      "optimal": false,
+      "distanceKm": 5.137,
+      "travelMin": 11.54,
+      "runtimeMs": 0
+     },
+     {
+      "name": "Random order (mean of 30)",
+      "cost": 878.5339333333334,
+      "gapPercent": 13.962,
+      "optimal": false,
+      "distanceKm": null,
+      "travelMin": null,
+      "runtimeMs": 0
+     },
+     {
+      "name": "Nearest Neighbour",
+      "cost": 812.137,
+      "gapPercent": 5.349,
+      "optimal": false,
+      "distanceKm": 5.748,
+      "travelMin": 11.34,
+      "runtimeMs": 0.01
+     },
+     {
+      "name": "NN + 2-opt",
+      "cost": 770.899,
+      "gapPercent": 0,
+      "optimal": true,
+      "distanceKm": 4.493,
+      "travelMin": 10.28,
+      "runtimeMs": 0.03
+     },
+     {
+      "name": "DBSCAN + NN",
+      "cost": 812.137,
+      "gapPercent": 5.349,
+      "optimal": false,
+      "distanceKm": 5.748,
+      "travelMin": 11.34,
+      "runtimeMs": null
+     },
+     {
+      "name": "DBSCAN + NN + 2-opt",
+      "cost": 770.899,
+      "gapPercent": 0,
+      "optimal": true,
+      "distanceKm": 4.493,
+      "travelMin": 10.28,
+      "runtimeMs": 0
+     },
+     {
+      "name": "DBSCAN + NN + 2-opt + ALNS (production)",
+      "cost": 770.899,
+      "gapPercent": 0,
+      "optimal": true,
+      "distanceKm": 4.493,
+      "travelMin": 10.28,
+      "runtimeMs": 4.6
+     }
+    ],
+    "alnsStoppedBy": "NO_IMPROVEMENT",
+    "roadMatrix": "ROAD"
+   },
+   {
+    "beat": 9,
+    "stops": 5,
+    "exact": true,
+    "reference": 1305.0300000000002,
+    "exactMs": 0.016200000000026193,
+    "longRunReference": null,
+    "algorithms": [
+     {
+      "name": "Input order",
+      "cost": 1982.1090000000002,
+      "gapPercent": 51.882,
+      "optimal": false,
+      "distanceKm": 9.39,
+      "travelMin": 27.23,
+      "runtimeMs": 0
+     },
+     {
+      "name": "Random order (mean of 30)",
+      "cost": 2096.655766666667,
+      "gapPercent": 60.66,
+      "optimal": false,
+      "distanceKm": null,
+      "travelMin": null,
+      "runtimeMs": 0
+     },
+     {
+      "name": "Nearest Neighbour",
+      "cost": 1305.03,
+      "gapPercent": 0,
+      "optimal": true,
+      "distanceKm": 7.017,
+      "travelMin": 18.49,
+      "runtimeMs": 0.01
+     },
+     {
+      "name": "NN + 2-opt",
+      "cost": 1305.03,
+      "gapPercent": 0,
+      "optimal": true,
+      "distanceKm": 7.017,
+      "travelMin": 18.49,
+      "runtimeMs": 0.02
+     },
+     {
+      "name": "DBSCAN + NN",
+      "cost": 1305.03,
+      "gapPercent": 0,
+      "optimal": true,
+      "distanceKm": 7.017,
+      "travelMin": 18.49,
+      "runtimeMs": null
+     },
+     {
+      "name": "DBSCAN + NN + 2-opt",
+      "cost": 1305.03,
+      "gapPercent": 0,
+      "optimal": true,
+      "distanceKm": 7.017,
+      "travelMin": 18.49,
+      "runtimeMs": 0
+     },
+     {
+      "name": "DBSCAN + NN + 2-opt + ALNS (production)",
+      "cost": 1305.03,
+      "gapPercent": 0,
+      "optimal": true,
+      "distanceKm": 7.017,
+      "travelMin": 18.49,
+      "runtimeMs": 4.31
+     }
+    ],
+    "alnsStoppedBy": "NO_IMPROVEMENT",
+    "roadMatrix": "ROAD"
+   },
+   {
+    "beat": 10,
+    "stops": 5,
+    "exact": true,
+    "reference": 1050.8020000000001,
+    "exactMs": 0.012999999999919964,
+    "longRunReference": null,
+    "algorithms": [
+     {
+      "name": "Input order",
+      "cost": 2108.374,
+      "gapPercent": 100.644,
+      "optimal": false,
+      "distanceKm": 10.506,
+      "travelMin": 28.98,
+      "runtimeMs": 0
+     },
+     {
+      "name": "Random order (mean of 30)",
+      "cost": 1807.2336999999995,
+      "gapPercent": 71.986,
+      "optimal": false,
+      "distanceKm": null,
+      "travelMin": null,
+      "runtimeMs": 0
+     },
+     {
+      "name": "Nearest Neighbour",
+      "cost": 1050.802,
+      "gapPercent": 0,
+      "optimal": true,
+      "distanceKm": 5.845,
+      "travelMin": 15.04,
+      "runtimeMs": 0.01
+     },
+     {
+      "name": "NN + 2-opt",
+      "cost": 1050.802,
+      "gapPercent": 0,
+      "optimal": true,
+      "distanceKm": 5.845,
+      "travelMin": 15.04,
+      "runtimeMs": 0.02
+     },
+     {
+      "name": "DBSCAN + NN",
+      "cost": 1050.802,
+      "gapPercent": 0,
+      "optimal": true,
+      "distanceKm": 5.845,
+      "travelMin": 15.04,
+      "runtimeMs": null
+     },
+     {
+      "name": "DBSCAN + NN + 2-opt",
+      "cost": 1050.802,
+      "gapPercent": 0,
+      "optimal": true,
+      "distanceKm": 5.845,
+      "travelMin": 15.04,
+      "runtimeMs": 0
+     },
+     {
+      "name": "DBSCAN + NN + 2-opt + ALNS (production)",
+      "cost": 1050.802,
+      "gapPercent": 0,
+      "optimal": true,
+      "distanceKm": 5.845,
+      "travelMin": 15.04,
+      "runtimeMs": 3.6
+     }
+    ],
+    "alnsStoppedBy": "NO_IMPROVEMENT",
+    "roadMatrix": "ROAD"
+   },
+   {
+    "beat": 11,
+    "stops": 5,
+    "exact": true,
+    "reference": 1916.584,
+    "exactMs": 0.01470000000017535,
+    "longRunReference": null,
+    "algorithms": [
+     {
+      "name": "Input order",
+      "cost": 3516.299,
+      "gapPercent": 83.467,
+      "optimal": false,
+      "distanceKm": 22.253,
+      "travelMin": 47.91,
+      "runtimeMs": 0
+     },
+     {
+      "name": "Random order (mean of 30)",
+      "cost": 2979.643199999999,
+      "gapPercent": 55.466,
+      "optimal": false,
+      "distanceKm": null,
+      "travelMin": null,
+      "runtimeMs": 0
+     },
+     {
+      "name": "Nearest Neighbour",
+      "cost": 1916.5839999999998,
+      "gapPercent": 0,
+      "optimal": true,
+      "distanceKm": 13.923,
+      "travelMin": 26.48,
+      "runtimeMs": 0.02
+     },
+     {
+      "name": "NN + 2-opt",
+      "cost": 1916.5839999999998,
+      "gapPercent": 0,
+      "optimal": true,
+      "distanceKm": 13.923,
+      "travelMin": 26.48,
+      "runtimeMs": 0.02
+     },
+     {
+      "name": "DBSCAN + NN",
+      "cost": 1916.5839999999998,
+      "gapPercent": 0,
+      "optimal": true,
+      "distanceKm": 13.923,
+      "travelMin": 26.48,
+      "runtimeMs": null
+     },
+     {
+      "name": "DBSCAN + NN + 2-opt",
+      "cost": 1916.5839999999998,
+      "gapPercent": 0,
+      "optimal": true,
+      "distanceKm": 13.923,
+      "travelMin": 26.48,
+      "runtimeMs": 0
+     },
+     {
+      "name": "DBSCAN + NN + 2-opt + ALNS (production)",
+      "cost": 1916.5839999999998,
+      "gapPercent": 0,
+      "optimal": true,
+      "distanceKm": 13.923,
+      "travelMin": 26.48,
+      "runtimeMs": 4.27
+     }
+    ],
+    "alnsStoppedBy": "NO_IMPROVEMENT",
+    "roadMatrix": "ROAD"
+   },
+   {
+    "beat": 12,
+    "stops": 5,
+    "exact": true,
+    "reference": 433.79400000000004,
+    "exactMs": 0.014799999999922875,
+    "longRunReference": null,
+    "algorithms": [
+     {
+      "name": "Input order",
+      "cost": 848.003,
+      "gapPercent": 95.485,
+      "optimal": false,
+      "distanceKm": 7.645,
+      "travelMin": 11.72,
+      "runtimeMs": 0
+     },
+     {
+      "name": "Random order (mean of 30)",
+      "cost": 665.0000666666667,
+      "gapPercent": 53.299,
+      "optimal": false,
+      "distanceKm": null,
+      "travelMin": null,
+      "runtimeMs": 0
+     },
+     {
+      "name": "Nearest Neighbour",
+      "cost": 433.794,
+      "gapPercent": 0,
+      "optimal": true,
+      "distanceKm": 3.625,
+      "travelMin": 6.05,
+      "runtimeMs": 0.02
+     },
+     {
+      "name": "NN + 2-opt",
+      "cost": 433.794,
+      "gapPercent": 0,
+      "optimal": true,
+      "distanceKm": 3.625,
+      "travelMin": 6.05,
+      "runtimeMs": 0.02
+     },
+     {
+      "name": "DBSCAN + NN",
+      "cost": 433.794,
+      "gapPercent": 0,
+      "optimal": true,
+      "distanceKm": 3.625,
+      "travelMin": 6.05,
+      "runtimeMs": null
+     },
+     {
+      "name": "DBSCAN + NN + 2-opt",
+      "cost": 433.794,
+      "gapPercent": 0,
+      "optimal": true,
+      "distanceKm": 3.625,
+      "travelMin": 6.05,
+      "runtimeMs": 0
+     },
+     {
+      "name": "DBSCAN + NN + 2-opt + ALNS (production)",
+      "cost": 433.794,
+      "gapPercent": 0,
+      "optimal": true,
+      "distanceKm": 3.625,
+      "travelMin": 6.05,
+      "runtimeMs": 3.44
+     }
+    ],
+    "alnsStoppedBy": "NO_IMPROVEMENT",
+    "roadMatrix": "ROAD"
+   },
+   {
+    "beat": 13,
+    "stops": 5,
+    "exact": true,
+    "reference": 467.964,
+    "exactMs": 0.016200000000026193,
+    "longRunReference": null,
+    "algorithms": [
+     {
+      "name": "Input order",
+      "cost": 841.828,
+      "gapPercent": 79.892,
+      "optimal": false,
+      "distanceKm": 6.143,
+      "travelMin": 11.32,
+      "runtimeMs": 0
+     },
+     {
+      "name": "Random order (mean of 30)",
+      "cost": 682.6987666666666,
+      "gapPercent": 45.887,
+      "optimal": false,
+      "distanceKm": null,
+      "travelMin": null,
+      "runtimeMs": 0
+     },
+     {
+      "name": "Nearest Neighbour",
+      "cost": 559.143,
+      "gapPercent": 19.484,
+      "optimal": false,
+      "distanceKm": 4.171,
+      "travelMin": 8,
+      "runtimeMs": 0.02
+     },
+     {
+      "name": "NN + 2-opt",
+      "cost": 557.958,
+      "gapPercent": 19.231,
+      "optimal": false,
+      "distanceKm": 4.171,
+      "travelMin": 7.96,
+      "runtimeMs": 0.03
+     },
+     {
+      "name": "DBSCAN + NN",
+      "cost": 559.143,
+      "gapPercent": 19.484,
+      "optimal": false,
+      "distanceKm": 4.171,
+      "travelMin": 8,
+      "runtimeMs": null
+     },
+     {
+      "name": "DBSCAN + NN + 2-opt",
+      "cost": 557.958,
+      "gapPercent": 19.231,
+      "optimal": false,
+      "distanceKm": 4.171,
+      "travelMin": 7.96,
+      "runtimeMs": 1
+     },
+     {
+      "name": "DBSCAN + NN + 2-opt + ALNS (production)",
+      "cost": 467.96399999999994,
+      "gapPercent": 0,
+      "optimal": true,
+      "distanceKm": 2.53,
+      "travelMin": 6.43,
+      "runtimeMs": 4.38
+     }
+    ],
+    "alnsStoppedBy": "NO_IMPROVEMENT",
+    "roadMatrix": "ROAD"
+   },
+   {
+    "beat": 14,
+    "stops": 5,
+    "exact": true,
+    "reference": 1022.2469999999998,
+    "exactMs": 0.01650000000017826,
+    "longRunReference": null,
+    "algorithms": [
+     {
+      "name": "Input order",
+      "cost": 2105.9790000000003,
+      "gapPercent": 106.015,
+      "optimal": false,
+      "distanceKm": 18.628,
+      "travelMin": 29.17,
+      "runtimeMs": 0
+     },
+     {
+      "name": "Random order (mean of 30)",
+      "cost": 1587.3802999999998,
+      "gapPercent": 55.283,
+      "optimal": false,
+      "distanceKm": null,
+      "travelMin": null,
+      "runtimeMs": 0
+     },
+     {
+      "name": "Nearest Neighbour",
+      "cost": 1031.29,
+      "gapPercent": 0.885,
+      "optimal": false,
+      "distanceKm": 7.906,
+      "travelMin": 14.3,
+      "runtimeMs": 0.02
+     },
+     {
+      "name": "NN + 2-opt",
+      "cost": 1022.247,
+      "gapPercent": 0,
+      "optimal": true,
+      "distanceKm": 7.618,
+      "travelMin": 13.94,
+      "runtimeMs": 0.03
+     },
+     {
+      "name": "DBSCAN + NN",
+      "cost": 1031.29,
+      "gapPercent": 0.885,
+      "optimal": false,
+      "distanceKm": 7.906,
+      "travelMin": 14.3,
+      "runtimeMs": null
+     },
+     {
+      "name": "DBSCAN + NN + 2-opt",
+      "cost": 1022.247,
+      "gapPercent": 0,
+      "optimal": true,
+      "distanceKm": 7.618,
+      "travelMin": 13.94,
+      "runtimeMs": 0
+     },
+     {
+      "name": "DBSCAN + NN + 2-opt + ALNS (production)",
+      "cost": 1022.247,
+      "gapPercent": 0,
+      "optimal": true,
+      "distanceKm": 7.618,
+      "travelMin": 13.94,
+      "runtimeMs": 3.53
+     }
+    ],
+    "alnsStoppedBy": "NO_IMPROVEMENT",
+    "roadMatrix": "ROAD"
+   },
+   {
+    "beat": 15,
+    "stops": 5,
+    "exact": true,
+    "reference": 1645.516,
+    "exactMs": 0.04769999999962238,
+    "longRunReference": null,
+    "algorithms": [
+     {
+      "name": "Input order",
+      "cost": 2863.9449999999997,
+      "gapPercent": 74.045,
+      "optimal": false,
+      "distanceKm": 14.13,
+      "travelMin": 37.12,
+      "runtimeMs": 0
+     },
+     {
+      "name": "Random order (mean of 30)",
+      "cost": 2758.363433333333,
+      "gapPercent": 67.629,
+      "optimal": false,
+      "distanceKm": null,
+      "travelMin": null,
+      "runtimeMs": 0
+     },
+     {
+      "name": "Nearest Neighbour",
+      "cost": 1645.516,
+      "gapPercent": 0,
+      "optimal": true,
+      "distanceKm": 7.397,
+      "travelMin": 24.24,
+      "runtimeMs": 0.03
+     },
+     {
+      "name": "NN + 2-opt",
+      "cost": 1645.516,
+      "gapPercent": 0,
+      "optimal": true,
+      "distanceKm": 7.397,
+      "travelMin": 24.24,
+      "runtimeMs": 0.04
+     },
+     {
+      "name": "DBSCAN + NN",
+      "cost": 1645.516,
+      "gapPercent": 0,
+      "optimal": true,
+      "distanceKm": 7.397,
+      "travelMin": 24.24,
+      "runtimeMs": null
+     },
+     {
+      "name": "DBSCAN + NN + 2-opt",
+      "cost": 1645.516,
+      "gapPercent": 0,
+      "optimal": true,
+      "distanceKm": 7.397,
+      "travelMin": 24.24,
+      "runtimeMs": 0
+     },
+     {
+      "name": "DBSCAN + NN + 2-opt + ALNS (production)",
+      "cost": 1645.516,
+      "gapPercent": 0,
+      "optimal": true,
+      "distanceKm": 7.397,
+      "travelMin": 24.24,
+      "runtimeMs": 3.46
+     }
+    ],
+    "alnsStoppedBy": "NO_IMPROVEMENT",
+    "roadMatrix": "ROAD"
+   },
+   {
+    "beat": 16,
+    "stops": 5,
+    "exact": true,
+    "reference": 643.764,
+    "exactMs": 0.011700000000018917,
+    "longRunReference": null,
+    "algorithms": [
+     {
+      "name": "Input order",
+      "cost": 1040.198,
+      "gapPercent": 61.581,
+      "optimal": false,
+      "distanceKm": 5.641,
+      "travelMin": 14.15,
+      "runtimeMs": 0
+     },
+     {
+      "name": "Random order (mean of 30)",
+      "cost": 880.1481,
+      "gapPercent": 36.719,
+      "optimal": false,
+      "distanceKm": null,
+      "travelMin": null,
+      "runtimeMs": 0
+     },
+     {
+      "name": "Nearest Neighbour",
+      "cost": 643.764,
+      "gapPercent": 0,
+      "optimal": true,
+      "distanceKm": 3.725,
+      "travelMin": 8.9,
+      "runtimeMs": 0.01
+     },
+     {
+      "name": "NN + 2-opt",
+      "cost": 643.764,
+      "gapPercent": 0,
+      "optimal": true,
+      "distanceKm": 3.725,
+      "travelMin": 8.9,
+      "runtimeMs": 0.02
+     },
+     {
+      "name": "DBSCAN + NN",
+      "cost": 643.764,
+      "gapPercent": 0,
+      "optimal": true,
+      "distanceKm": 3.725,
+      "travelMin": 8.9,
+      "runtimeMs": null
+     },
+     {
+      "name": "DBSCAN + NN + 2-opt",
+      "cost": 643.764,
+      "gapPercent": 0,
+      "optimal": true,
+      "distanceKm": 3.725,
+      "travelMin": 8.9,
+      "runtimeMs": 0
+     },
+     {
+      "name": "DBSCAN + NN + 2-opt + ALNS (production)",
+      "cost": 643.764,
+      "gapPercent": 0,
+      "optimal": true,
+      "distanceKm": 3.725,
+      "travelMin": 8.9,
+      "runtimeMs": 3.59
+     }
+    ],
+    "alnsStoppedBy": "NO_IMPROVEMENT",
+    "roadMatrix": "ROAD"
+   },
+   {
+    "beat": 17,
+    "stops": 5,
+    "exact": true,
+    "reference": 282.558,
+    "exactMs": 0.01499999999987267,
+    "longRunReference": null,
+    "algorithms": [
+     {
+      "name": "Input order",
+      "cost": 340.186,
+      "gapPercent": 20.395,
+      "optimal": false,
+      "distanceKm": 2.831,
+      "travelMin": 4.49,
+      "runtimeMs": 0
+     },
+     {
+      "name": "Random order (mean of 30)",
+      "cost": 323.48056666666673,
+      "gapPercent": 14.483,
+      "optimal": false,
+      "distanceKm": null,
+      "travelMin": null,
+      "runtimeMs": 0
+     },
+     {
+      "name": "Nearest Neighbour",
+      "cost": 282.558,
+      "gapPercent": 0,
+      "optimal": true,
+      "distanceKm": 2,
+      "travelMin": 3.73,
+      "runtimeMs": 0.01
+     },
+     {
+      "name": "NN + 2-opt",
+      "cost": 282.558,
+      "gapPercent": 0,
+      "optimal": true,
+      "distanceKm": 2,
+      "travelMin": 3.73,
+      "runtimeMs": 0.02
+     },
+     {
+      "name": "DBSCAN + NN",
+      "cost": 282.558,
+      "gapPercent": 0,
+      "optimal": true,
+      "distanceKm": 2,
+      "travelMin": 3.73,
+      "runtimeMs": null
+     },
+     {
+      "name": "DBSCAN + NN + 2-opt",
+      "cost": 282.558,
+      "gapPercent": 0,
+      "optimal": true,
+      "distanceKm": 2,
+      "travelMin": 3.73,
+      "runtimeMs": 0
+     },
+     {
+      "name": "DBSCAN + NN + 2-opt + ALNS (production)",
+      "cost": 282.558,
+      "gapPercent": 0,
+      "optimal": true,
+      "distanceKm": 2,
+      "travelMin": 3.73,
+      "runtimeMs": 3.52
+     }
+    ],
+    "alnsStoppedBy": "NO_IMPROVEMENT",
+    "roadMatrix": "ROAD"
+   },
+   {
+    "beat": 18,
+    "stops": 5,
+    "exact": true,
+    "reference": 639.9950000000001,
+    "exactMs": 0.012300000000323053,
+    "longRunReference": null,
+    "algorithms": [
+     {
+      "name": "Input order",
+      "cost": 1418.499,
+      "gapPercent": 121.642,
+      "optimal": false,
+      "distanceKm": 10.095,
+      "travelMin": 19.37,
+      "runtimeMs": 0
+     },
+     {
+      "name": "Random order (mean of 30)",
+      "cost": 1119.7368000000001,
+      "gapPercent": 74.96,
+      "optimal": false,
+      "distanceKm": null,
+      "travelMin": null,
+      "runtimeMs": 0
+     },
+     {
+      "name": "Nearest Neighbour",
+      "cost": 699.6310000000001,
+      "gapPercent": 9.318,
+      "optimal": false,
+      "distanceKm": 4.69,
+      "travelMin": 9.72,
+      "runtimeMs": 0.02
+     },
+     {
+      "name": "NN + 2-opt",
+      "cost": 639.995,
+      "gapPercent": 0,
+      "optimal": true,
+      "distanceKm": 3.97,
+      "travelMin": 8.92,
+      "runtimeMs": 0.03
+     },
+     {
+      "name": "DBSCAN + NN",
+      "cost": 699.6310000000001,
+      "gapPercent": 9.318,
+      "optimal": false,
+      "distanceKm": 4.69,
+      "travelMin": 9.72,
+      "runtimeMs": null
+     },
+     {
+      "name": "DBSCAN + NN + 2-opt",
+      "cost": 639.995,
+      "gapPercent": 0,
+      "optimal": true,
+      "distanceKm": 3.97,
+      "travelMin": 8.92,
+      "runtimeMs": 0
+     },
+     {
+      "name": "DBSCAN + NN + 2-opt + ALNS (production)",
+      "cost": 639.995,
+      "gapPercent": 0,
+      "optimal": true,
+      "distanceKm": 3.97,
+      "travelMin": 8.92,
+      "runtimeMs": 3.13
+     }
+    ],
+    "alnsStoppedBy": "NO_IMPROVEMENT",
+    "roadMatrix": "ROAD"
+   },
+   {
+    "beat": 19,
+    "stops": 5,
+    "exact": true,
+    "reference": 1380.9640000000002,
+    "exactMs": 0.01139999999986685,
+    "longRunReference": null,
+    "algorithms": [
+     {
+      "name": "Input order",
+      "cost": 2774.4849999999997,
+      "gapPercent": 100.909,
+      "optimal": false,
+      "distanceKm": 21.354,
+      "travelMin": 38.79,
+      "runtimeMs": 0
+     },
+     {
+      "name": "Random order (mean of 30)",
+      "cost": 2329.3859333333335,
+      "gapPercent": 68.678,
+      "optimal": false,
+      "distanceKm": null,
+      "travelMin": null,
+      "runtimeMs": 0
+     },
+     {
+      "name": "Nearest Neighbour",
+      "cost": 1385.971,
+      "gapPercent": 0.363,
+      "optimal": false,
+      "distanceKm": 9.352,
+      "travelMin": 19.51,
+      "runtimeMs": 0.01
+     },
+     {
+      "name": "NN + 2-opt",
+      "cost": 1380.964,
+      "gapPercent": 0,
+      "optimal": true,
+      "distanceKm": 9.352,
+      "travelMin": 19.44,
+      "runtimeMs": 0.02
+     },
+     {
+      "name": "DBSCAN + NN",
+      "cost": 1385.971,
+      "gapPercent": 0.363,
+      "optimal": false,
+      "distanceKm": 9.352,
+      "travelMin": 19.51,
+      "runtimeMs": null
+     },
+     {
+      "name": "DBSCAN + NN + 2-opt",
+      "cost": 1380.964,
+      "gapPercent": 0,
+      "optimal": true,
+      "distanceKm": 9.352,
+      "travelMin": 19.44,
+      "runtimeMs": 0
+     },
+     {
+      "name": "DBSCAN + NN + 2-opt + ALNS (production)",
+      "cost": 1380.964,
+      "gapPercent": 0,
+      "optimal": true,
+      "distanceKm": 9.352,
+      "travelMin": 19.44,
+      "runtimeMs": 3.18
+     }
+    ],
+    "alnsStoppedBy": "NO_IMPROVEMENT",
+    "roadMatrix": "ROAD"
+   },
+   {
+    "beat": 20,
+    "stops": 5,
+    "exact": true,
+    "reference": 892.0840000000001,
+    "exactMs": 0.013100000000122236,
+    "longRunReference": null,
+    "algorithms": [
+     {
+      "name": "Input order",
+      "cost": 1519.908,
+      "gapPercent": 70.377,
+      "optimal": false,
+      "distanceKm": 7.577,
+      "travelMin": 20.57,
+      "runtimeMs": 0
+     },
+     {
+      "name": "Random order (mean of 30)",
+      "cost": 1254.6951666666666,
+      "gapPercent": 40.648,
+      "optimal": false,
+      "distanceKm": null,
+      "travelMin": null,
+      "runtimeMs": 0
+     },
+     {
+      "name": "Nearest Neighbour",
+      "cost": 981.3589999999999,
+      "gapPercent": 10.007,
+      "optimal": false,
+      "distanceKm": 5.215,
+      "travelMin": 14.09,
+      "runtimeMs": 0.01
+     },
+     {
+      "name": "NN + 2-opt",
+      "cost": 892.0840000000001,
+      "gapPercent": 0,
+      "optimal": true,
+      "distanceKm": 4.923,
+      "travelMin": 12.74,
+      "runtimeMs": 0.02
+     },
+     {
+      "name": "DBSCAN + NN",
+      "cost": 981.3589999999999,
+      "gapPercent": 10.007,
+      "optimal": false,
+      "distanceKm": 5.215,
+      "travelMin": 14.09,
+      "runtimeMs": null
+     },
+     {
+      "name": "DBSCAN + NN + 2-opt",
+      "cost": 892.0840000000001,
+      "gapPercent": 0,
+      "optimal": true,
+      "distanceKm": 4.923,
+      "travelMin": 12.74,
+      "runtimeMs": 0
+     },
+     {
+      "name": "DBSCAN + NN + 2-opt + ALNS (production)",
+      "cost": 892.0840000000001,
+      "gapPercent": 0,
+      "optimal": true,
+      "distanceKm": 4.923,
+      "travelMin": 12.74,
+      "runtimeMs": 3.61
+     }
+    ],
+    "alnsStoppedBy": "NO_IMPROVEMENT",
+    "roadMatrix": "ROAD"
+   },
+   {
+    "beat": 21,
+    "stops": 5,
+    "exact": true,
+    "reference": 1857.916,
+    "exactMs": 0.010000000000218279,
+    "longRunReference": null,
+    "algorithms": [
+     {
+      "name": "Input order",
+      "cost": 3861.7019999999998,
+      "gapPercent": 107.851,
+      "optimal": false,
+      "distanceKm": 24.559,
+      "travelMin": 53.6,
+      "runtimeMs": 0
+     },
+     {
+      "name": "Random order (mean of 30)",
+      "cost": 2974.209266666666,
+      "gapPercent": 60.083,
+      "optimal": false,
+      "distanceKm": null,
+      "travelMin": null,
+      "runtimeMs": 0
+     },
+     {
+      "name": "Nearest Neighbour",
+      "cost": 1857.9159999999997,
+      "gapPercent": 0,
+      "optimal": true,
+      "distanceKm": 10.955,
+      "travelMin": 25.68,
+      "runtimeMs": 0.01
+     },
+     {
+      "name": "NN + 2-opt",
+      "cost": 1857.9159999999997,
+      "gapPercent": 0,
+      "optimal": true,
+      "distanceKm": 10.955,
+      "travelMin": 25.68,
+      "runtimeMs": 0.02
+     },
+     {
+      "name": "DBSCAN + NN",
+      "cost": 1857.9159999999997,
+      "gapPercent": 0,
+      "optimal": true,
+      "distanceKm": 10.955,
+      "travelMin": 25.68,
+      "runtimeMs": null
+     },
+     {
+      "name": "DBSCAN + NN + 2-opt",
+      "cost": 1857.9159999999997,
+      "gapPercent": 0,
+      "optimal": true,
+      "distanceKm": 10.955,
+      "travelMin": 25.68,
+      "runtimeMs": 0
+     },
+     {
+      "name": "DBSCAN + NN + 2-opt + ALNS (production)",
+      "cost": 1857.9159999999997,
+      "gapPercent": 0,
+      "optimal": true,
+      "distanceKm": 10.955,
+      "travelMin": 25.68,
+      "runtimeMs": 3.42
+     }
+    ],
+    "alnsStoppedBy": "NO_IMPROVEMENT",
+    "roadMatrix": "ROAD"
+   },
+   {
+    "beat": 23,
+    "stops": 5,
+    "exact": true,
+    "reference": 670.442,
+    "exactMs": 0.013699999999516876,
+    "longRunReference": null,
+    "algorithms": [
+     {
+      "name": "Input order",
+      "cost": 1067.597,
+      "gapPercent": 59.238,
+      "optimal": false,
+      "distanceKm": 8.732,
+      "travelMin": 14.8,
+      "runtimeMs": 0
+     },
+     {
+      "name": "Random order (mean of 30)",
+      "cost": 924.3557333333333,
+      "gapPercent": 37.873,
+      "optimal": false,
+      "distanceKm": null,
+      "travelMin": null,
+      "runtimeMs": 0
+     },
+     {
+      "name": "Nearest Neighbour",
+      "cost": 670.4419999999999,
+      "gapPercent": 0,
+      "optimal": true,
+      "distanceKm": 4.572,
+      "travelMin": 9.43,
+      "runtimeMs": 0.01
+     },
+     {
+      "name": "NN + 2-opt",
+      "cost": 670.4419999999999,
+      "gapPercent": 0,
+      "optimal": true,
+      "distanceKm": 4.572,
+      "travelMin": 9.43,
+      "runtimeMs": 0.02
+     },
+     {
+      "name": "DBSCAN + NN",
+      "cost": 670.4419999999999,
+      "gapPercent": 0,
+      "optimal": true,
+      "distanceKm": 4.572,
+      "travelMin": 9.43,
+      "runtimeMs": null
+     },
+     {
+      "name": "DBSCAN + NN + 2-opt",
+      "cost": 670.4419999999999,
+      "gapPercent": 0,
+      "optimal": true,
+      "distanceKm": 4.572,
+      "travelMin": 9.43,
+      "runtimeMs": 0
+     },
+     {
+      "name": "DBSCAN + NN + 2-opt + ALNS (production)",
+      "cost": 670.4419999999999,
+      "gapPercent": 0,
+      "optimal": true,
+      "distanceKm": 4.572,
+      "travelMin": 9.43,
+      "runtimeMs": 3.91
+     }
+    ],
+    "alnsStoppedBy": "NO_IMPROVEMENT",
+    "roadMatrix": "ROAD"
+   },
+   {
+    "beat": 24,
+    "stops": 5,
+    "exact": true,
+    "reference": 805.8670000000001,
+    "exactMs": 0.01419999999961874,
+    "longRunReference": null,
+    "algorithms": [
+     {
+      "name": "Input order",
+      "cost": 1108.131,
+      "gapPercent": 37.508,
+      "optimal": false,
+      "distanceKm": 9.054,
+      "travelMin": 15,
+      "runtimeMs": 0
+     },
+     {
+      "name": "Random order (mean of 30)",
+      "cost": 1021.6364999999998,
+      "gapPercent": 26.775,
+      "optimal": false,
+      "distanceKm": null,
+      "travelMin": null,
+      "runtimeMs": 0
+     },
+     {
+      "name": "Nearest Neighbour",
+      "cost": 882.667,
+      "gapPercent": 9.53,
+      "optimal": false,
+      "distanceKm": 7.051,
+      "travelMin": 11.96,
+      "runtimeMs": 0.01
+     },
+     {
+      "name": "NN + 2-opt",
+      "cost": 813.0389999999999,
+      "gapPercent": 0.89,
+      "optimal": false,
+      "distanceKm": 6.55,
+      "travelMin": 11.13,
+      "runtimeMs": 0.02
+     },
+     {
+      "name": "DBSCAN + NN",
+      "cost": 882.667,
+      "gapPercent": 9.53,
+      "optimal": false,
+      "distanceKm": 7.051,
+      "travelMin": 11.96,
+      "runtimeMs": null
+     },
+     {
+      "name": "DBSCAN + NN + 2-opt",
+      "cost": 805.8670000000001,
+      "gapPercent": 0,
+      "optimal": true,
+      "distanceKm": 5.951,
+      "travelMin": 10.74,
+      "runtimeMs": 0
+     },
+     {
+      "name": "DBSCAN + NN + 2-opt + ALNS (production)",
+      "cost": 805.8670000000001,
+      "gapPercent": 0,
+      "optimal": true,
+      "distanceKm": 5.951,
+      "travelMin": 10.74,
+      "runtimeMs": 3.25
+     }
+    ],
+    "alnsStoppedBy": "NO_IMPROVEMENT",
+    "roadMatrix": "ROAD"
+   },
+   {
+    "beat": 25,
+    "stops": 5,
+    "exact": true,
+    "reference": 600.6360000000001,
+    "exactMs": 0.012300000000323053,
+    "longRunReference": null,
+    "algorithms": [
+     {
+      "name": "Input order",
+      "cost": 1092.797,
+      "gapPercent": 81.94,
+      "optimal": false,
+      "distanceKm": 8.195,
+      "travelMin": 14.87,
+      "runtimeMs": 0
+     },
+     {
+      "name": "Random order (mean of 30)",
+      "cost": 928.1818333333333,
+      "gapPercent": 54.533,
+      "optimal": false,
+      "distanceKm": null,
+      "travelMin": null,
+      "runtimeMs": 0
+     },
+     {
+      "name": "Nearest Neighbour",
+      "cost": 667.1859999999999,
+      "gapPercent": 11.08,
+      "optimal": false,
+      "distanceKm": 4.843,
+      "travelMin": 9.51,
+      "runtimeMs": 0.01
+     },
+     {
+      "name": "NN + 2-opt",
+      "cost": 600.636,
+      "gapPercent": 0,
+      "optimal": true,
+      "distanceKm": 4.172,
+      "travelMin": 8.2,
+      "runtimeMs": 0.02
+     },
+     {
+      "name": "DBSCAN + NN",
+      "cost": 667.1859999999999,
+      "gapPercent": 11.08,
+      "optimal": false,
+      "distanceKm": 4.843,
+      "travelMin": 9.51,
+      "runtimeMs": null
+     },
+     {
+      "name": "DBSCAN + NN + 2-opt",
+      "cost": 600.636,
+      "gapPercent": 0,
+      "optimal": true,
+      "distanceKm": 4.172,
+      "travelMin": 8.2,
+      "runtimeMs": 0
+     },
+     {
+      "name": "DBSCAN + NN + 2-opt + ALNS (production)",
+      "cost": 600.636,
+      "gapPercent": 0,
+      "optimal": true,
+      "distanceKm": 4.172,
+      "travelMin": 8.2,
+      "runtimeMs": 3.02
+     }
+    ],
+    "alnsStoppedBy": "NO_IMPROVEMENT",
+    "roadMatrix": "ROAD"
+   }
+  ],
+  "merged": [
+   {
+    "beats": 2,
+    "stops": 10,
+    "exact": true,
+    "reference": 1277.2694999999999,
+    "exactMs": 5.339399999999841,
+    "longRunReference": null,
+    "algorithms": [
+     {
+      "name": "Input order",
+      "cost": 2854.341,
+      "gapPercent": 123.472,
+      "optimal": false,
+      "distanceKm": 26.645,
+      "travelMin": 38.52,
+      "runtimeMs": 0
+     },
+     {
+      "name": "Random order (mean of 30)",
+      "cost": 2960.9743333333336,
+      "gapPercent": 131.821,
+      "optimal": false,
+      "distanceKm": null,
+      "travelMin": null,
+      "runtimeMs": 0
+     },
+     {
+      "name": "Nearest Neighbour",
+      "cost": 1416.385,
+      "gapPercent": 10.892,
+      "optimal": false,
+      "distanceKm": 11.634,
+      "travelMin": 19.93,
+      "runtimeMs": 0.01
+     },
+     {
+      "name": "NN + 2-opt",
+      "cost": 1277.2695,
+      "gapPercent": 0,
+      "optimal": true,
+      "distanceKm": 10.152,
+      "travelMin": 17.85,
+      "runtimeMs": 0.04
+     },
+     {
+      "name": "DBSCAN + NN",
+      "cost": 1416.385,
+      "gapPercent": 10.892,
+      "optimal": false,
+      "distanceKm": 11.634,
+      "travelMin": 19.93,
+      "runtimeMs": null
+     },
+     {
+      "name": "DBSCAN + NN + 2-opt",
+      "cost": 1277.2695,
+      "gapPercent": 0,
+      "optimal": true,
+      "distanceKm": 10.152,
+      "travelMin": 17.85,
+      "runtimeMs": 0
+     },
+     {
+      "name": "DBSCAN + NN + 2-opt + ALNS (production)",
+      "cost": 1277.2695,
+      "gapPercent": 0,
+      "optimal": true,
+      "distanceKm": 10.152,
+      "travelMin": 17.85,
+      "runtimeMs": 6.15
+     }
+    ],
+    "alnsStoppedBy": "NO_IMPROVEMENT",
+    "roadMatrix": "ROAD"
+   },
+   {
+    "beats": 5,
+    "stops": 25,
+    "exact": false,
+    "reference": 3428.5174,
+    "exactMs": 0,
+    "longRunReference": 3428.5174,
+    "algorithms": [
+     {
+      "name": "Input order",
+      "cost": 6272.295999999999,
+      "gapPercent": 82.945,
+      "optimal": false,
+      "distanceKm": 47.168,
+      "travelMin": 88.07,
+      "runtimeMs": 0
+     },
+     {
+      "name": "Random order (mean of 30)",
+      "cost": 8563.672833333332,
+      "gapPercent": 149.778,
+      "optimal": false,
+      "distanceKm": null,
+      "travelMin": null,
+      "runtimeMs": 0
+     },
+     {
+      "name": "Nearest Neighbour",
+      "cost": 3955.9525999999996,
+      "gapPercent": 15.384,
+      "optimal": false,
+      "distanceKm": 25.215,
+      "travelMin": 58.15,
+      "runtimeMs": 0.03
+     },
+     {
+      "name": "NN + 2-opt",
+      "cost": 3760.5696,
+      "gapPercent": 9.685,
+      "optimal": false,
+      "distanceKm": 24.087,
+      "travelMin": 55.2,
+      "runtimeMs": 0.37
+     },
+     {
+      "name": "DBSCAN + NN",
+      "cost": 3955.9525999999996,
+      "gapPercent": 15.384,
+      "optimal": false,
+      "distanceKm": 25.215,
+      "travelMin": 58.15,
+      "runtimeMs": null
+     },
+     {
+      "name": "DBSCAN + NN + 2-opt",
+      "cost": 3760.5696,
+      "gapPercent": 9.685,
+      "optimal": false,
+      "distanceKm": 24.087,
+      "travelMin": 55.2,
+      "runtimeMs": 0
+     },
+     {
+      "name": "DBSCAN + NN + 2-opt + ALNS (production)",
+      "cost": 3539.1802,
+      "gapPercent": 3.228,
+      "optimal": false,
+      "distanceKm": 23.008,
+      "travelMin": 50.3,
+      "runtimeMs": 29.54
+     }
+    ],
+    "alnsStoppedBy": "NO_IMPROVEMENT",
+    "roadMatrix": "ROAD"
+   },
+   {
+    "beats": 10,
+    "stops": 50,
+    "exact": false,
+    "reference": 5216.945900000001,
+    "exactMs": 0,
+    "longRunReference": 5216.945900000001,
+    "algorithms": [
+     {
+      "name": "Input order",
+      "cost": 15504.259300000007,
+      "gapPercent": 197.19,
+      "optimal": false,
+      "distanceKm": 110.98,
+      "travelMin": 221.37,
+      "runtimeMs": 0
+     },
+     {
+      "name": "Random order (mean of 30)",
+      "cost": 17588.36250666667,
+      "gapPercent": 237.139,
+      "optimal": false,
+      "distanceKm": null,
+      "travelMin": null,
+      "runtimeMs": 0
+     },
+     {
+      "name": "Nearest Neighbour",
+      "cost": 5967.640600000001,
+      "gapPercent": 14.39,
+      "optimal": false,
+      "distanceKm": 41.356,
+      "travelMin": 88.19,
+      "runtimeMs": 0.04
+     },
+     {
+      "name": "NN + 2-opt",
+      "cost": 5731.961499999999,
+      "gapPercent": 9.872,
+      "optimal": false,
+      "distanceKm": 38.668,
+      "travelMin": 83.71,
+      "runtimeMs": 2.35
+     },
+     {
+      "name": "DBSCAN + NN",
+      "cost": 5967.640600000001,
+      "gapPercent": 14.39,
+      "optimal": false,
+      "distanceKm": 41.356,
+      "travelMin": 88.19,
+      "runtimeMs": null
+     },
+     {
+      "name": "DBSCAN + NN + 2-opt",
+      "cost": 5731.961499999999,
+      "gapPercent": 9.872,
+      "optimal": false,
+      "distanceKm": 38.668,
+      "travelMin": 83.71,
+      "runtimeMs": 1
+     },
+     {
+      "name": "DBSCAN + NN + 2-opt + ALNS (production)",
+      "cost": 5320.6054,
+      "gapPercent": 1.987,
+      "optimal": false,
+      "distanceKm": 34.006,
+      "travelMin": 77.56,
+      "runtimeMs": 281.24
+     }
+    ],
+    "alnsStoppedBy": "NO_IMPROVEMENT",
+    "roadMatrix": "ROAD"
+   },
+   {
+    "beats": 20,
+    "stops": 100,
+    "exact": false,
+    "reference": 9952.7088,
+    "exactMs": 0,
+    "longRunReference": 9952.7088,
+    "algorithms": [
+     {
+      "name": "Input order",
+      "cost": 32071.7503,
+      "gapPercent": 222.241,
+      "optimal": false,
+      "distanceKm": 219.606,
+      "travelMin": 455.97,
+      "runtimeMs": 0
+     },
+     {
+      "name": "Random order (mean of 30)",
+      "cost": 39293.76111166668,
+      "gapPercent": 294.805,
+      "optimal": false,
+      "distanceKm": null,
+      "travelMin": null,
+      "runtimeMs": 0.02
+     },
+     {
+      "name": "Nearest Neighbour",
+      "cost": 11569.047799999998,
+      "gapPercent": 16.24,
+      "optimal": false,
+      "distanceKm": 72.555,
+      "travelMin": 171.78,
+      "runtimeMs": 0.13
+     },
+     {
+      "name": "NN + 2-opt",
+      "cost": 10955.925899999997,
+      "gapPercent": 10.08,
+      "optimal": false,
+      "distanceKm": 65.244,
+      "travelMin": 161.84,
+      "runtimeMs": 20.82
+     },
+     {
+      "name": "DBSCAN + NN",
+      "cost": 11855.316799999995,
+      "gapPercent": 19.116,
+      "optimal": false,
+      "distanceKm": 74.84,
+      "travelMin": 176.94,
+      "runtimeMs": null
+     },
+     {
+      "name": "DBSCAN + NN + 2-opt",
+      "cost": 10917.405749999996,
+      "gapPercent": 9.693,
+      "optimal": false,
+      "distanceKm": 64.029,
+      "travelMin": 161.43,
+      "runtimeMs": 16
+     },
+     {
+      "name": "DBSCAN + NN + 2-opt + ALNS (production)",
+      "cost": 10262.524699999998,
+      "gapPercent": 3.113,
+      "optimal": false,
+      "distanceKm": 57.03,
+      "travelMin": 151.13,
+      "runtimeMs": 1047.58
+     }
+    ],
+    "alnsStoppedBy": "NO_IMPROVEMENT",
+    "roadMatrix": "ROAD"
+   }
+  ]
+ },
+ "dataQuality": {
+  "beats": 26,
+  "localitiesInBeatList": 89,
+  "localitiesSharedByMoreThanOneBeat": 9,
+  "sharedExamples": [
+   "MANGATRAM PETROL PUMP TO GANDHI NAGAR: beats 1, 23",
+   "VILLAGE ROAD: beats 2, 5",
+   "SUBHASH NAGAR: beats 4, 24",
+   "BHANDUP POLICE CHOWKI TO SONAPUR LINK ROAD: beats 6, 25",
+   "L.B.S. ROAD, BHANDUP WEST: beats 7, 24",
+   "TULSHIPADA: beats 8, 25",
+   "TEMBHIPADA: beats 10, 11",
+   "SAI HILL: beats 15, 16"
+  ],
+  "deliveries": 130,
+  "deliveriesInSharedLocality": 36,
+  "duplicateAddresses": 0,
+  "distinctRecipientNames": 20,
+  "recipientNamesRepeated": 110,
+  "truncatedMainAreas": [
+   "WING 23 FLOORS"
+  ],
+  "pincodeTypos": "Beat 12 (BHATTIPADA, KESHAVJI NAGAR, JANGAL MANGAL ROAD) is listed with pincode 40078 (5 digits) in the supplied beat list",
+  "noPriorityOrParcelData": true
+ }
+}

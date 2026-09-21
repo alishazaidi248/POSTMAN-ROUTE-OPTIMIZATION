@@ -33,64 +33,101 @@ mobile app's own checks are UX convenience only.
 ## Research/optimization boundary
 
 The mobile app **consumes** a route result; it never implements a routing
-algorithm. The intended pipeline (server-side, spec §14) is:
+algorithm and never chooses one. There is exactly one production pipeline, owned by the
+server:
 
 ```
-Assigned Deliveries -> Spatial Clustering (DBSCAN) -> Cluster-aware Ordering
-  -> Nearest Neighbour -> 2-opt -> Road-network Routing (OSRM) -> Polyline
+Assigned Deliveries -> Road travel-time matrix (OSRM) -> DBSCAN -> Nearest Neighbour
+  -> 2-opt -> ALNS -> Best solution -> Road geometry (OSRM) -> Polyline
   -> React Native Map
 ```
 
-**Current backend reality** (see architecture report and
-`backend/src/services/optimization/MockOptimizationService.ts`): only a
-placeholder `MockOptimizationService` exists today. It sequences deliveries
-in input order with a fixed per-stop ETA — no DBSCAN, nearest-neighbor,
-2-opt, or OSRM integration yet, and stops carry no road-network polyline
-(the app draws a straight-line connector between stops as a visual aid, see
-`src/components/route/RoutePolyline.tsx`). The app's UI deliberately says
-"Optimized Route" / "Generated Route", never "optimal route" (spec §15/§49) —
-this is not a UI nuance, it reflects that the backend cannot currently back a
-stronger claim.
+**Current backend reality** (`backend/src/services/optimization/`):
+`RoadRouteOptimizationService` builds a real route:
+
+1. loads the postman's active deliveries (`ASSIGNED`, `OUT_FOR_DELIVERY`,
+   `RESCHEDULED` - never `DELIVERED`/`RETURNED`/`CANCELLED`),
+2. picks the start point (the app's GPS fix if supplied, else the postman's
+   last location ping, else the post office),
+3. asks a road-routing engine (OSRM, `OSRM_BASE_URL`) for a travel-time /
+   distance matrix (cached per point pair) and falls back to flagged
+   straight-line estimates if it is unavailable,
+4. clusters the stops with **DBSCAN** over the road travel times, orders the clusters,
+   builds the initial route with **Nearest Neighbor** and improves it with **2-opt**,
+   then hands that route to **ALNS** (adaptive large neighbourhood search), which
+   returns the best route it found - never one dearer than the 2-opt route. Every stage
+   is scored by the same weighted cost (travel time + load-carried penalty +
+   priority-waiting penalty - see `routeAlgorithms.ts`; details in `backend/ALNS.md`),
+5. fetches the road polyline for the final order and returns per-leg
+   distance/time and ETAs.
+
+This is the only strategy. No request parameter, environment variable or screen selects
+another one; a client that sends `algorithm` is ignored. The optimizer's diagnostics
+(costs per stage, ALNS statistics) are only sent to administrators - the postman's
+`/me/route` response carries no `metrics` and no algorithm name.
+
+There are no time-window or vehicle-capacity constraints - the data model has neither (no
+delivery weight, no vehicle payload). Parcel count stands in for load. The
+app's UI deliberately says "Optimized Route", never "optimal route"
+(spec 15/49): the optimizer is a good heuristic, not a proof of optimality.
 
 ## Route response contract
 
-`GET /api/v1/me/route` (added for this app; see
-`backend/src/routes/me.routes.ts`):
+`GET /api/v1/me/route` (see `backend/src/routes/me.routes.ts`,
+`backend/src/services/routePlanner.service.ts`). Optional query:
+`startLat`+`startLng` (begin the route at this GPS fix), `refresh=true` (force a
+full re-optimization). There is no algorithm parameter: any `algorithm` query
+value is ignored.
 
 ```jsonc
-// No route yet generated for this postman today:
+// Nothing left to deliver:
 { "route": null }
 
-// An active route exists:
+// An active route:
 {
   "routeId": "uuid",              // OptimizationRequest.id
-  "version": 1,                    // count of OptimizationResult rows for this request
-  "trigger": "ROUTE_PLAN" | "REOPTIMIZE",
+  "version": 4,                    // count of this postman's completed plans
+  "trigger": "DELIVERIES_CHANGED" | "STOPS_REMOVED" | "RECIPIENT_UNAVAILABLE" | "MANUAL" | ...,
   "status": "COMPLETED",
-  "generatedAt": "2026-09-19T09:00:00.000Z",
+  "generatedAt": "2026-09-20T09:00:00.000Z",
+  "stale": false,                  // true only if a refresh failed and the last stored route is returned
   "solution": {
-    "postmanId": "uuid",
-    "beatId": "uuid",
+    "postmanId": "uuid", "beatId": "uuid",
+    "start": { "latitude": 19.1436, "longitude": 72.9345, "source": "POST_OFFICE" },   // or REQUEST | POSTMAN_LOCATION
     "stops": [
-      { "deliveryId": "uuid", "sequence": 1, "latitude": 19.148, "longitude": 72.930, "estimatedArrival": "2026-09-19T09:10:00.000Z" }
+      {
+        "deliveryId": "uuid", "sequence": 1, "latitude": 19.1452, "longitude": 72.931,
+        "estimatedArrival": "2026-09-20T09:02:04.000Z",
+        "distanceFromPreviousMeters": 912, "travelTimeFromPreviousSeconds": 124,
+        "load": 1, "priority": "URGENT", "serviceTimeMinutes": 3
+      }
     ],
-    "totalDistanceMeters": 4200,
-    "estimatedDurationMinutes": 38,
-    "algorithm": "MOCK",
-    "generatedAt": "2026-09-19T09:00:00.000Z"
+    "totalDistanceMeters": 8053, "totalTravelTimeSeconds": 1008, "estimatedDurationMinutes": 40.8, "totalLoad": 20,
+    "geometry": { "type": "LineString", "coordinates": [[72.9345, 19.1436], ...] },   // road polyline, [lng, lat]
+    "routing": { "mode": "ROAD" | "ESTIMATED", "provider": "osrm", "geometrySource": "ROAD" | "STRAIGHT_LINE" | "NONE", "warnings": [] },
+    "reusedOrder": false,          // true when stops were pruned without re-optimizing
+    "unroutable": [ { "deliveryId": "uuid", "reason": "MISSING_COORDINATES" } ],
+    "generatedAt": "2026-09-20T09:00:00.000Z"
   }
 }
 ```
 
-`POST /api/v1/me/route/reoptimize` `{ "trigger": "DELIVERY_COMPLETED" | "RECIPIENT_UNAVAILABLE" | "WRONG_ADDRESS" | "ADDRESS_NOT_FOUND" | "DELIVERY_FAILED" | "ROUTE_DEVIATION" | "MANUAL" }`
-re-plans the postman's remaining (`ASSIGNED`/`OUT_FOR_DELIVERY`/`RESCHEDULED`)
-deliveries and returns the same `{ routeId, generatedAt, solution }` shape.
-The app calls this after a status update that removes a delivery from the
-active route (`src/screens/deliveries/DeliveryDetailsScreen.tsx`), and could
-also call it on a detected GPS route deviation (deviation detection exists in
-`src/services/routeService.ts`; wiring an automatic trigger from the Map
-screen is a follow-up, not yet done — see Known Limitations in the final
-report).
+The stored route stays valid while the postman's set of active deliveries is
+unchanged. When stops are only *removed* (delivered/failed) the order is kept
+and legs/ETAs/polyline are refreshed ("pruned" - the remaining stops never
+reshuffle just because one was completed); when a delivery is *added*, or on an
+explicit recalculation or a failure event, the full pipeline runs.
+
+`POST /api/v1/me/route/reoptimize`
+`{ "trigger": "DELIVERY_COMPLETED" | "RECIPIENT_UNAVAILABLE" | "WRONG_ADDRESS" | "ADDRESS_NOT_FOUND" | "DELIVERY_FAILED" | "ROUTE_DEVIATION" | "MANUAL", "start"?: { "latitude", "longitude" } }` (an `algorithm` field is ignored)
+forces a full re-optimization of the remaining deliveries and returns the same
+route shape (`201`). The Map tab's **Recalculate** button uses it with the
+device's GPS fix. The app no longer calls it after every status change: the
+server refreshes the route itself (lazily on `GET /me/route`, and eagerly via
+the delivery-event listener for `RECIPIENT_UNAVAILABLE`, `REJECTED`,
+`WRONG_ADDRESS` and `CANCELLED`). Deviation detection exists in
+`src/services/routeService.ts`; wiring an automatic trigger from the Map screen
+is still a follow-up.
 
 There is no dedicated `Route`/`RouteStop` REST surface yet (those Prisma
 tables exist but nothing reads/writes them) — "route version" here is
@@ -147,9 +184,10 @@ processQueue() (src/services/syncService.ts)
 
 A genuine network failure during drain stops processing (preserving order)
 and leaves the remainder queued for the next reconnect. Conflicts are
-surfaced to the store (`useOfflineStore.conflicts`) for the UI to show; the
-Deliveries/Map screens currently invalidate and re-fetch on conflict but do
-not yet render a dedicated conflict banner — see Known Limitations.
+surfaced to the store (`useOfflineStore.conflicts`); both the Deliveries and
+Map screens render them in a `ConflictBanner` ("Couldn't apply "Delivered" for
+X: it is now Cancelled on the server") with a Dismiss action. Queued changes
+are shown immediately on cards and markers with a "Waiting to sync" tag.
 
 ## GPS architecture
 

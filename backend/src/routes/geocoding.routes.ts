@@ -1,14 +1,15 @@
 import { Router } from "express";
 import { z } from "zod";
 import { prisma } from "../config/prisma";
-import { requireAuth, requireRole, assertOwnsResource } from "../middleware/auth";
+import { requireAuth, requireRole, assertOwnsResource, adminOnly } from "../middleware/auth";
 import { validate } from "../middleware/validate";
 import { asyncHandler } from "../utils/asyncHandler";
+import { AppError } from "../utils/AppError";
 import { getGeocodingService } from "../services/geocoding";
 import { assignDeliveryToBeat } from "../services/assignment.service";
 
 export const geocodingRouter = Router();
-geocodingRouter.use(requireAuth);
+geocodingRouter.use(requireAuth, adminOnly);
 
 geocodingRouter.post(
   "/retry/:addressId",
@@ -16,7 +17,9 @@ geocodingRouter.post(
   asyncHandler(async (req, res) => {
     const address = await prisma.address.findUniqueOrThrow({ where: { id: req.params.addressId } });
     const owningDelivery = await prisma.delivery.findFirst({ where: { addressId: address.id } });
-    if (owningDelivery) assertOwnsResource(req, owningDelivery.postOfficeId);
+    // An address with no delivery has no owner to check against, so it is not reachable here.
+    if (!owningDelivery) throw AppError.notFound("Address not found");
+    assertOwnsResource(req, owningDelivery.postOfficeId);
     const result = await getGeocodingService().geocode(address);
 
     const updated = await prisma.address.update({
@@ -46,7 +49,8 @@ geocodingRouter.post(
   validate(z.object({ body: z.object({ latitude: z.number(), longitude: z.number() }) })),
   asyncHandler(async (req, res) => {
     const delivery = await prisma.delivery.findFirst({ where: { addressId: req.params.addressId } });
-    if (delivery) assertOwnsResource(req, delivery.postOfficeId);
+    if (!delivery) throw AppError.notFound("Address not found");
+    assertOwnsResource(req, delivery.postOfficeId);
 
     const updated = await prisma.address.update({
       where: { id: req.params.addressId },

@@ -12,6 +12,8 @@ export type DeliveriesStackParamList = {
 export type AccountStackParamList = {
   AccountHome: undefined;
   Profile: undefined;
+  Notifications: undefined;
+  OfflineSync: undefined;
   Settings: undefined;
   IdCard: undefined;
 };
@@ -21,6 +23,7 @@ export type MapStackParamList = {
 };
 
 export type MainTabParamList = {
+  HomeTab: undefined;
   DeliveriesTab: NavigatorScreenParams<DeliveriesStackParamList>;
   MapTab: NavigatorScreenParams<MapStackParamList>;
   AccountTab: NavigatorScreenParams<AccountStackParamList>;

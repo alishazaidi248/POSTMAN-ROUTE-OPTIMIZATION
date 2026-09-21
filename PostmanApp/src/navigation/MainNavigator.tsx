@@ -1,8 +1,8 @@
 import React from "react";
 import { createBottomTabNavigator } from "@react-navigation/bottom-tabs";
 import { createNativeStackNavigator } from "@react-navigation/native-stack";
-import { Text } from "react-native";
 import { AccountStackParamList, DeliveriesStackParamList, MainTabParamList, MapStackParamList } from "./types";
+import { HomeScreen } from "../screens/home/HomeScreen";
 import { DeliveriesScreen } from "../screens/deliveries/DeliveriesScreen";
 import { DeliveryDetailsScreen } from "../screens/deliveries/DeliveryDetailsScreen";
 import { MapScreen } from "../screens/map/MapScreen";
@@ -10,6 +10,9 @@ import { AccountScreen } from "../screens/account/AccountScreen";
 import { ProfileScreen } from "../screens/account/ProfileScreen";
 import { SettingsScreen } from "../screens/account/SettingsScreen";
 import { IdCardScreen } from "../screens/account/IdCardScreen";
+import { NotificationsScreen } from "../screens/account/NotificationsScreen";
+import { OfflineSyncScreen } from "../screens/account/OfflineSyncScreen";
+import { Icon, IconName } from "../components/common/Icon";
 import { colors } from "../theme/colors";
 
 const Tab = createBottomTabNavigator<MainTabParamList>();
@@ -17,18 +20,27 @@ const DeliveriesStack = createNativeStackNavigator<DeliveriesStackParamList>();
 const MapStack = createNativeStackNavigator<MapStackParamList>();
 const AccountStack = createNativeStackNavigator<AccountStackParamList>();
 
+// Quiet white headers with dark titles: the content (deliveries, the map) is the focus, not the chrome.
+const headerOptions = {
+  headerStyle: { backgroundColor: colors.surface },
+  headerTintColor: colors.textPrimary,
+  headerTitleStyle: { fontWeight: "600" as const, fontSize: 17 },
+  headerShadowVisible: false,
+  contentStyle: { backgroundColor: colors.background }
+};
+
 function DeliveriesStackNavigator() {
   return (
-    <DeliveriesStack.Navigator screenOptions={{ headerStyle: { backgroundColor: colors.primary }, headerTintColor: colors.onPrimary }}>
+    <DeliveriesStack.Navigator screenOptions={headerOptions}>
       <DeliveriesStack.Screen name="DeliveriesList" component={DeliveriesScreen} options={{ title: "Deliveries" }} />
-      <DeliveriesStack.Screen name="DeliveryDetails" component={DeliveryDetailsScreen} options={{ title: "Delivery Details" }} />
+      <DeliveriesStack.Screen name="DeliveryDetails" component={DeliveryDetailsScreen} options={{ title: "Delivery" }} />
     </DeliveriesStack.Navigator>
   );
 }
 
 function MapStackNavigator() {
   return (
-    <MapStack.Navigator screenOptions={{ headerStyle: { backgroundColor: colors.primary }, headerTintColor: colors.onPrimary }}>
+    <MapStack.Navigator screenOptions={headerOptions}>
       <MapStack.Screen name="MapHome" component={MapScreen} options={{ title: "Route Map" }} />
     </MapStack.Navigator>
   );
@@ -36,48 +48,42 @@ function MapStackNavigator() {
 
 function AccountStackNavigator() {
   return (
-    <AccountStack.Navigator screenOptions={{ headerStyle: { backgroundColor: colors.primary }, headerTintColor: colors.onPrimary }}>
+    <AccountStack.Navigator screenOptions={headerOptions}>
       <AccountStack.Screen name="AccountHome" component={AccountScreen} options={{ title: "Account" }} />
       <AccountStack.Screen name="Profile" component={ProfileScreen} options={{ title: "Profile" }} />
-      <AccountStack.Screen name="Settings" component={SettingsScreen} options={{ title: "Settings" }} />
+      <AccountStack.Screen name="Notifications" component={NotificationsScreen} options={{ title: "Notifications" }} />
+      <AccountStack.Screen name="OfflineSync" component={OfflineSyncScreen} options={{ title: "Offline Sync" }} />
+      <AccountStack.Screen name="Settings" component={SettingsScreen} options={{ title: "App Information" }} />
       <AccountStack.Screen name="IdCard" component={IdCardScreen} options={{ title: "ID Card" }} />
     </AccountStack.Navigator>
   );
 }
 
-// Exactly three bottom tabs (spec §6) — do not add more. Secondary screens
-// live in each tab's own stack.
+function tabIcon(name: IconName) {
+  function TabIcon({ color }: { color: string }) {
+    return <Icon name={name} color={color} />;
+  }
+  return TabIcon;
+}
+
+// Four bottom tabs: Home (today at a glance), Deliveries, Map and Account. Secondary screens live in each
+// tab's own stack.
 export function MainNavigator() {
   return (
     <Tab.Navigator
+      initialRouteName="HomeTab"
       screenOptions={{
         headerShown: false,
         tabBarActiveTintColor: colors.primary,
-        tabBarInactiveTintColor: colors.textSecondary,
-        tabBarStyle: { height: 60, paddingBottom: 8, paddingTop: 6 }
+        tabBarInactiveTintColor: colors.textDisabled,
+        tabBarLabelStyle: { fontSize: 11, fontWeight: "600" },
+        tabBarStyle: { height: 68, paddingBottom: 14, paddingTop: 6, backgroundColor: colors.surface, borderTopColor: colors.border }
       }}
     >
-      <Tab.Screen
-        name="DeliveriesTab"
-        component={DeliveriesStackNavigator}
-        options={{ title: "Deliveries", tabBarIcon: ({ color }) => <TabGlyph glyph="D" color={color} /> }}
-      />
-      <Tab.Screen
-        name="MapTab"
-        component={MapStackNavigator}
-        options={{ title: "Map", tabBarIcon: ({ color }) => <TabGlyph glyph="M" color={color} /> }}
-      />
-      <Tab.Screen
-        name="AccountTab"
-        component={AccountStackNavigator}
-        options={{ title: "Account", tabBarIcon: ({ color }) => <TabGlyph glyph="A" color={color} /> }}
-      />
+      <Tab.Screen name="HomeTab" component={HomeScreen} options={{ title: "Home", tabBarIcon: tabIcon("home") }} />
+      <Tab.Screen name="DeliveriesTab" component={DeliveriesStackNavigator} options={{ title: "Deliveries", tabBarIcon: tabIcon("list") }} />
+      <Tab.Screen name="MapTab" component={MapStackNavigator} options={{ title: "Map", tabBarIcon: tabIcon("map") }} />
+      <Tab.Screen name="AccountTab" component={AccountStackNavigator} options={{ title: "Account", tabBarIcon: tabIcon("user") }} />
     </Tab.Navigator>
   );
-}
-
-// Text-glyph tab icons — no icon font dependency needed beyond what Expo
-// already ships, keeps the bundle lean.
-function TabGlyph({ glyph, color }: { glyph: string; color: string }) {
-  return <Text style={{ color, fontWeight: "700", fontSize: 16 }}>{glyph}</Text>;
 }

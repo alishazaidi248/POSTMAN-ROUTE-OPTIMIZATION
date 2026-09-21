@@ -1,11 +1,11 @@
 import { Router } from "express";
 import { prisma } from "../config/prisma";
-import { requireAuth, resolvePostOfficeScope } from "../middleware/auth";
+import { requireAuth, resolvePostOfficeScope, adminOnly } from "../middleware/auth";
 import { asyncHandler } from "../utils/asyncHandler";
 import { toCsv } from "../utils/csv";
 
 export const reportsRouter = Router();
-reportsRouter.use(requireAuth);
+reportsRouter.use(requireAuth, adminOnly);
 
 reportsRouter.get(
   "/postmen",

@@ -1,42 +1,48 @@
 import React from "react";
 import { Marker } from "@maplibre/maplibre-react-native";
-import { StyleSheet, View } from "react-native";
-import { OptimizationStop } from "../../types/route";
-import { DeliveryStatus } from "../../types/delivery";
-import { markerColor } from "../../utils/mapMarkerColor";
+import { StyleSheet, Text, View } from "react-native";
+import { MarkerModel } from "../../utils/routeView";
+import { stateColor } from "../../utils/mapMarkerColor";
 
 interface Props {
-  stop: OptimizationStop;
-  status: DeliveryStatus;
-  isCurrent: boolean;
+  marker: MarkerModel;
   onPress: (deliveryId: string) => void;
 }
 
-// Distinguishable by both color and shape/size (current stop is larger) so
+// Distinguishable by color AND content/size — the stop number for pending
+// stops, ✓ when done, ✕ when failed, larger for the next/selected stop — so
 // status is never conveyed by color alone (spec §29).
-export function DeliveryMarker({ stop, status, isCurrent, onPress }: Props) {
-  const color = markerColor(status, isCurrent);
+export function DeliveryMarker({ marker, onPress }: Props) {
+  const emphasised = marker.selected || marker.state === "NEXT";
   return (
-    <Marker
-      id={stop.deliveryId}
-      lngLat={[stop.longitude, stop.latitude]}
-      onPress={() => onPress(stop.deliveryId)}
-    >
+    <Marker id={marker.deliveryId} lngLat={[marker.longitude, marker.latitude]} onPress={() => onPress(marker.deliveryId)}>
       <View
-        style={[styles.pin, { backgroundColor: color }, isCurrent && styles.pinCurrent]}
-        accessibilityLabel={`Stop ${stop.sequence}, ${status}`}
-      />
+        style={[
+          styles.pin,
+          { backgroundColor: stateColor(marker.state) },
+          emphasised && styles.pinLarge,
+          marker.selected && styles.pinSelected
+        ]}
+        accessibilityLabel={marker.title}
+      >
+        <Text style={[styles.label, emphasised && styles.labelLarge]}>{marker.label}</Text>
+      </View>
     </Marker>
   );
 }
 
 const styles = StyleSheet.create({
   pin: {
-    width: 18,
-    height: 18,
-    borderRadius: 9,
-    borderWidth: 2,
-    borderColor: "#FFFFFF"
+    width: 30,
+    height: 30,
+    borderRadius: 15,
+    borderWidth: 3,
+    borderColor: "#FFFFFF",
+    alignItems: "center",
+    justifyContent: "center"
   },
-  pinCurrent: { width: 26, height: 26, borderRadius: 13, borderWidth: 3 }
+  pinLarge: { width: 38, height: 38, borderRadius: 19 },
+  pinSelected: { borderColor: "#111827", borderWidth: 4 },
+  label: { color: "#FFFFFF", fontWeight: "700", fontSize: 14 },
+  labelLarge: { fontSize: 16 }
 });

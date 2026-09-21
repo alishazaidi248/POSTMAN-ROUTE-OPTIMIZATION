@@ -33,12 +33,14 @@ interface Props {
   currentStatus: DeliveryStatus;
   submitting?: boolean;
   onSelect: (next: DeliveryStatus, needsReason: boolean) => void;
+  /** Leave out Start Delivery / Mark Delivered (the screen already shows them as the primary action). */
+  hidePrimary?: boolean;
 }
 
 // Only ever offers the transitions the backend's state machine currently
 // allows for `currentStatus` — never an arbitrary status (spec §9/§46).
-export function StatusActionButtons({ currentStatus, submitting, onSelect }: Props) {
-  const options = allowedNextStatuses(currentStatus);
+export function StatusActionButtons({ currentStatus, submitting, onSelect, hidePrimary }: Props) {
+  const options = allowedNextStatuses(currentStatus).filter((s) => !(hidePrimary && (s === "DELIVERED" || s === "OUT_FOR_DELIVERY")));
   if (options.length === 0) return null;
 
   return (

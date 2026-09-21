@@ -1,19 +1,45 @@
+import { useEffect, useState } from "react";
 import { NavLink, Outlet, useLocation, useNavigate } from "react-router-dom";
 import { useAuth } from "../lib/auth";
+import { Avatar } from "./Avatar";
+import { Icon } from "./icons";
 import styles from "../styles/layout.module.css";
 
-const NAV_ITEMS = [
-  { to: "/", label: "Dashboard", end: true },
-  { to: "/deliveries", label: "Deliveries" },
-  { to: "/exceptions", label: "Assignment Exceptions" },
-  { to: "/beats", label: "Beats" },
-  { to: "/postmen", label: "Postmen" },
-  { to: "/map", label: "Map" },
-  { to: "/imports", label: "Imports" },
-  { to: "/data-quality", label: "Data Quality" },
-  { to: "/reports", label: "Reports" },
-  { to: "/audit-log", label: "Audit Log" },
-  { to: "/admin-accounts", label: "Admin Accounts", superAdminOnly: true }
+interface NavItem {
+  to: string;
+  label: string;
+  icon: string;
+  end?: boolean;
+  superAdminOnly?: boolean;
+}
+
+const NAV_GROUPS: { label: string; items: NavItem[] }[] = [
+  {
+    label: "Operations",
+    items: [
+      { to: "/", label: "Dashboard", icon: "dashboard", end: true },
+      { to: "/deliveries", label: "Deliveries", icon: "parcel" },
+      { to: "/exceptions", label: "Assignment Exceptions", icon: "alert" }
+    ]
+  },
+  {
+    label: "Management",
+    items: [
+      { to: "/beats", label: "Beats", icon: "beat" },
+      { to: "/postmen", label: "Postmen", icon: "users" },
+      { to: "/map", label: "Map", icon: "map" }
+    ]
+  },
+  {
+    label: "Data",
+    items: [
+      { to: "/imports", label: "Imports", icon: "upload" },
+      { to: "/data-quality", label: "Data Quality", icon: "quality" },
+      { to: "/reports", label: "Reports", icon: "report" },
+      { to: "/audit-log", label: "Audit Log", icon: "audit" },
+      { to: "/admin-accounts", label: "Admin Accounts", icon: "shield", superAdminOnly: true }
+    ]
+  }
 ];
 
 const TITLES: Record<string, string> = {
@@ -30,6 +56,10 @@ const TITLES: Record<string, string> = {
   "/admin-accounts": "Admin Accounts"
 };
 
+const ROLE_LABEL: Record<string, string> = { SUPER_ADMIN: "Super Administrator", ADMIN: "Administrator", POSTMAN: "Postman" };
+
+const isSmall = () => window.matchMedia("(max-width: 760px)").matches;
+
 export function AppLayout() {
   const { user, logout } = useAuth();
   const location = useLocation();
@@ -37,43 +67,82 @@ export function AppLayout() {
   const title = TITLES[location.pathname] ?? "Postal Delivery Operations";
   const isDetailPage = !(location.pathname in TITLES);
 
+  // Desktop: full sidebar, or an icons-only rail when collapsed (narrower windows start collapsed).
+  // Phone: the sidebar is a drawer. This is only a layout preference, never business data.
+  const [collapsed, setCollapsed] = useState(() => window.matchMedia("(max-width: 1100px)").matches);
+  const [drawerOpen, setDrawerOpen] = useState(false);
+
+  useEffect(() => setDrawerOpen(false), [location.pathname]);
+
+  const toggle = () => (isSmall() ? setDrawerOpen((o) => !o) : setCollapsed((c) => !c));
+
   return (
     <div className={styles.shell}>
-      <aside className={styles.sidebar}>
-        <div className={styles.brand}>
-          <div className={styles.brandTitle}>Postal Delivery Ops</div>
-          <div className={styles.brandSubtitle}>Operations &amp; Optimization Admin</div>
-        </div>
-        <nav className={styles.nav}>
-          {NAV_ITEMS.filter((item) => !item.superAdminOnly || user?.role === "SUPER_ADMIN").map((item) => (
-            <NavLink
-              key={item.to}
-              to={item.to}
-              end={item.end}
-              className={({ isActive }) => `${styles.navLink} ${isActive ? styles.navLinkActive : ""}`}
-            >
-              {item.label}
-            </NavLink>
-          ))}
-        </nav>
-      </aside>
-      <div className={styles.main}>
-        <header className={styles.topbar}>
-          <div className={styles.titleGroup}>
+      <header className={styles.header}>
+        <div className={styles.headerLeft}>
+          <button className={styles.iconButton} onClick={toggle} aria-label="Show or hide the menu">
+            <Icon name="menu" />
+          </button>
+          <div className={styles.brand}>
+            <span className={styles.brandMark}><Icon name="parcel" size={15} /></span>
+            <span className={styles.crumbRoot}>Postal Delivery Operations</span>
+          </div>
+          <div className={styles.crumbs}>
+            <span className={styles.crumbRoot}>/</span>
             {isDetailPage && (
-              <button className={styles.backButton} onClick={() => navigate(-1)} aria-label="Go back">
+              <button className={styles.iconButton} onClick={() => navigate(-1)} aria-label="Go back" style={{ width: 26, height: 26 }}>
                 ←
               </button>
             )}
-            <div className={styles.pageTitle}>{title}</div>
+            <strong>{title}</strong>
           </div>
-          <div className={styles.userChip}>
-            <span>{user?.name} &middot; {user?.role}</span>
-            <button className={styles.logoutButton} onClick={() => logout()}>
-              Log out
-            </button>
+        </div>
+        <div className={styles.userArea}>
+          {user && <Avatar name={user.name} size={30} />}
+          <div className={styles.userText}>
+            <div className={styles.userName}>{user?.postOfficeName ?? user?.name}</div>
+            <div className={styles.userRole}>
+              {user?.postOfficeName ? `${user.name} · ` : ""}
+              {user ? ROLE_LABEL[user.role] ?? user.role : ""}
+            </div>
           </div>
-        </header>
+          <button className={styles.logoutButton} onClick={() => logout()}>
+            <Icon name="logout" size={14} /> Log out
+          </button>
+        </div>
+      </header>
+
+      {drawerOpen && <div className={styles.scrim} onClick={() => setDrawerOpen(false)} />}
+      <aside
+        className={`${styles.sidebar} ${collapsed ? styles.sidebarRail : ""} ${drawerOpen ? styles.sidebarOpen : ""}`}
+        aria-label="Main menu"
+      >
+        <nav>
+          {NAV_GROUPS.map((group) => {
+            const items = group.items.filter((item) => !item.superAdminOnly || user?.role === "SUPER_ADMIN");
+            if (items.length === 0) return null;
+            return (
+              <div key={group.label} className={styles.group}>
+                <div className={styles.groupLabel}>{group.label}</div>
+                {items.map((item) => (
+                  <NavLink
+                    key={item.to}
+                    to={item.to}
+                    end={item.end}
+                    title={item.label}
+                    className={({ isActive }) => `${styles.navLink} ${isActive ? styles.navLinkActive : ""}`}
+                  >
+                    <span className={styles.navIcon}><Icon name={item.icon} /></span>
+                    <span className={styles.navLabel}>{item.label}</span>
+                  </NavLink>
+                ))}
+              </div>
+            );
+          })}
+        </nav>
+      </aside>
+
+      <div className={`${styles.main} ${collapsed ? styles.mainRail : ""}`}>
         <main className={styles.content}>
           <Outlet />
         </main>

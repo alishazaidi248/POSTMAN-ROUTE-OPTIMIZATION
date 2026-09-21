@@ -14,18 +14,18 @@ interface Props {
   currentStop: OptimizationStop | null;
   nextStop: OptimizationStop | null;
   recipientNameByDeliveryId: Record<string, string>;
-  /** True once the backend returns real road-network geometry (OSRM or
-   * equivalent) for this route. Currently always false — no routing engine
-   * is wired up yet (see docs/mobile-architecture.md Known Limitations) —
-   * so the map's dashed line is a straight-line stop-to-stop connector, not
-   * a road path, and that must never be presented as a real route. */
+  /** True when the backend returned real road-network geometry (OSRM or
+   * equivalent) for this route. When false the map's dashed line is only a
+   * straight-line guide between stops, not a road path, and that must never
+   * be presented as a real route. */
   hasRoadGeometry: boolean;
+  /** One-line version for the Map tab, where the map itself is the focus. */
+  compact?: boolean;
 }
 
-// Deliberately says "Optimized Route" / "Generated Route", never "optimal
-// route" — the backend's optimizer is a placeholder pending the research
-// engine, and the app must not fabricate a claim the system can't back
-// (spec §15, §49).
+// Deliberately says "Optimized Route", never "optimal route": the backend's planner is a
+// good heuristic, not a proof of optimality, and the app must not claim more than the
+// system can back. The app never names or offers an algorithm.
 export function RouteSummaryCard({
   route,
   completed,
@@ -33,9 +33,28 @@ export function RouteSummaryCard({
   currentStop,
   nextStop,
   recipientNameByDeliveryId,
-  hasRoadGeometry
+  hasRoadGeometry,
+  compact = false
 }: Props) {
   const remaining = total - completed;
+
+  if (compact) {
+    return (
+      <View style={styles.card}>
+        <Text style={styles.title}>Today&rsquo;s Optimized Route</Text>
+        <Text style={styles.compactLine}>
+          {`${completed} of ${total} done · ${remaining} to go · ${formatDistance(route.solution.totalDistanceMeters)} · ~${formatDurationMinutes(route.solution.estimatedDurationMinutes)}`}
+        </Text>
+        {!hasRoadGeometry ? (
+          <Text style={styles.roadWarning}>
+            Road route unavailable — the dashed line is a straight-line guide, and distances are estimates.
+          </Text>
+        ) : null}
+        <Text style={styles.version}>{versionLine(route)}</Text>
+      </View>
+    );
+  }
+
   return (
     <View style={styles.card}>
       <Text style={styles.title}>Today&rsquo;s Optimized Route</Text>
@@ -73,9 +92,13 @@ export function RouteSummaryCard({
         </Text>
       ) : null}
 
-      <Text style={styles.version}>Route v{route.version} · {route.solution.algorithm}</Text>
+      <Text style={styles.version}>{versionLine(route)}</Text>
     </View>
   );
+}
+
+function versionLine(route: ActiveRouteResponse): string {
+  return `Route v${route.version}`;
 }
 
 function Stat({ label, value }: { label: string; value: string }) {
@@ -91,6 +114,7 @@ const styles = StyleSheet.create({
   card: { backgroundColor: colors.surface, borderRadius: radius.lg, borderWidth: 1, borderColor: colors.border, padding: spacing.lg, gap: spacing.sm },
   title: { ...typography.label, color: colors.textSecondary },
   count: { ...typography.screenTitle, color: colors.textPrimary },
+  compactLine: { ...typography.bodyStrong, color: colors.textPrimary },
   row: { flexDirection: "row", gap: spacing.xl, marginTop: spacing.xs },
   stat: { gap: 2 },
   statValue: { ...typography.sectionTitle, color: colors.textPrimary },

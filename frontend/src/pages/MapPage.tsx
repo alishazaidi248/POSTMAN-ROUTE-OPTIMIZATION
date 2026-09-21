@@ -1,300 +1,340 @@
-import { useEffect, useRef, useState } from "react";
-import maplibregl from "maplibre-gl";
-// @ts-ignore - no bundled ESM types entry point, @types/mapbox__mapbox-gl-draw covers the shape
-import MapboxDraw from "@mapbox/mapbox-gl-draw";
-import "@mapbox/mapbox-gl-draw/dist/mapbox-gl-draw.css";
-import { useQueryClient } from "@tanstack/react-query";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useSearchParams } from "react-router-dom";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { apiClient } from "../lib/apiClient";
-import { useAuth } from "../lib/auth";
-import { Modal } from "../components/Modal";
-import { TerritoryForm, TerritoryFormValues } from "../components/TerritoryForm";
-import styles from "../styles/components.module.css";
+import { friendlyError } from "../lib/friendlyError";
+import { Icon } from "../components/icons";
+import { useToast } from "../components/Toast";
+import { BeatMap, BeatMapHandle, OtherFeature } from "../features/beats/BeatMap";
+import { BeatRecord, VERIFICATION_COLOR, VERIFICATION_LABEL } from "../features/beats/beatTypes";
+import { BeatDetailsPanel, EmptyPanel, OtherFeaturePanel } from "../features/beats/BeatDetailsPanel";
+import { BeatSearch, BeatSummary, BeatTable, Filter, matchesFilter } from "../features/beats/BeatBrowse";
+import { AssignPostmanDialog, EditBeatDialog, NewBeatDialog, VerifyBeatDialog } from "../features/beats/BeatDialogs";
+import { UploadBeatListWizard } from "../features/beats/UploadBeatListWizard";
+import styles from "../features/beats/beats.module.css";
 
-function polygonCenter(coordinates: number[][]): [number, number] {
-  const total = coordinates.reduce(
-    (acc, [lng, lat]) => [acc[0] + lng, acc[1] + lat],
-    [0, 0]
-  );
-  return [total[0] / coordinates.length, total[1] / coordinates.length];
+type Mode = { kind: "browse" } | { kind: "newBeat" } | { kind: "territory"; beatId: string };
+type Dialog =
+  | { kind: "verify" | "assign" | "edit"; beatId: string }
+  | { kind: "newBeat"; polygon: GeoJSON.Polygon }
+  | { kind: "upload" }
+  | null;
+
+function useMediaQuery(query: string): boolean {
+  const [matches, setMatches] = useState(() => window.matchMedia(query).matches);
+  useEffect(() => {
+    const list = window.matchMedia(query);
+    const on = () => setMatches(list.matches);
+    list.addEventListener("change", on);
+    return () => list.removeEventListener("change", on);
+  }, [query]);
+  return matches;
 }
 
-// Distinct, legible colors for telling adjacent beat squares apart on the map.
-const BEAT_COLORS = [
-  "#c22030", "#0b5c8a", "#1f7a3d", "#9a6a00",
-  "#6b3fa0", "#c2410c", "#0f766e", "#a21caf",
-  "#4d5b23", "#b3261e"
-];
-
-/**
- * Colors each beat individually so adjacent squares are easy to tell apart —
- * unless the loaded beats span more than one post office (a Super Admin
- * viewing everything at once), in which case every beat belonging to the
- * same post office/admin instead shares one color, so that admin's whole
- * territory reads as a single grouped block rather than a scatter of
- * unrelated squares.
- */
-function colorizeBeats(geojson: GeoJSON.FeatureCollection): GeoJSON.FeatureCollection {
-  const postOfficeIds = Array.from(
-    new Set(geojson.features.map((f) => f.properties?.postOfficeId).filter(Boolean))
-  );
-  const groupByPostOffice = postOfficeIds.length > 1;
-
-  return {
-    ...geojson,
-    features: geojson.features.map((feature, index) => {
-      const colorIndex = groupByPostOffice
-        ? postOfficeIds.indexOf(feature.properties?.postOfficeId)
-        : index;
-      return {
-        ...feature,
-        properties: { ...feature.properties, color: BEAT_COLORS[colorIndex % BEAT_COLORS.length] }
-      };
-    })
-  };
-}
+const geo = (path: string) => () => apiClient.get<GeoJSON.FeatureCollection>(path).then((r) => r.data);
 
 export function MapPage() {
-  const { user } = useAuth();
+  const toast = useToast();
   const queryClient = useQueryClient();
-  const containerRef = useRef<HTMLDivElement>(null);
-  const mapRef = useRef<maplibregl.Map | null>(null);
-  const drawRef = useRef<MapboxDraw | null>(null);
-  const [selected, setSelected] = useState<Record<string, unknown> | null>(null);
+  const [params, setParams] = useSearchParams();
+  const mapHandle = useRef<BeatMapHandle>(null);
+  const isDesktop = useMediaQuery("(min-width: 1101px)");
+
+  const [selectedId, setSelectedId] = useState<string | null>(null);
+  const [other, setOther] = useState<OtherFeature | null>(null);
+  const [filter, setFilter] = useState<Filter>("ALL");
+  const [mode, setMode] = useState<Mode>({ kind: "browse" });
   const [drawing, setDrawing] = useState(false);
-  const [pendingPolygon, setPendingPolygon] = useState<GeoJSON.Polygon | null>(null);
+  const [hasDrawn, setHasDrawn] = useState(false);
+  const [dialog, setDialog] = useState<Dialog>(null);
+  const [layers, setLayers] = useState({ deliveries: true, postmen: true, offices: true });
+  const [layersOpen, setLayersOpen] = useState(false);
+  const [mapKey, setMapKey] = useState(0);
+  const [styleFailed, setStyleFailed] = useState(false);
 
-  async function refreshBeats() {
-    const beats = await apiClient.get("/maps/beats").then((r) => r.data);
-    const source = mapRef.current?.getSource("beats") as maplibregl.GeoJSONSource | undefined;
-    source?.setData(colorizeBeats(beats));
-  }
+  // Everything shown comes from the API (PostgreSQL); nothing about a beat is kept in the browser.
+  const beatsQuery = useQuery<BeatRecord[]>({ queryKey: ["beats"], queryFn: () => apiClient.get("/beats").then((r) => r.data) });
+  const deliveriesQuery = useQuery({ queryKey: ["map-deliveries"], queryFn: geo("/maps/deliveries") });
+  const postmenQuery = useQuery({ queryKey: ["map-postmen"], queryFn: geo("/maps/postmen") });
+  const officesQuery = useQuery({ queryKey: ["map-offices"], queryFn: geo("/maps/post-offices") });
 
-  useEffect(() => {
-    if (!containerRef.current || mapRef.current) return;
+  const beats = useMemo(() => beatsQuery.data ?? [], [beatsQuery.data]);
+  const selected = beats.find((b) => b.id === selectedId) ?? null;
+  const visibleBeats = useMemo(() => beats.filter((b) => matchesFilter(b, filter)), [beats, filter]);
+  const needAttention = beats.filter((b) => b.verificationStatus !== "VERIFIED").length;
+  const editingBeat = mode.kind === "territory" ? beats.find((b) => b.id === mode.beatId) ?? null : null;
 
-    const map = new maplibregl.Map({
-      container: containerRef.current,
-      // OpenFreeMap's "liberty" style: a full OSM-derived vector style with
-      // actual streets, buildings, place labels and administrative borders —
-      // free, no API key. The bare demo-tiles style used before only drew
-      // country outlines, which is why the map looked empty/plain.
-      style: "https://tiles.openfreemap.org/styles/liberty",
-      center: [72.9345, 19.1436],
-      zoom: 13
-    });
-    mapRef.current = map;
+  const refresh = useCallback(() => {
+    void queryClient.invalidateQueries({ queryKey: ["beats"] });
+    void queryClient.invalidateQueries({ queryKey: ["map-deliveries"] });
+  }, [queryClient]);
 
-    map.addControl(new maplibregl.NavigationControl(), "top-right");
-
-    map.on("load", async () => {
-      // MapboxDraw adds its own sources/layers on init, which requires the
-      // style to already be loaded — adding it before "load" fires makes it
-      // silently fail to render or respond to clicks, which is why drawing
-      // didn't work previously.
-      const draw = new MapboxDraw({
-        displayControlsDefault: false,
-        controls: {}
-      });
-      drawRef.current = draw;
-      // @ts-ignore - MapboxDraw implements the maplibre-gl IControl interface even though its types target mapbox-gl
-      map.addControl(draw, "top-left");
-
-      map.on("draw.create", (e: { features: GeoJSON.Feature[] }) => {
-        const feature = e.features[0];
-        if (feature?.geometry.type === "Polygon") {
-          setPendingPolygon(feature.geometry as GeoJSON.Polygon);
-        }
-      });
-
-      map.on("draw.modechange", (e: { mode: string }) => {
-        setDrawing(e.mode === "draw_polygon");
-      });
-
-      const [beats, deliveries, postmen, postOffices] = await Promise.all([
-        apiClient.get("/maps/beats").then((r) => r.data),
-        apiClient.get("/maps/deliveries").then((r) => r.data),
-        apiClient.get("/maps/postmen").then((r) => r.data),
-        apiClient.get("/maps/post-offices").then((r) => r.data)
-      ]);
-
-      map.addSource("beats", { type: "geojson", data: colorizeBeats(beats) });
-      map.addLayer({ id: "beat-fill", type: "fill", source: "beats", paint: { "fill-color": ["get", "color"], "fill-opacity": 0.25 } });
-      map.addLayer({ id: "beat-outline", type: "line", source: "beats", paint: { "line-color": ["get", "color"], "line-width": 2 } });
-
-      map.addSource("deliveries", {
-        type: "geojson",
-        data: deliveries,
-        cluster: true,
-        clusterMaxZoom: 15,
-        clusterRadius: 45
-      });
-      map.addLayer({
-        id: "delivery-clusters",
-        type: "circle",
-        source: "deliveries",
-        filter: ["has", "point_count"],
-        paint: {
-          "circle-color": "#a01822",
-          "circle-radius": ["step", ["get", "point_count"], 14, 25, 18, 100, 24],
-          "circle-opacity": 0.85
-        }
-      });
-      map.addLayer({
-        id: "delivery-cluster-count",
-        type: "symbol",
-        source: "deliveries",
-        filter: ["has", "point_count"],
-        layout: { "text-field": "{point_count_abbreviated}", "text-size": 11 },
-        paint: { "text-color": "#fff" }
-      });
-      map.addLayer({
-        id: "delivery-points",
-        type: "circle",
-        source: "deliveries",
-        filter: ["!", ["has", "point_count"]],
-        paint: { "circle-color": "#0b5c8a", "circle-radius": 5, "circle-stroke-width": 1, "circle-stroke-color": "#fff" }
-      });
-
-      map.addSource("postmen", { type: "geojson", data: postmen });
-      map.addLayer({
-        id: "postmen-points",
-        type: "circle",
-        source: "postmen",
-        paint: { "circle-color": "#1f7a3d", "circle-radius": 7, "circle-stroke-width": 2, "circle-stroke-color": "#fff" }
-      });
-
-      map.addSource("post-offices", { type: "geojson", data: postOffices });
-      map.addLayer({
-        id: "post-office-points",
-        type: "circle",
-        source: "post-offices",
-        paint: { "circle-color": "#1c1c1e", "circle-radius": 9, "circle-stroke-width": 2, "circle-stroke-color": "#fff" }
-      });
-
-      ["delivery-points", "postmen-points", "post-office-points"].forEach((layer) => {
-        map.on("click", layer, (e) => {
-          const feature = e.features?.[0];
-          if (feature) setSelected(feature.properties as Record<string, unknown>);
-        });
-        map.on("mouseenter", layer, () => (map.getCanvas().style.cursor = "pointer"));
-        map.on("mouseleave", layer, () => (map.getCanvas().style.cursor = ""));
-      });
-
-      map.on("click", "beat-fill", (e) => {
-        const feature = e.features?.[0];
-        if (feature) setSelected(feature.properties as Record<string, unknown>);
-      });
-    });
-
-    return () => {
-      map.remove();
-      mapRef.current = null;
-    };
+  const choose = useCallback((beat: BeatRecord, moveMap = true) => {
+    setSelectedId(beat.id);
+    setOther(null);
+    if (moveMap) mapHandle.current?.focusBeat(beat);
   }, []);
 
-  // MapboxDraw finishes a polygon on native browser "dblclick", which fires
-  // whenever two clicks land close together in time — including two
-  // deliberate, separate points placed quickly. That made it look like
-  // drawing "stopped after 2 points". While actively drawing we swallow the
-  // native dblclick before maplibre turns it into a map "dblclick" event, so
-  // every click just adds a point; finishing is done via Enter or by
-  // clicking the first point again.
+  // /map?beat=<id> opens with that beat selected (used after an import and from other pages).
   useEffect(() => {
-    const map = mapRef.current;
-    if (!map || !drawing) return;
+    const wanted = params.get("beat");
+    if (!wanted || beats.length === 0) return;
+    const beat = beats.find((b) => b.id === wanted);
+    if (beat) window.setTimeout(() => choose(beat), 700);
+    setParams({}, { replace: true });
+  }, [params, beats, choose, setParams]);
 
-    const container = map.getCanvasContainer();
-    const blockDblClick = (e: MouseEvent) => {
-      e.preventDefault();
-      e.stopImmediatePropagation();
-    };
-    container.addEventListener("dblclick", blockDblClick, true);
-    return () => container.removeEventListener("dblclick", blockDblClick, true);
-  }, [drawing]);
+  // Escape leaves drawing/editing.
+  useEffect(() => {
+    if (mode.kind === "browse") return;
+    const onKey = (e: KeyboardEvent) => e.key === "Escape" && cancelDrawing();
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  });
 
-  function toggleDrawing() {
-    if (!drawRef.current) return;
-    if (drawing) {
-      drawRef.current.changeMode("simple_select");
-      drawRef.current.deleteAll();
-      setDrawing(false);
-    } else {
-      drawRef.current.changeMode("draw_polygon");
-      setDrawing(true);
+  function cancelDrawing() {
+    mapHandle.current?.stopDrawing();
+    setMode({ kind: "browse" });
+    setHasDrawn(false);
+  }
+
+  function startNewBeat() {
+    setSelectedId(null);
+    setOther(null);
+    setMode({ kind: "newBeat" });
+    setHasDrawn(false);
+    mapHandle.current?.startDrawing();
+  }
+
+  function startTerritory(beat: BeatRecord) {
+    setMode({ kind: "territory", beatId: beat.id });
+    setHasDrawn(beat.hasTerritory);
+    if (beat.hasTerritory) mapHandle.current?.startEditing(beat);
+    else {
+      mapHandle.current?.focusBeat(beat);
+      mapHandle.current?.startDrawing();
     }
   }
 
-  async function handleCreateTerritory(values: TerritoryFormValues) {
-    if (!pendingPolygon || !user?.postOfficeId) {
-      throw new Error("Missing polygon or post office context");
+  const saveTerritory = useMutation({
+    mutationFn: async (beat: BeatRecord) => {
+      const polygon = mapHandle.current?.getDrawnPolygon();
+      if (!polygon) throw new Error("no polygon");
+      // A beat that was already verified stays verified: the administrator has just looked at the change.
+      await apiClient.put(`/beats/${beat.id}`, { boundary: polygon, verified: beat.verificationStatus === "VERIFIED" });
+    },
+    onSuccess: () => {
+      toast.success("Territory updated successfully.");
+      cancelDrawing();
+      refresh();
+    },
+    onError: (err) => toast.error(`${friendlyError(err, "Territory could not be saved.")} Please check that the outline is complete and does not overlap incorrectly.`)
+  });
+
+  const onPolygonDrawn = (polygon: GeoJSON.Polygon) => {
+    setHasDrawn(true);
+    if (mode.kind === "newBeat") {
+      setDialog({ kind: "newBeat", polygon });
     }
-    const center = polygonCenter(pendingPolygon.coordinates[0]);
+  };
 
-    const created = await apiClient
-      .post("/beats", {
-        postOfficeId: user.postOfficeId,
-        beatNumber: values.beatNumber,
-        name: values.name,
-        centerLatitude: center[1],
-        centerLongitude: center[0],
-        boundary: pendingPolygon
-      })
-      .then((r) => r.data);
+  const dialogBeat = dialog && "beatId" in dialog ? beats.find((b) => b.id === dialog.beatId) ?? null : null;
+  const closeDialog = () => setDialog(null);
+  const dialogDone = () => {
+    closeDialog();
+    refresh();
+  };
 
-    if (values.postmanId) {
-      await apiClient.post(`/beats/${created.id}/assign-postman`, { postmanId: values.postmanId });
-    }
-
-    drawRef.current?.deleteAll();
-    setDrawing(false);
-    setPendingPolygon(null);
-    await refreshBeats();
-    queryClient.invalidateQueries({ queryKey: ["beats"] });
-    queryClient.invalidateQueries({ queryKey: ["postmen"] });
-  }
+  const panelOpen = !!selected || !!other;
+  const showPanelColumn = isDesktop || panelOpen;
 
   return (
-    <div style={{ display: "flex", gap: 16, height: "calc(100vh - 130px)" }}>
-      <div
-        style={{
-          flex: 1,
-          position: "relative",
-          borderRadius: 6,
-          overflow: "hidden",
-          border: "2px solid var(--color-red-700)",
-          boxShadow: "var(--shadow-card)"
-        }}
-      >
-        <div style={{ position: "absolute", top: 12, left: 12, zIndex: 10 }}>
-          <button className={drawing ? styles.buttonDanger : styles.buttonPrimary} onClick={toggleDrawing}>
-            {drawing ? "Cancel Drawing" : "Draw Territory"}
+    <div className={styles.page}>
+      <div className={styles.pageHead}>
+        <div>
+          <h1 className={styles.pageTitle}>Operations Map</h1>
+          <p className={styles.pageSub}>Manage and verify delivery beats</p>
+        </div>
+        <div className={styles.toolbar}>
+          <button className={`${styles.btn} ${styles.btnPrimary}`} onClick={() => setDialog({ kind: "upload" })} disabled={mode.kind !== "browse"}>
+            <Icon name="upload" size={16} /> Upload Beat List
           </button>
-          {drawing && (
-            <p style={{ fontSize: 12, background: "#fff", padding: "4px 8px", borderRadius: 4, marginTop: 6, maxWidth: 240 }}>
-              Click to place each boundary point — add as many as you need. Press <strong>Enter</strong>, or click the
-              first point again, to finish. <strong>Escape</strong> cancels.
-            </p>
+          <button className={styles.btn} onClick={startNewBeat} disabled={mode.kind !== "browse"}>
+            <Icon name="draw" size={16} /> Draw Beat
+          </button>
+          <BeatSearch beats={beats} onPick={(b) => choose(b)} />
+        </div>
+      </div>
+
+      {beats.length > 0 && <BeatSummary beats={beats} filter={filter} onFilter={setFilter} />}
+
+      <div className={`${styles.workspace} ${showPanelColumn ? "" : styles.workspaceNoPanel}`}>
+        <div className={styles.mapFrame}>
+          {styleFailed ? (
+            <div className={styles.emptyPanel} style={{ margin: "auto", textAlign: "center", alignItems: "center", height: "100%", justifyContent: "center" }}>
+              <strong>The map could not be loaded</strong>
+              <span>Please check your internet connection.</span>
+              <button className={styles.btn} onClick={() => { setStyleFailed(false); setMapKey((k) => k + 1); }}>Try Again</button>
+            </div>
+          ) : (
+            <BeatMap
+              key={mapKey}
+              ref={mapHandle}
+              beats={beats}
+              selectedId={selectedId}
+              editingId={mode.kind === "territory" && editingBeat?.hasTerritory ? mode.beatId : null}
+              drawing={drawing}
+              layers={layers}
+              deliveries={deliveriesQuery.data}
+              postmen={postmenQuery.data}
+              offices={officesQuery.data}
+              onSelectBeat={(id) => {
+                setSelectedId(id);
+                setOther(null);
+              }}
+              onSelectOther={(feature) => {
+                setOther(feature);
+                if (feature) setSelectedId(null);
+              }}
+              onPolygonDrawn={onPolygonDrawn}
+              onDrawingChanged={setDrawing}
+              onNotice={(m) => toast.info(m)}
+              onStyleError={() => setStyleFailed(true)}
+            />
+          )}
+
+          <div className={styles.legend} aria-label="Map key">
+            {(["VERIFIED", "PENDING_VERIFICATION", "NEEDS_REVIEW"] as const).map((v) => (
+              <span key={v} className={styles.legendItem}>
+                <span className={styles.legendSwatch} style={{ borderColor: VERIFICATION_COLOR[v], background: `${VERIFICATION_COLOR[v]}33`, borderStyle: v === "VERIFIED" ? "solid" : "dashed" }} />
+                {VERIFICATION_LABEL[v]}
+              </span>
+            ))}
+          </div>
+
+          <div className={styles.mapControls}>
+            <div className={styles.mapControlGroup}>
+              <button className={styles.mapControl} onClick={() => mapHandle.current?.zoomIn()} aria-label="Zoom in"><Icon name="plus" /></button>
+              <button className={styles.mapControl} onClick={() => mapHandle.current?.zoomOut()} aria-label="Zoom out"><Icon name="minus" /></button>
+            </div>
+            <div className={styles.mapControlGroup}>
+              <button className={styles.mapControl} onClick={() => mapHandle.current?.locate()} aria-label="Show my location" title="Show my location"><Icon name="locate" /></button>
+              <button className={styles.mapControl} onClick={() => mapHandle.current?.fitAll()} aria-label="Fit all beats" title="Fit all beats"><Icon name="fit" /></button>
+            </div>
+          </div>
+
+          <div className={styles.layersBox}>
+            {layersOpen && (
+              <div className={styles.layersPop}>
+                {([["deliveries", "Deliveries"], ["postmen", "Postmen"], ["offices", "Post offices"]] as const).map(([key, label]) => (
+                  <label key={key}>
+                    <input type="checkbox" checked={layers[key]} onChange={(e) => setLayers({ ...layers, [key]: e.target.checked })} /> {label}
+                  </label>
+                ))}
+              </div>
+            )}
+            <button className={styles.btn} onClick={() => setLayersOpen((o) => !o)} aria-expanded={layersOpen}>
+              <Icon name="layers" size={16} /> Layers
+            </button>
+          </div>
+
+          {mode.kind !== "browse" && (
+            <div className={styles.editBar} role="status" data-testid="edit-bar">
+              <div className={styles.editBarText}>
+                {mode.kind === "newBeat" ? (
+                  <>
+                    <strong>Draw the new beat</strong>
+                    <small>Click each corner on the map. Press Enter or click the first point to finish.</small>
+                  </>
+                ) : (
+                  <>
+                    <strong>{editingBeat?.hasTerritory ? "Editing" : "Drawing"} territory for beat {editingBeat?.beatNumber}</strong>
+                    <small>{editingBeat?.hasTerritory ? "Drag the corners to change the outline." : "Click each corner, then press Enter or click the first point."}</small>
+                  </>
+                )}
+              </div>
+              {mode.kind === "territory" && editingBeat && (
+                <button
+                  className={`${styles.btn} ${styles.btnPrimary} ${styles.btnSmall}`}
+                  onClick={() => saveTerritory.mutate(editingBeat)}
+                  disabled={!hasDrawn || saveTerritory.isPending}
+                >
+                  {saveTerritory.isPending ? "Saving..." : "Save Territory"}
+                </button>
+              )}
+              <button className={`${styles.btn} ${styles.btnSmall}`} onClick={cancelDrawing}>Cancel</button>
+            </div>
           )}
         </div>
-        <div ref={containerRef} style={{ width: "100%", height: "100%" }} />
-      </div>
-      <div className={styles.card} style={{ width: 280, overflowY: "auto" }}>
-        <h3 className={styles.sectionTitle}>Details</h3>
-        {selected ? (
-          <pre style={{ fontSize: 12, whiteSpace: "pre-wrap" }}>{JSON.stringify(selected, null, 2)}</pre>
-        ) : (
-          <p style={{ fontSize: 13, color: "var(--color-ink-500)" }}>Click a beat, delivery, postman or post office to see details.</p>
+
+        {showPanelColumn && (
+          <div className={isDesktop ? undefined : styles.panelDrawer} style={{ minWidth: 0, display: "flex", flexDirection: "column" }}>
+            {selected ? (
+              <BeatDetailsPanel
+                beat={selected}
+                onClose={() => setSelectedId(null)}
+                onEditBeat={() => setDialog({ kind: "edit", beatId: selected.id })}
+                onAssign={() => setDialog({ kind: "assign", beatId: selected.id })}
+                onVerify={() => {
+                  mapHandle.current?.focusBeat(selected);
+                  setDialog({ kind: "verify", beatId: selected.id });
+                }}
+                onEditTerritory={() => startTerritory(selected)}
+                onDrawTerritory={() => startTerritory(selected)}
+              />
+            ) : other ? (
+              <OtherFeaturePanel feature={other} onClose={() => setOther(null)} />
+            ) : (
+              <EmptyPanel hasBeats={beats.length > 0} needAttention={needAttention} />
+            )}
+          </div>
         )}
       </div>
 
-      {pendingPolygon && (
-        <Modal title="New Territory" onClose={() => { setPendingPolygon(null); drawRef.current?.deleteAll(); setDrawing(false); }}>
-          <TerritoryForm
-            onSubmit={handleCreateTerritory}
-            onCancel={() => { setPendingPolygon(null); drawRef.current?.deleteAll(); setDrawing(false); }}
-          />
-        </Modal>
+      {beatsQuery.isError ? (
+        <div className={styles.tableCard}>
+          <div className={styles.tableEmpty}>
+            The beats could not be loaded. <button className={`${styles.btn} ${styles.btnSmall}`} onClick={() => void beatsQuery.refetch()}>Try Again</button>
+          </div>
+        </div>
+      ) : (
+        <BeatTable
+          beats={visibleBeats}
+          selectedId={selectedId}
+          onView={(b) => {
+            choose(b);
+            window.scrollTo({ top: 0 });
+            document.querySelector("main")?.parentElement?.scrollTo({ top: 0, behavior: "smooth" });
+          }}
+          emptyMessage={beatsQuery.isLoading ? "Loading beats..." : beats.length === 0 ? "No beats yet. Upload a beat list to get started." : "No beats match this filter."}
+        />
       )}
+
+      {dialog?.kind === "upload" && (
+        <UploadBeatListWizard
+          onClose={closeDialog}
+          onImported={() => {
+            refresh();
+          }}
+        />
+      )}
+      {dialog?.kind === "newBeat" && (
+        <NewBeatDialog
+          polygon={dialog.polygon}
+          onClose={() => {
+            closeDialog();
+            cancelDrawing();
+          }}
+          onDone={() => {
+            closeDialog();
+            cancelDrawing();
+            refresh();
+          }}
+        />
+      )}
+      {dialog?.kind === "verify" && dialogBeat && <VerifyBeatDialog beat={dialogBeat} onClose={closeDialog} onDone={dialogDone} />}
+      {dialog?.kind === "assign" && dialogBeat && <AssignPostmanDialog beat={dialogBeat} onClose={closeDialog} onDone={dialogDone} />}
+      {dialog?.kind === "edit" && dialogBeat && <EditBeatDialog beat={dialogBeat} onClose={closeDialog} onDone={dialogDone} />}
     </div>
   );
 }

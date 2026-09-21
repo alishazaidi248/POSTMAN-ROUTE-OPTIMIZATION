@@ -6,6 +6,7 @@ import { typography } from "../../theme/typography";
 import { DeliveryFilter } from "../../types/delivery";
 
 const FILTERS: DeliveryFilter[] = ["ALL", "PENDING", "COMPLETED", "FAILED", "RESCHEDULED"];
+const LABEL: Record<DeliveryFilter, string> = { ALL: "All", PENDING: "Pending", COMPLETED: "Completed", FAILED: "Failed", RESCHEDULED: "Rescheduled" };
 
 interface Props {
   value: DeliveryFilter;
@@ -26,7 +27,7 @@ export function FilterChips({ value, onChange }: Props) {
             accessibilityLabel={`Filter: ${filter}`}
             style={[styles.chip, active && styles.chipActive]}
           >
-            <Text style={[styles.chipText, active && styles.chipTextActive]}>{filter}</Text>
+            <Text style={[styles.chipText, active && styles.chipTextActive]}>{LABEL[filter]}</Text>
           </Pressable>
         );
       })}
@@ -48,7 +49,7 @@ const styles = StyleSheet.create({
   // the content container automatically; react-native-web does not reliably
   // do the same, so without it explicitly here the chips stack into a tall
   // vertical column instead of a horizontal row (this was the actual bug).
-  row: { flexDirection: "row", alignItems: "center", gap: spacing.sm, paddingHorizontal: spacing.md, paddingVertical: spacing.sm },
+  row: { flexDirection: "row", alignItems: "center", gap: spacing.sm, paddingHorizontal: spacing.lg, paddingVertical: spacing.sm },
   chip: {
     flexShrink: 0,
     paddingVertical: spacing.xs,
@@ -60,7 +61,7 @@ const styles = StyleSheet.create({
     minHeight: 36,
     justifyContent: "center"
   },
-  chipActive: { backgroundColor: colors.primary, borderColor: colors.primary },
+  chipActive: { backgroundColor: colors.textPrimary, borderColor: colors.textPrimary },
   chipText: { ...typography.caption, color: colors.textSecondary, fontWeight: "600" },
   chipTextActive: { color: colors.onPrimary }
 });

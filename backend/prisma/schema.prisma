@@ -30,6 +30,13 @@ enum BeatStatus {
   INACTIVE
 }
 
+// Has an administrator looked at this beat's territory on the map and confirmed it?
+enum BeatVerificationStatus {
+  PENDING_VERIFICATION
+  VERIFIED
+  NEEDS_REVIEW
+}
+
 enum PostmanStatus {
   ACTIVE
   ON_LEAVE
@@ -160,6 +167,7 @@ model PostOffice {
   vehicles           Vehicle[]
   deliveries         Delivery[]
   imports            DeliveryImport[]
+  beatImports        BeatImport[]
   optimizationReqs   OptimizationRequest[]
 
   @@index([pincode])
@@ -186,6 +194,8 @@ model User {
   refreshTokens   RefreshToken[]
   auditLogs       AuditLog[]
   deliveryImports DeliveryImport[]
+  beatImports     BeatImport[]
+  verifiedBeats   Beat[]         @relation("BeatVerifiedBy")
   notifications   Notification[]
 
   @@index([postOfficeId])
@@ -214,9 +224,13 @@ model Beat {
   beatNumber      String     @map("beat_number")
   name            String
   boundary        Unsupported("geometry(Polygon,4326)")?
-  centerLatitude  Float
-  centerLongitude Float
+  centerLatitude  Float?
+  centerLongitude Float?
   status          BeatStatus @default(ACTIVE)
+  verificationStatus BeatVerificationStatus @default(PENDING_VERIFICATION)
+  verifiedAt      DateTime?
+  verifiedById    String?
+  verifiedBy      User?      @relation("BeatVerifiedBy", fields: [verifiedById], references: [id])
   metadata        Json?
   createdAt       DateTime   @default(now())
   updatedAt       DateTime   @updatedAt
@@ -228,6 +242,8 @@ model Beat {
 
   @@unique([postOfficeId, beatNumber])
   @@index([postOfficeId])
+  // ST_Contains beat matching is a spatial lookup, not a scan (see the data_integrity migration).
+  @@index([boundary], type: Gist, map: "Beat_boundary_gix")
 }
 
 model Postman {
@@ -472,6 +488,27 @@ model DeliveryImport {
   updatedAt             DateTime       @updatedAt
 
   rows DeliveryImportRow[]
+
+  @@index([postOfficeId])
+}
+
+// An uploaded beat list, parsed and held until the administrator confirms the import.
+model BeatImport {
+  id               String       @id @default(uuid())
+  postOfficeId     String
+  postOffice       PostOffice   @relation(fields: [postOfficeId], references: [id])
+  uploadedById     String
+  uploadedBy       User         @relation(fields: [uploadedById], references: [id])
+  originalFilename String
+  fileSize         Int
+  sheetName        String?
+  columns          Json
+  rawRows          Json
+  columnMapping    Json
+  status           ImportStatus @default(PREVIEW_READY)
+  importedCount    Int          @default(0)
+  createdAt        DateTime     @default(now())
+  confirmedAt      DateTime?
 
   @@index([postOfficeId])
 }

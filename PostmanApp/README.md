@@ -150,11 +150,28 @@ before treating it as a real deviation.
 ## 12. Route architecture
 
 The app only **consumes** `GET /me/route` (see
-`docs/mobile-architecture.md` for the exact contract) — it never implements
-DBSCAN/nearest-neighbor/2-opt/etc. itself. Route re-optimization is
-requested via `POST /me/route/reoptimize` after a delivery's status changes
-in a way that affects the remaining route (delivered, recipient unavailable,
-wrong address, address not found, failed).
+`docs/mobile-architecture.md` for the exact contract) - it never implements
+routing itself. The backend plans the route (DBSCAN + Nearest Neighbor + 2-opt + ALNS over a
+road matrix) and returns the stop order, per-leg distance/time, ETAs and the
+road polyline. The route refreshes automatically when the postman's active
+deliveries change (delivered, failed, reassigned, added); the Map tab's
+**Recalculate** button forces a full re-plan from the current GPS position
+(`POST /me/route/reoptimize`). There is no route-method switch: the route is always
+"Optimized Route" from the server's one pipeline.
+
+**Map tab:** numbered markers in delivery order (done = check, failed = cross,
+blue = next stop), the road route with direction arrows, the route start ("S")
+and the GPS dot, a "next stop" banner with **Navigate**, and a bottom sheet for
+the selected delivery. **Deliveries tab:** cards ordered by the route; tap a
+card to expand it (address, parcels, priority, ETA) with **Navigate** and
+**Start Delivery / Mark Delivered**. The two tabs share one selection: tapping a
+card focuses the map, tapping a marker expands its card.
+
+**Mark Delivered** calls `POST /deliveries/:id/status` - the backend validates
+the transition (a parcel must be `OUT_FOR_DELIVERY` first), so `ASSIGNED`
+parcels show **Start Delivery**, not Mark Delivered. Offline, the change goes
+into the existing offline queue and replays oldest-first on reconnect; a
+server rejection shows a conflict banner instead of overwriting.
 
 ## 13. Testing
 
@@ -316,12 +333,15 @@ browser console even though the backend itself is reachable — see
   screen now shows a retry-able error state instead of a blank/crashed map
   (`onDidFailLoadingMap` in `src/screens/map/MapScreen.tsx`) — it does not
   crash the app.
-- `OSRM_BASE_URL` is optional and currently **unused** by any code path
-  (`src/config/env.ts` only reads and exposes it as `string | undefined`) —
-  the app does not yet call an OSRM server for road-network polylines (see
-  `docs/mobile-architecture.md`, Known Limitations). Leaving it empty is
-  safe and cannot crash anything; no OSRM server is fabricated or required
-  for the app to run today.
+- `OSRM_BASE_URL` in the **app** `.env` is still unused: road routing is done
+  by the **backend** (set `OSRM_BASE_URL` in `backend/.env` - see
+  `backend/.env.example`). Without it the backend returns straight-line
+  estimates, flagged `routing.mode: "ESTIMATED"`, and the app says so
+  ("Road route unavailable - the dashed line is a straight-line guide").
+- The app's location prompt is optional: the route start comes from the
+  server (last GPS ping, else the post office), so the map works without it;
+  granting location adds the "you are here" dot and lets **Recalculate** start
+  from where you are.
 
 ## 18. Troubleshooting
 

@@ -2,6 +2,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import * as Location from "expo-location";
 import { locationApi } from "../api/locationApi";
 import * as locationService from "../services/locationService";
+import { setLastFix } from "../services/lastFix";
 import { LocationFix, LocationPermissionState, TrackingMode } from "../types/location";
 
 const PING_INTERVAL_MS: Record<TrackingMode, number> = {
@@ -50,6 +51,7 @@ export function useLocation(mode: TrackingMode = "IDLE") {
       const subscription = await locationService.watchPosition(mode, (nextFix) => {
         if (cancelled) return;
         setFix(nextFix);
+        setLastFix(nextFix);
 
         const now = Date.now();
         if (now - lastPingAt.current >= PING_INTERVAL_MS[mode]) {

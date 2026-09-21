@@ -2,117 +2,92 @@ import React from "react";
 import { Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
 import { useNavigation } from "@react-navigation/native";
 import { NativeStackNavigationProp } from "@react-navigation/native-stack";
-import { useQuery } from "@tanstack/react-query";
-import Constants from "expo-constants";
 import { AccountStackParamList } from "../../navigation/types";
-import { postmanApi } from "../../api/postmanApi";
+import { usePostmanProfile } from "../../hooks/usePostmanProfile";
+import { useRefreshStaleOnFocus } from "../../hooks/useRefreshStaleOnFocus";
+import { useOfflineSync } from "../../hooks/useOfflineSync";
 import { useAuthStore } from "../../store/authStore";
+import { Avatar } from "../../components/common/Avatar";
+import { Icon, IconName } from "../../components/common/Icon";
 import { LoadingState } from "../../components/loading/LoadingState";
 import { ErrorState } from "../../components/error/ErrorState";
+import { PrimaryButton } from "../../components/common/PrimaryButton";
 import { colors } from "../../theme/colors";
 import { radius, spacing } from "../../theme/spacing";
 import { typography } from "../../theme/typography";
-import { PrimaryButton } from "../../components/common/PrimaryButton";
 import { confirmAction } from "../../utils/alerts";
 
 type Nav = NativeStackNavigationProp<AccountStackParamList, "AccountHome">;
 
+const REFRESH_ON_FOCUS = [["postmanProfile"], ["deliveryStats"]] as const;
+
 export function AccountScreen() {
   const navigation = useNavigation<Nav>();
-  const user = useAuthStore((s) => s.user);
+  useRefreshStaleOnFocus(REFRESH_ON_FOCUS);
   const logout = useAuthStore((s) => s.logout);
-  const statsQuery = useQuery({ queryKey: ["deliveryStats"], queryFn: () => postmanApi.getStats() });
-  const profileQuery = useQuery({ queryKey: ["postmanProfile"], queryFn: () => postmanApi.getProfile() });
+  const profileQuery = usePostmanProfile();
+  const { queueLength, isOnline } = useOfflineSync();
 
   if (profileQuery.isLoading) return <LoadingState message="Loading your profile..." />;
   if (profileQuery.isError || !profileQuery.data) {
-    return <ErrorState message="Unable to load your profile. Try again." onRetry={() => profileQuery.refetch()} />;
+    return <ErrorState message="We could not load your profile. Check your connection and try again." onRetry={() => void profileQuery.refetch()} />;
   }
 
-  const { postman, beat } = profileQuery.data;
+  const { postman, beat, postOffice } = profileQuery.data;
 
   const handleLogout = async () => {
     const confirmed = await confirmAction("Log out", "Are you sure you want to log out?", "Log Out");
-    if (confirmed) {
-      await logout();
-    }
+    if (confirmed) await logout();
   };
+
+  const syncNote = !isOnline ? "Offline" : queueLength > 0 ? `${queueLength} waiting` : undefined;
 
   return (
     <ScrollView style={styles.container} contentContainerStyle={styles.content}>
-      <View style={styles.headerCard}>
-        <View style={styles.avatar}>
-          <Text style={styles.avatarText}>{postman.name.charAt(0)}</Text>
-        </View>
-        <View style={styles.headerText}>
-          <Text style={styles.name}>{postman.name}</Text>
-          <Text style={styles.caption}>{postman.employeeId}</Text>
-          <Text style={styles.caption}>{beat ? `${beat.beatNumber} · ${beat.name}` : "No beat assigned"}</Text>
-        </View>
+      <View style={styles.identity}>
+        <Avatar name={postman.name} photoUrl={postman.profilePhotoUrl} size={88} />
+        <Text style={styles.name}>{postman.name}</Text>
+        <Text style={styles.meta}>{postman.employeeId}</Text>
+        <Text style={styles.meta}>{beat ? `${beat.beatNumber} — ${beat.name}` : "No beat assigned"}</Text>
+        {postOffice ? <Text style={styles.meta}>{postOffice.name}</Text> : null}
       </View>
-
-      {statsQuery.data ? (
-        <View style={styles.statsCard}>
-          <Text style={styles.sectionTitle}>Today</Text>
-          <View style={styles.statsRow}>
-            <Stat label="Completed" value={statsQuery.data.today.completed} />
-            <Stat label="Pending" value={statsQuery.data.today.remaining} />
-            <Stat label="Failed" value={statsQuery.data.today.failed} />
-            <Stat label="Rate" value={`${Math.round(statsQuery.data.completionRate * 100)}%`} />
-          </View>
-        </View>
-      ) : null}
 
       <View style={styles.list}>
-        <ListItem label="ID Card" onPress={() => navigation.navigate("IdCard")} />
-        <ListItem label="Profile" onPress={() => navigation.navigate("Profile")} />
-        <ListItem label="Settings" onPress={() => navigation.navigate("Settings")} />
+        <Row icon="user" label="Profile" onPress={() => navigation.navigate("Profile")} />
+        <Row icon="bell" label="Notifications" onPress={() => navigation.navigate("Notifications")} />
+        <Row icon="sync" label="Offline Sync" note={syncNote} onPress={() => navigation.navigate("OfflineSync")} />
+        <Row icon="info" label="App Information" onPress={() => navigation.navigate("Settings")} last />
       </View>
 
-      <PrimaryButton label="Log Out" variant="danger" onPress={handleLogout} />
-
-      <Text style={styles.version}>
-        App version {Constants.expoConfig?.version ?? "1.0.0"} · User: {user?.email}
-      </Text>
+      <PrimaryButton label="Log Out" variant="secondary" onPress={handleLogout} />
     </ScrollView>
   );
 }
 
-function Stat({ label, value }: { label: string; value: number | string }) {
+function Row({ icon, label, note, onPress, last }: { icon: IconName; label: string; note?: string; onPress: () => void; last?: boolean }) {
   return (
-    <View style={styles.stat}>
-      <Text style={styles.statValue}>{value}</Text>
-      <Text style={styles.caption}>{label}</Text>
-    </View>
-  );
-}
-
-function ListItem({ label, onPress }: { label: string; onPress: () => void }) {
-  return (
-    <Pressable onPress={onPress} style={styles.listItem} accessibilityRole="button" accessibilityLabel={label}>
-      <Text style={styles.listItemText}>{label}</Text>
-      <Text style={styles.chevron}>›</Text>
+    <Pressable onPress={onPress} style={({ pressed }) => [styles.row, !last && styles.rowDivider, pressed && styles.pressed]} accessibilityRole="button" accessibilityLabel={label}>
+      <View style={styles.rowIcon}>
+        <Icon name={icon} size={20} color={colors.textSecondary} />
+      </View>
+      <Text style={styles.rowLabel}>{label}</Text>
+      {note ? <Text style={styles.rowNote}>{note}</Text> : null}
+      <Icon name="chevron" size={18} color={colors.textDisabled} />
     </Pressable>
   );
 }
 
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: colors.background },
-  content: { padding: spacing.md, gap: spacing.lg, paddingBottom: spacing.xxl },
-  headerCard: { flexDirection: "row", gap: spacing.md, alignItems: "center", backgroundColor: colors.surface, borderRadius: radius.lg, borderWidth: 1, borderColor: colors.border, padding: spacing.lg },
-  avatar: { width: 56, height: 56, borderRadius: 28, backgroundColor: colors.primary, alignItems: "center", justifyContent: "center" },
-  avatarText: { ...typography.screenTitle, color: colors.onPrimary },
-  headerText: { flex: 1, gap: 2 },
-  name: { ...typography.sectionTitle, color: colors.textPrimary },
-  caption: { ...typography.caption, color: colors.textSecondary },
-  statsCard: { backgroundColor: colors.surface, borderRadius: radius.lg, borderWidth: 1, borderColor: colors.border, padding: spacing.lg, gap: spacing.sm },
-  sectionTitle: { ...typography.label, color: colors.textSecondary },
-  statsRow: { flexDirection: "row", justifyContent: "space-between" },
-  stat: { alignItems: "center", gap: 2 },
-  statValue: { ...typography.sectionTitle, color: colors.textPrimary },
+  content: { padding: spacing.lg, gap: spacing.lg, paddingBottom: spacing.xxl },
+  identity: { alignItems: "center", gap: 3, paddingVertical: spacing.md },
+  name: { ...typography.screenTitle, color: colors.textPrimary, marginTop: spacing.sm },
+  meta: { ...typography.caption, color: colors.textSecondary },
   list: { backgroundColor: colors.surface, borderRadius: radius.lg, borderWidth: 1, borderColor: colors.border, overflow: "hidden" },
-  listItem: { flexDirection: "row", justifyContent: "space-between", alignItems: "center", padding: spacing.md, minHeight: 48, borderBottomWidth: 1, borderBottomColor: colors.border },
-  listItemText: { ...typography.body, color: colors.textPrimary },
-  chevron: { ...typography.sectionTitle, color: colors.textDisabled },
-  version: { ...typography.caption, color: colors.textDisabled, textAlign: "center" }
+  row: { flexDirection: "row", alignItems: "center", gap: spacing.md, paddingHorizontal: spacing.lg, minHeight: 56 },
+  rowDivider: { borderBottomWidth: 1, borderBottomColor: colors.divider },
+  rowIcon: { width: 28, alignItems: "center" },
+  rowLabel: { ...typography.body, color: colors.textPrimary, flex: 1 },
+  rowNote: { ...typography.caption, color: colors.warning },
+  pressed: { backgroundColor: colors.background }
 });

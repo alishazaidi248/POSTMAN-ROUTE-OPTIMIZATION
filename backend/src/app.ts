@@ -19,6 +19,8 @@ import { dashboardRouter } from "./routes/dashboard.routes";
 import { postOfficesRouter } from "./routes/postOffices.routes";
 import { postmenRouter } from "./routes/postmen.routes";
 import { beatsRouter } from "./routes/beats.routes";
+import { beatImportRouter } from "./routes/beatImport.routes";
+import { PROFILE_URL_PREFIX, profileImageDirectory } from "./services/storage/imageStorage";
 import { vehiclesRouter } from "./routes/vehicles.routes";
 import { deliveriesRouter } from "./routes/deliveries.routes";
 import { importsRouter } from "./routes/imports.routes";
@@ -37,6 +39,18 @@ export function createApp() {
 
   app.use(helmet());
   app.use(cors({ origin: env.corsOrigin, credentials: true }));
+  // Profile pictures only (never the upload folder as a whole). Names are random UUIDs, they are served
+  // as images and nothing else, and the other apps (admin panel, mobile app) may embed them.
+  app.use(
+    PROFILE_URL_PREFIX,
+    (_req, res, next) => {
+      res.setHeader("Cross-Origin-Resource-Policy", "cross-origin");
+      res.setHeader("X-Content-Type-Options", "nosniff");
+      res.setHeader("Cache-Control", "public, max-age=86400, immutable");
+      next();
+    },
+    express.static(profileImageDirectory(), { index: false, dotfiles: "deny" })
+  );
   app.use(compression());
   app.use(express.json({ limit: "2mb" }));
   app.use(express.urlencoded({ extended: true }));
@@ -64,6 +78,8 @@ export function createApp() {
   app.use("/api/v1/dashboard", dashboardRouter);
   app.use("/api/v1/post-offices", postOfficesRouter);
   app.use("/api/v1/postmen", postmenRouter);
+  // The import wizard's routes come first so "import" is never taken for a beat id.
+  app.use("/api/v1/beats/import", beatImportRouter);
   app.use("/api/v1/beats", beatsRouter);
   app.use("/api/v1/vehicles", vehiclesRouter);
   app.use("/api/v1/deliveries", deliveriesRouter);

@@ -104,3 +104,22 @@ export interface DeliveryStatsResponse {
 }
 
 export type DeliveryFilter = "ALL" | "PENDING" | "COMPLETED" | "FAILED" | "RESCHEDULED";
+
+// ── past deliveries (GET /me/deliveries/history) ─────────────────────────────────────────────────────────────
+/** What counts as a finished delivery: handed over, or sent back to the office. */
+export type HistoryOutcome = "ALL" | "DELIVERED" | "RETURNED";
+
+export interface FinishedDelivery extends Delivery {
+  /** When the delivery reached its final status (ISO). */
+  finishedAt: string;
+}
+
+export interface DeliveryHistoryResponse {
+  /** Deliveries matching the outcome filter inside the period. */
+  total: number;
+  page: number;
+  pageSize: number;
+  /** How the whole period splits, regardless of the outcome filter (drives the chip counts). */
+  summary: { delivered: number; returned: number };
+  rows: FinishedDelivery[];
+}

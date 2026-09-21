@@ -1,7 +1,6 @@
 import React from "react";
 import { ScrollView, StyleSheet, Text, View } from "react-native";
-import { useQuery } from "@tanstack/react-query";
-import { postmanApi } from "../../api/postmanApi";
+import { usePostmanProfile } from "../../hooks/usePostmanProfile";
 import { useAuthStore } from "../../store/authStore";
 import { LoadingState } from "../../components/loading/LoadingState";
 import { ErrorState } from "../../components/error/ErrorState";
@@ -18,7 +17,7 @@ import { typography } from "../../theme/typography";
  */
 export function IdCardScreen() {
   const user = useAuthStore((s) => s.user);
-  const profileQuery = useQuery({ queryKey: ["postmanProfile"], queryFn: () => postmanApi.getProfile() });
+  const profileQuery = usePostmanProfile();
 
   if (profileQuery.isLoading) return <LoadingState message="Loading ID card..." />;
   if (profileQuery.isError || !profileQuery.data) {

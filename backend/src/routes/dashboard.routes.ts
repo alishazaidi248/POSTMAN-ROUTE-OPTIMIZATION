@@ -1,10 +1,10 @@
 import { Router } from "express";
 import { prisma } from "../config/prisma";
-import { requireAuth, resolvePostOfficeScope } from "../middleware/auth";
+import { requireAuth, resolvePostOfficeScope, adminOnly } from "../middleware/auth";
 import { asyncHandler } from "../utils/asyncHandler";
 
 export const dashboardRouter = Router();
-dashboardRouter.use(requireAuth);
+dashboardRouter.use(requireAuth, adminOnly);
 
 dashboardRouter.get(
   "/summary",

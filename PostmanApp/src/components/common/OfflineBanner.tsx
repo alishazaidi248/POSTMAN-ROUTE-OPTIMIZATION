@@ -1,8 +1,9 @@
 import React from "react";
 import { StyleSheet, Text, View } from "react-native";
 import { colors } from "../../theme/colors";
-import { spacing } from "../../theme/spacing";
+import { radius, spacing } from "../../theme/spacing";
 import { typography } from "../../theme/typography";
+import { Icon } from "./Icon";
 
 interface Props {
   isOnline: boolean;
@@ -13,19 +14,22 @@ export function OfflineBanner({ isOnline, queueLength }: Props) {
   if (isOnline && queueLength === 0) return null;
 
   const message = !isOnline
-    ? "You're offline. Showing the latest available data."
-    : `Syncing ${queueLength} update${queueLength === 1 ? "" : "s"}...`;
+    ? queueLength > 0
+      ? `You are offline. ${queueLength} update${queueLength === 1 ? " is" : "s are"} saved and will be sent when you are back online.`
+      : "You are offline. Showing the latest available data."
+    : `Sending ${queueLength} update${queueLength === 1 ? "" : "s"}...`;
 
   return (
     <View style={[styles.banner, !isOnline ? styles.offline : styles.syncing]} accessibilityLiveRegion="polite">
+      <Icon name={isOnline ? "sync" : "offline"} size={16} color={!isOnline ? colors.warning : colors.info} />
       <Text style={styles.text}>{message}</Text>
     </View>
   );
 }
 
 const styles = StyleSheet.create({
-  banner: { paddingVertical: spacing.sm, paddingHorizontal: spacing.md, alignItems: "center" },
-  offline: { backgroundColor: colors.neutralBg },
+  banner: { flexDirection: "row", alignItems: "center", gap: spacing.sm, paddingVertical: spacing.sm, paddingHorizontal: spacing.md, borderRadius: radius.md, marginHorizontal: spacing.sm, marginTop: spacing.sm },
+  offline: { backgroundColor: colors.warningBg },
   syncing: { backgroundColor: colors.infoBg },
-  text: { ...typography.caption, color: colors.textPrimary }
+  text: { ...typography.caption, color: colors.textPrimary, flex: 1 }
 });
