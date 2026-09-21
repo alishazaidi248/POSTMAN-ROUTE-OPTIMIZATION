@@ -18,15 +18,28 @@ export interface BeatRecord {
   deliveryCount: number | string;
   assignedPostmanId: string | null;
   assignedPostmanName: string | null;
+  /** Other active beats whose territory overlaps this one (from PostGIS). */
+  overlaps?: { id: string; beatNumber: string; areaSqm: number }[];
   createdAt: string;
   updatedAt: string;
 }
 
 export const VERIFICATION_LABEL: Record<Verification, string> = {
-  VERIFIED: "Verified",
-  PENDING_VERIFICATION: "Pending verification",
-  NEEDS_REVIEW: "Needs review"
+  VERIFIED: "✓ Verified",
+  PENDING_VERIFICATION: "⚠ Needs verification",
+  NEEDS_REVIEW: "❌ Missing territory"
 };
+
+/** The state of a beat's territory as the three indicators the administrator sees: verified, needs verification, missing. */
+export function territoryState(b: BeatRecord): Verification {
+  if (!b.hasTerritory) return "NEEDS_REVIEW";
+  return b.verificationStatus === "VERIFIED" ? "VERIFIED" : "PENDING_VERIFICATION";
+}
+
+export const isOverlapping = (b: BeatRecord) => (b.overlaps?.length ?? 0) > 0;
+
+/** "⚠ Overlapping B21" - which beats a territory overlaps. */
+export const overlapLabel = (b: BeatRecord) => `⚠ Overlapping ${b.overlaps!.map((o) => `B${o.beatNumber}`).join(", ")}`;
 
 /** The colours the map and the badges share (kept in step with tokens.css). */
 export const VERIFICATION_COLOR: Record<Verification, string> = {

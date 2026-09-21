@@ -1,7 +1,7 @@
 import { FormEvent, useState } from "react";
 import { useMutation, useQuery } from "@tanstack/react-query";
 import { apiClient } from "../../lib/apiClient";
-import { friendlyError } from "../../lib/friendlyError";
+import { friendlyError, overlapConflict } from "../../lib/friendlyError";
 import { useAuth } from "../../lib/auth";
 import { Modal } from "../../components/Modal";
 import { useToast } from "../../components/Toast";
@@ -20,8 +20,9 @@ interface PostmanOption {
 /** Confirm that a beat's territory is right. The state is saved by the server, with who and when. */
 export function VerifyBeatDialog({ beat, onClose, onDone }: { beat: BeatRecord; onClose: () => void; onDone: () => void }) {
   const toast = useToast();
+  const [acknowledged, setAcknowledged] = useState(false);
   const verify = useMutation({
-    mutationFn: () => apiClient.post(`/beats/${beat.id}/verify`).then((r) => r.data as { overlaps?: { beatNumber: string }[] }),
+    mutationFn: () => apiClient.post(`/beats/${beat.id}/verify`, { acknowledgeOverlap: acknowledged }).then((r) => r.data as { overlaps?: { beatNumber: string }[] }),
     onSuccess: (data) => {
       toast.success(`Beat ${beat.beatNumber} verified successfully.`);
       if (data.overlaps && data.overlaps.length > 0) {
@@ -30,6 +31,7 @@ export function VerifyBeatDialog({ beat, onClose, onDone }: { beat: BeatRecord; 
       onDone();
     }
   });
+  const overlap = verify.isError ? overlapConflict(verify.error) : null;
 
   return (
     <Modal title="Verify beat" onClose={onClose} width={460}>
@@ -43,10 +45,18 @@ export function VerifyBeatDialog({ beat, onClose, onDone }: { beat: BeatRecord; 
       <p style={{ fontSize: 13, color: "var(--color-ink-500)", margin: "10px 0 0" }}>
         Look at the highlighted territory on the map. If the outline covers the right streets, verify the beat. If not, choose &ldquo;Edit Territory&rdquo; first.
       </p>
-      {verify.isError && <p className={styles.errorText}>{friendlyError(verify.error, "The beat could not be verified.")}</p>}
+      {verify.isError && !overlap && <p className={styles.errorText}>{friendlyError(verify.error, "The beat could not be verified.")}</p>}
+      {overlap && (
+        <p className={styles.errorText} role="alert" data-testid="overlap-confirm">
+          {overlap}
+          <label style={{ display: "block", marginTop: 6 }}>
+            <input type="checkbox" checked={acknowledged} onChange={(e) => setAcknowledged(e.target.checked)} /> The overlap is intended. Verify anyway.
+          </label>
+        </p>
+      )}
       <div className={styles.actions}>
         <button className={styles.btn} onClick={onClose}>Cancel</button>
-        <button className={`${styles.btn} ${styles.btnPrimary}`} onClick={() => verify.mutate()} disabled={verify.isPending}>
+        <button className={`${styles.btn} ${styles.btnPrimary}`} onClick={() => verify.mutate()} disabled={verify.isPending || (!!overlap && !acknowledged)}>
           {verify.isError ? "Try Again" : verify.isPending ? "Verifying..." : "Verify Beat"}
         </button>
       </div>
@@ -144,6 +154,7 @@ export function NewBeatDialog({ polygon, onClose, onDone }: { polygon: GeoJSON.P
   const [name, setName] = useState("");
   const [postmanId, setPostmanId] = useState("");
   const [officeId, setOfficeId] = useState("");
+  const [acknowledged, setAcknowledged] = useState(false);
 
   const postmen = useQuery<PostmanOption[]>({ queryKey: ["postmen-for-assignment"], queryFn: () => apiClient.get("/postmen").then((r) => r.data) });
   const offices = useQuery<{ id: string; name: string }[]>({
@@ -160,7 +171,8 @@ export function NewBeatDialog({ polygon, onClose, onDone }: { polygon: GeoJSON.P
         beatNumber: beatNumber.trim(),
         name: name.trim(),
         boundary: polygon,
-        postmanId: postmanId || null
+        postmanId: postmanId || null,
+        acknowledgeOverlap: acknowledged || undefined
       }),
     onSuccess: () => {
       toast.success(`Beat ${beatNumber.trim()} added successfully.`);
@@ -204,14 +216,20 @@ export function NewBeatDialog({ polygon, onClose, onDone }: { polygon: GeoJSON.P
             ))}
           </select>
         </div>
-        {create.isError && (
-          <p className={styles.errorText}>
-            {friendlyError(create.error, "The territory could not be saved.")} Please check that the outline is complete and does not overlap incorrectly.
+        {create.isError && overlapConflict(create.error) && (
+          <p className={styles.errorText} role="alert" data-testid="overlap-confirm">
+            {overlapConflict(create.error)}
+            <label style={{ display: "block", marginTop: 6 }}>
+              <input type="checkbox" checked={acknowledged} onChange={(e) => setAcknowledged(e.target.checked)} /> The overlap is intended. Save anyway.
+            </label>
           </p>
+        )}
+        {create.isError && !overlapConflict(create.error) && (
+          <p className={styles.errorText}>{friendlyError(create.error, "The territory could not be saved.")}</p>
         )}
         <div className={styles.actions}>
           <button type="button" className={styles.btn} onClick={onClose}>Cancel</button>
-          <button type="submit" className={`${styles.btn} ${styles.btnPrimary}`} disabled={create.isPending || !beatNumber.trim() || !name.trim() || !targetOffice}>
+          <button type="submit" className={`${styles.btn} ${styles.btnPrimary}`} disabled={create.isPending || !beatNumber.trim() || !name.trim() || !targetOffice || (create.isError && !!overlapConflict(create.error) && !acknowledged)}>
             {create.isError ? "Try Again" : create.isPending ? "Saving..." : "Save beat"}
           </button>
         </div>

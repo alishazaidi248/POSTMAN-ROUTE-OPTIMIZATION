@@ -96,3 +96,137 @@ export function parseTerritoryCell(raw: string): Polygon | null {
   }
   return parsed.data;
 }
+
+// ── territory analysis: validity, size, position and overlap ────────────────────────────────────────────────
+
+/**
+ * What a saved territory has to satisfy. The numbers are deliberately loose bounds that catch mistakes (a doodle, a polygon
+ * around the wrong city, a swapped latitude/longitude, a whole district), not a judgement of a beat's real size.
+ */
+export const TERRITORY_LIMITS = {
+  /** Smaller than this is a click, not a beat. */
+  minAreaM2: 1_000,
+  /** Larger than this is not a postman's beat (25 km2). */
+  maxAreaM2: 25_000_000,
+  /** The territory's centre must be this close to its post office; further means the wrong place or a swapped lat/lng. */
+  maxDistanceFromOfficeM: 30_000,
+  /** Overlaps smaller than this are drawing slivers along a shared edge and are not reported. */
+  overlapToleranceM2: 25
+} as const;
+
+export interface TerritoryOverlap {
+  id: string;
+  beatNumber: string;
+  name: string;
+  areaSqm: number;
+  /** "Beat 20 overlaps Beat 21" - the sentence an administrator reads. */
+  message: string;
+}
+
+export interface TerritoryAnalysis {
+  valid: boolean;
+  /** Plain-language reasons when not valid (self-intersection, no area, too small / large, wrong place). */
+  problems: string[];
+  areaSqm: number | null;
+  centerLatitude: number | null;
+  centerLongitude: number | null;
+  distanceFromOfficeM: number | null;
+  overlaps: TerritoryOverlap[];
+}
+
+/**
+ * Checks a territory with PostGIS and reports overlaps with the OTHER active beats of the office. Nothing is accepted
+ * silently: the caller decides what to do with `problems` (refuse) and `overlaps` (refuse unless acknowledged).
+ * `excludeBeatId`: the beat being edited (it does not overlap itself). `beatNumber`: used only to word the messages.
+ */
+export async function analyseTerritory(
+  db: Db,
+  boundary: Polygon,
+  ctx: { postOfficeId: string; excludeBeatId?: string; beatNumber?: string }
+): Promise<TerritoryAnalysis> {
+  const geo = JSON.stringify(boundary);
+  const own = ctx.beatNumber ? `Beat ${ctx.beatNumber}` : "This territory";
+  const problems: string[] = [];
+  let rows: { valid: boolean; reason: string; area: number; lat: number; lng: number; dist: number | null }[];
+  try {
+    rows = await db.$queryRaw(Prisma.sql`
+      SELECT ST_IsValid(g) AS valid, ST_IsValidReason(g) AS reason, ST_Area(g::geography) AS area,
+             ST_Y(ST_PointOnSurface(g)) AS lat, ST_X(ST_PointOnSurface(g)) AS lng,
+             ST_Distance(ST_PointOnSurface(g)::geography, ST_SetSRID(ST_MakePoint(po.longitude, po.latitude), 4326)::geography) AS dist
+      FROM (SELECT ST_SetSRID(ST_GeomFromGeoJSON(${geo}), 4326) AS g) t
+      CROSS JOIN (SELECT latitude, longitude FROM "PostOffice" WHERE id = ${ctx.postOfficeId}) po
+    `);
+  } catch {
+    return { valid: false, problems: ["The territory is not a readable shape."], areaSqm: null, centerLatitude: null, centerLongitude: null, distanceFromOfficeM: null, overlaps: [] };
+  }
+  const r = rows[0];
+  if (!r) return { valid: false, problems: ["The post office of this territory was not found."], areaSqm: null, centerLatitude: null, centerLongitude: null, distanceFromOfficeM: null, overlaps: [] };
+
+  if (!r.valid) problems.push(`The outline is not a valid shape (${r.reason}). Check that it does not cross itself.`);
+  else {
+    if (r.area < TERRITORY_LIMITS.minAreaM2) problems.push(`The territory is too small (${Math.round(r.area)} m²; at least ${TERRITORY_LIMITS.minAreaM2} m²).`);
+    if (r.area > TERRITORY_LIMITS.maxAreaM2) problems.push(`The territory is too large (${(r.area / 1e6).toFixed(1)} km²; at most ${TERRITORY_LIMITS.maxAreaM2 / 1e6} km²) for one postman's beat.`);
+    if (r.dist != null && r.dist > TERRITORY_LIMITS.maxDistanceFromOfficeM) {
+      problems.push(`The territory is ${(r.dist / 1000).toFixed(0)} km from its post office. Check the position (and that latitude and longitude are not swapped).`);
+    }
+  }
+
+  let overlaps: TerritoryOverlap[] = [];
+  if (r.valid) {
+    const found = await db.$queryRaw<{ id: string; beatNumber: string; name: string; area: number }[]>(Prisma.sql`
+      SELECT o.id, o.beat_number AS "beatNumber", o.name,
+             ST_Area(ST_Intersection(t.g, o.boundary)::geography) AS area
+      FROM (SELECT ST_SetSRID(ST_GeomFromGeoJSON(${geo}), 4326) AS g) t
+      JOIN "Beat" o ON o."postOfficeId" = ${ctx.postOfficeId} AND o.status = 'ACTIVE' AND o.boundary IS NOT NULL
+      WHERE (${ctx.excludeBeatId ?? null}::text IS NULL OR o.id <> ${ctx.excludeBeatId ?? null})
+        AND ST_Intersects(t.g, o.boundary)
+        AND ST_Area(ST_Intersection(t.g, o.boundary)::geography) > ${TERRITORY_LIMITS.overlapToleranceM2}
+      ORDER BY o.beat_number
+    `);
+    overlaps = found.map((o) => ({
+      id: o.id,
+      beatNumber: o.beatNumber,
+      name: o.name,
+      areaSqm: Math.round(o.area),
+      message: `${own} overlaps Beat ${o.beatNumber} (${Math.round(o.area).toLocaleString("en-IN")} m²).`
+    }));
+  }
+
+  return {
+    valid: problems.length === 0,
+    problems,
+    areaSqm: r.valid ? Math.round(r.area) : null,
+    centerLatitude: r.valid ? r.lat : null,
+    centerLongitude: r.valid ? r.lng : null,
+    distanceFromOfficeM: r.dist == null ? null : Math.round(r.dist),
+    overlaps
+  };
+}
+
+export interface OverlapPair {
+  a: { id: string; beatNumber: string };
+  b: { id: string; beatNumber: string };
+  areaSqm: number;
+  message: string;
+}
+
+/** Every pair of overlapping ACTIVE territories of an office (or of all offices when null), once per pair. */
+export async function overlapPairs(db: Db, postOfficeId: string | null): Promise<OverlapPair[]> {
+  const rows = await db.$queryRaw<{ aId: string; aNo: string; bId: string; bNo: string; area: number }[]>(Prisma.sql`
+    SELECT a.id AS "aId", a.beat_number AS "aNo", b.id AS "bId", b.beat_number AS "bNo",
+           ST_Area(ST_Intersection(a.boundary, b.boundary)::geography) AS area
+    FROM "Beat" a
+    JOIN "Beat" b ON b."postOfficeId" = a."postOfficeId" AND b.id > a.id AND b.status = 'ACTIVE' AND b.boundary IS NOT NULL
+    WHERE a.status = 'ACTIVE' AND a.boundary IS NOT NULL
+      AND (${postOfficeId}::text IS NULL OR a."postOfficeId" = ${postOfficeId})
+      AND ST_Intersects(a.boundary, b.boundary)
+      AND ST_Area(ST_Intersection(a.boundary, b.boundary)::geography) > ${TERRITORY_LIMITS.overlapToleranceM2}
+    ORDER BY a.beat_number, b.beat_number
+  `);
+  return rows.map((r) => ({
+    a: { id: r.aId, beatNumber: r.aNo },
+    b: { id: r.bId, beatNumber: r.bNo },
+    areaSqm: Math.round(r.area),
+    message: `Beat ${r.aNo} overlaps Beat ${r.bNo} (${Math.round(r.area).toLocaleString("en-IN")} m²).`
+  }));
+}

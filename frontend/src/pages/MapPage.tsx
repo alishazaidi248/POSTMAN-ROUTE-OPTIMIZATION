@@ -2,7 +2,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useSearchParams } from "react-router-dom";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { apiClient } from "../lib/apiClient";
-import { friendlyError } from "../lib/friendlyError";
+import { friendlyError, overlapConflict } from "../lib/friendlyError";
 import { Icon } from "../components/icons";
 import { useToast } from "../components/Toast";
 import { BeatMap, BeatMapHandle, OtherFeature } from "../features/beats/BeatMap";
@@ -117,18 +117,26 @@ export function MapPage() {
   }
 
   const saveTerritory = useMutation({
-    mutationFn: async (beat: BeatRecord) => {
+    mutationFn: async ({ beat, acknowledge }: { beat: BeatRecord; acknowledge?: boolean }) => {
       const polygon = mapHandle.current?.getDrawnPolygon();
       if (!polygon) throw new Error("no polygon");
       // A beat that was already verified stays verified: the administrator has just looked at the change.
-      await apiClient.put(`/beats/${beat.id}`, { boundary: polygon, verified: beat.verificationStatus === "VERIFIED" });
+      await apiClient.put(`/beats/${beat.id}`, { boundary: polygon, verified: beat.verificationStatus === "VERIFIED", acknowledgeOverlap: acknowledge || undefined });
     },
     onSuccess: () => {
       toast.success("Territory updated successfully.");
       cancelDrawing();
       refresh();
     },
-    onError: (err) => toast.error(`${friendlyError(err, "Territory could not be saved.")} Please check that the outline is complete and does not overlap incorrectly.`)
+    onError: (err, { beat }) => {
+      const overlap = overlapConflict(err);
+      // An overlap is a decision: ask, and save again only when the administrator says it is intended.
+      if (overlap && window.confirm(`${overlap}\n\nSave this territory anyway?`)) {
+        saveTerritory.mutate({ beat, acknowledge: true });
+        return;
+      }
+      toast.error(overlap ?? friendlyError(err, "Territory could not be saved."));
+    }
   });
 
   const onPolygonDrawn = (polygon: GeoJSON.Polygon) => {
@@ -256,7 +264,7 @@ export function MapPage() {
               {mode.kind === "territory" && editingBeat && (
                 <button
                   className={`${styles.btn} ${styles.btnPrimary} ${styles.btnSmall}`}
-                  onClick={() => saveTerritory.mutate(editingBeat)}
+                  onClick={() => saveTerritory.mutate({ beat: editingBeat })}
                   disabled={!hasDrawn || saveTerritory.isPending}
                 >
                   {saveTerritory.isPending ? "Saving..." : "Save Territory"}
