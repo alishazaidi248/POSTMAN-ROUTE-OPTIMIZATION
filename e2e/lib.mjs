@@ -30,7 +30,7 @@ export function chromePath() {
 }
 
 export const launch = () =>
-  puppeteer.launch({ executablePath: chromePath(), headless: "new", args: ["--no-sandbox", "--use-gl=swiftshader", "--enable-webgl", "--ignore-gpu-blocklist"] });
+  puppeteer.launch({ executablePath: chromePath(), headless: "new", args: ["--no-sandbox", "--use-gl=angle", "--use-angle=swiftshader", "--enable-unsafe-swiftshader", "--enable-webgl", "--ignore-gpu-blocklist"] });
 
 export async function api(method, route, token, body) {
   const res = await fetch(API + route, { method, headers: { "Content-Type": "application/json", ...(token ? { Authorization: `Bearer ${token}` } : {}) }, body: body ? JSON.stringify(body) : undefined });

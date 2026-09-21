@@ -77,7 +77,7 @@ export async function adminE2E() {
       await click("Upload Beat List");
       opened = !!(await waitFor(page, () => !!document.querySelector('[data-testid="beat-file-input"]'), null, 6000));
     }
-    if (!opened) throw new Error(`the Upload Beat List wizard did not open. Page text: ${(await text()).slice(0, 400)}`);
+    if (!opened) throw new Error(`the Upload Beat List wizard did not open. Page text: ${(await text()).slice(0, 300)} | URL: ${page.url()} | script errors: ${pageErrors.join(" ; ").slice(0, 400)}`);
     await (await page.$('[data-testid="beat-file-input"]')).uploadFile(path.join(HERE, "fixtures", "beat-list.csv"));
     await waitFor(page, () => !!document.querySelector('[data-testid="file-name"]'), null, 15000);
     r.check("the uploaded file's name and row count are shown", /beat-list\.csv/.test(await text()) && /6 rows found/.test(await text()), await text());
