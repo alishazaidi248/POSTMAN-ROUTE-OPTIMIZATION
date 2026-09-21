@@ -75,6 +75,7 @@ const delivery = (id: string, latitude: number, longitude: number, over: Partial
   latitude,
   longitude,
   parcelCount: 1,
+  weightKg: 1,
   priority: "NORMAL",
   serviceTimeMinutes: 0,
   ...over
@@ -87,7 +88,7 @@ function referenceCost(
   travel: Travel,
   params: { loadWeight: number; priorityWeight: number }
 ) {
-  const totalLoad = order.reduce((s, d) => s + d.parcelCount, 0);
+  const totalLoad = order.reduce((s, d) => s + d.weightKg!, 0);
   let remaining = totalLoad;
   let prev: Pt = start;
   let clock = 0;
@@ -101,7 +102,7 @@ function referenceCost(
     clock += t;
     priority += params.priorityWeight * (PRIORITY_FACTOR[d.priority] ?? 0) * clock;
     clock += (d.serviceTimeMinutes ?? 0) * 60;
-    remaining -= d.parcelCount;
+    remaining -= d.weightKg!;
     prev = d;
   }
   return { travel: travelSum, load, priority, total: travelSum + load + priority };
@@ -161,10 +162,10 @@ describe("the route is DBSCAN -> NN -> 2-opt on the road time matrix", () => {
   it("the reported cost equals the documented cost function evaluated independently", async () => {
     for (const params of [PLAIN, DEFAULTS]) {
       const stops = [
-        delivery("a", 19.15, 72.93, { parcelCount: 4 }),
+        delivery("a", 19.15, 72.93, { weightKg: 4 }),
         delivery("b", 19.16, 72.95, { priority: "URGENT" }),
-        delivery("c", 19.14, 72.96, { parcelCount: 2, serviceTimeMinutes: 5 }),
-        delivery("d", 19.17, 72.92, { priority: "HIGH", parcelCount: 3 }),
+        delivery("c", 19.14, 72.96, { weightKg: 2, serviceTimeMinutes: 5 }),
+        delivery("d", 19.17, 72.92, { priority: "HIGH", weightKg: 3 }),
         delivery("e", 19.13, 72.94)
       ];
       const { solution } = await plan(stops, crowFlies, { costParams: params });
@@ -242,7 +243,7 @@ describe("the route is DBSCAN -> NN -> 2-opt on the road time matrix", () => {
     expect(weighted.solution.stops.map((s) => s.deliveryId)).toEqual(["far-urgent", "near-normal"]);
     expect(weighted.solution.metrics.priorityPenalty).toBeGreaterThan(0);
 
-    const heavy = [delivery("north", 19.1536, 72.9345, { parcelCount: 1 }), delivery("south", 19.1336, 72.9345, { parcelCount: 12 })];
+    const heavy = [delivery("north", 19.1536, 72.9345, { weightKg: 1 }), delivery("south", 19.1336, 72.9345, { weightKg: 12 })];
     const flat = await plan(heavy, crowFlies, { costParams: PLAIN });
     const loaded = await plan(heavy, crowFlies, { costParams: DEFAULTS });
     expect(loaded.solution.stops[0].deliveryId).toBe("south"); // heavy parcels leave the bag first
@@ -268,7 +269,7 @@ describe("the route is DBSCAN -> NN -> 2-opt on the road time matrix", () => {
       const n = 1 + Math.floor(rnd() * 25);
       const stops = Array.from({ length: n }, (_, i) =>
         delivery(`s${i}`, 19.1 + rnd() * 0.08, 72.9 + rnd() * 0.08, {
-          parcelCount: 1 + Math.floor(rnd() * 6),
+          weightKg: 1 + Math.floor(rnd() * 6),
           priority: ["LOW", "NORMAL", "NORMAL", "HIGH", "URGENT"][Math.floor(rnd() * 5)],
           serviceTimeMinutes: Math.floor(rnd() * 6)
         })

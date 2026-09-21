@@ -25,7 +25,8 @@ export interface Postman {
 export interface PostmanProfileResponse {
   postman: Postman;
   beat: Beat | null;
-  postOffice: { id: string; name: string; code: string } | null;
+  /** proofMode: what the post office requires to complete a delivery (the server enforces it). */
+  postOffice: { id: string; name: string; code: string; proofMode?: "NONE" | "PHOTO" } | null;
   lastKnownLocation: {
     latitude: number;
     longitude: number;

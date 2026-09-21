@@ -18,6 +18,20 @@ Every stage - and the comparison "input order vs NN vs +2-opt vs +ALNS" - uses t
 that include service (dwell) time. Road travel times are used whenever the routing engine answers; if it does not,
 the whole route is planned from flagged straight-line estimates and says so.
 
+### What "load" and "priority" are made of
+
+- **Load is a real weight in kilograms** (`Delivery.weightKg`, imported from a `Weight` column or given when a delivery is
+  created; positive, at most 1000). A **parcel count is never treated as a weight.** `metrics.loadBasis` says what the
+  route used: `WEIGHT_KG` (every stop has a weight), `PARTIAL_WEIGHT_KG` (the stops without one get the median known weight),
+  or `NONE` - no stop has a weight, so the load term is **switched off** (`loadWeight` is reported as 0) instead of being fed
+  a stand-in. The Bhandup West data has no weights, so its routes are `NONE`.
+- **Priority is in the cost that is optimised**: `priorityFactor` (LOW/NORMAL 0, HIGH 1, URGENT 3) x arrival time x
+  `priorityWeight`, in the cost function, in the Nearest Neighbor selection key and in the ALNS insertion delta.
+  `tests/routeLoadAndPriority.test.ts` shows an URGENT stop 315 s away going before a NORMAL stop 110 s away, the priority
+  penalty being non-zero and part of `totalCost`.
+- **A pincode-level location is not routed.** A delivery whose only location is the centre of its pincode would put every
+  such stop on one spot; it is left out of the route and reported as `IMPRECISE_LOCATION`. Area-level points are routed.
+
 ## ALNS (`alns.ts`)
 
 Adaptive Large Neighborhood Search (Ropke & Pisinger). Each iteration removes `q` stops (10%-40% of the route, at
@@ -46,13 +60,40 @@ most 25) with a destroy operator, puts them back with a repair operator, and dec
   A test checks the closed form against the full cost function on random partial routes.
 * **Deterministic.** A seeded generator: the same input gives the same route (given the same limits).
 
-### Clusters
+### Clusters: kept, and why (measured)
 
-The DBSCAN structure is a hard rule of the pipeline: every cluster stays one unbroken run
-(`ROUTE_ALNS_PRESERVE_CLUSTERS=true`, the default). ALNS can reorder stops inside a cluster and can move a whole
-cluster to a better place between two other clusters, but a stop is only re-inserted inside its own cluster's run
-(or between clusters when its whole cluster was removed). Setting it to `false` lets ALNS move a stop into another
-cluster when that lowers the cost.
+Every DBSCAN cluster stays one unbroken run (`ROUTE_ALNS_PRESERVE_CLUSTERS=true`, the default). ALNS can reorder stops inside a
+cluster and move a whole cluster between two others, but a stop is only re-inserted inside its own cluster's run.
+
+Whether that costs route quality was measured (`npm run route:clusters`, `data/bhandup/cluster-preservation-study.txt`; 20
+deterministic synthetic rounds per row on a street-grid road model with a river - **not real roads**):
+
+| Condition | Stops | Drive time, clusters kept | Drive time, clusters free | Difference | Run time kept / free |
+|---|---|---|---|---|---|
+| PLAIN (all NORMAL, no weights = the real Bhandup data) | 25 / 50 / 100 | 90.0 / 123.0 / 184.7 min | 89.7 / 123.2 / 184.6 min | -0.3 % / +0.2 % / -0.0 % | 30 / 122 / 348 ms vs 51 / 331 / 1491 ms |
+| MIXED (random priorities and weights) | 25 / 50 / 100 | 108.0 / 168.1 / 269.0 min | 119.2 / 183.9 / 309.9 min | +10.4 % / +9.4 % / +15.2 % | 28 / 126 / 377 ms vs 57 / 380 / 1945 ms |
+
+Reading it: with plain deliveries the two settings drive **the same time** (a few tenths of a percent either way) and keeping
+clusters is 1.7-4x faster. With priorities and weights live, letting ALNS break clusters gives a *lower cost* but a **9-15 %
+longer drive** - it spends driving time on the priority / load terms. Route quality, as the postman experiences it, is
+therefore not hurt by keeping clusters and is better when priorities are used. **Decision: keep it on.**
+`ROUTE_ALNS_PRESERVE_CLUSTERS=false` remains available for a post office that would rather minimise the weighted cost.
+
+### Time windows: not implemented, on purpose
+
+A delivery time window makes lateness a **non-linear** function of the arrival time (early = wait, late = penalty). The ALNS
+speed comes from an exact closed form for the cost change of inserting a stop anywhere, which needs the cost to be linear in
+prefix / suffix sums of travel, load and priority. A window term breaks that: every insertion would need a re-evaluation of
+the rest of the route, and the search would slow by roughly the route length. And the data does not exist: no delivery
+carries a window, and the import has no such column. Adding a fake one would be worse than none, so there is none.
+
+### Performance and the background-job question
+
+Measured (`npm run route:bench -- 25 50 100 200 --ms=1500`, deterministic synthetic rounds, one thread): the full pipeline takes
+about 50 ms for 25 stops, 200 ms for 50, 800 ms for 100 and 850 ms for 200 (ALNS is capped at 1.5 s and 2-opt at 1.5 s, so the
+worst case is about 3 s). A beat is a few dozen stops, so a route is planned **synchronously in the request**; moving planning
+to a worker thread or queue would add machinery for a saving nobody would notice today. Revisit if rounds of several hundred
+stops become normal - the event loop is blocked for the whole planning time.
 
 ## Re-planning
 
@@ -79,13 +120,3 @@ travel time, cost and runtime for each. `tests/routeBenchmark.test.ts` runs the 
 asserts only the invariants (valid routes, ALNS never dearer than 2-opt, the production entry point returning the measured
 route), never a target improvement. Add `--free-clusters` to see what the search finds when it may move stops between
 DBSCAN clusters.
-
-### Known trade-off: contiguous clusters vs. the weighted cost
-
-Keeping each DBSCAN cluster as one unbroken run is a hard rule (`ROUTE_ALNS_PRESERVE_CLUSTERS=true`). It gives a round
-that goes neighbourhood by neighbourhood, but it also shrinks the space ALNS may search. On the synthetic benchmark rounds
-(20 % URGENT + 20 % HIGH stops, so the priority term is large), plain NN + 2-opt WITHOUT clustering can have a lower
-weighted cost than the production route at some sizes. That plain route is not a candidate - the pipeline is fixed - but if
-lowest weighted cost matters more than neighbourhood grouping, set `ROUTE_ALNS_PRESERVE_CLUSTERS=false`; ALNS then
-went below plain NN + 2-opt on every benchmark round. Which of the two a post office wants is a business decision.
-

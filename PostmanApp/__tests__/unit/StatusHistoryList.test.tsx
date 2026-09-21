@@ -46,6 +46,10 @@ describe("formatDateTime", () => {
   it("says Today, Yesterday, then the date", () => {
     expect(formatDateTime(new Date(2026, 8, 21, 9, 5).toISOString(), noon)).toMatch(/^Today, /);
     expect(formatDateTime(new Date(2026, 8, 20, 23, 50).toISOString(), noon)).toMatch(/^Yesterday, /);
-    expect(formatDateTime(new Date(2026, 8, 10, 9, 5).toISOString(), noon)).toMatch(/^(?!Today|Yesterday)(?:.*[^0-9])?10([^0-9]).*,/); // the calendar date; the month name follows the device language
+    // the calendar date, then the time: the order of day and month follows the device language ("10 Sep, 09:05" or "Sep 10, 09:05 AM")
+    const older = formatDateTime(new Date(2026, 8, 10, 9, 5).toISOString(), noon);
+    expect(older).not.toMatch(/^(Today|Yesterday)/);
+    expect(older).toMatch(/(^|[^0-9])10([^0-9]|$)/);
+    expect(older).toMatch(/,\s*\d/);
   });
 });

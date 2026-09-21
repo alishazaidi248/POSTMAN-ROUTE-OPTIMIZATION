@@ -7,6 +7,7 @@ import ExcelJS from "exceljs";
 const prismaMock = vi.hoisted(() => ({
   postOffice: { findMany: vi.fn() },
   beat: { findMany: vi.fn() },
+  beatLocality: { findMany: vi.fn() },
   $queryRaw: vi.fn()
 }));
 vi.mock("../src/config/prisma", () => ({ prisma: prismaMock }));
@@ -26,12 +27,13 @@ const OTHER = { id: "po2", name: "Mulund Post Office", code: "ML01" };
 const square = JSON.stringify({ type: "Polygon", coordinates: [[[72.9, 19.1], [72.904, 19.1], [72.904, 19.104], [72.9, 19.104], [72.9, 19.1]]] });
 const rows = (...cells: Record<string, string>[]): RawRow[] => cells.map((c, i) => ({ rowNumber: i + 2, cells: c }));
 
-const MAPPING = { beatNumber: "Beat No", name: "Beat Name", postOffice: "Post Office", territory: "Boundary", latitude: null, longitude: null };
+const MAPPING = { beatNumber: "Beat No", name: "Beat Name", postOffice: "Post Office", territory: "Boundary", latitude: null, longitude: null, locality: null, mainArea: null, pincode: null };
 
 beforeEach(() => {
   vi.clearAllMocks();
   prismaMock.postOffice.findMany.mockResolvedValue([OFFICE, OTHER]);
-  prismaMock.beat.findMany.mockResolvedValue([{ postOfficeId: "po1", beatNumber: "B01" }]);
+  prismaMock.beat.findMany.mockResolvedValue([{ id: "beat-b01", postOfficeId: "po1", beatNumber: "B01" }]);
+  prismaMock.beatLocality.findMany.mockResolvedValue([]);
   // PostGIS says every polygon handed to it is valid
   prismaMock.$queryRaw.mockResolvedValue([{ valid: true, reason: "Valid Geometry", area: 200000, lat: 19.102, lng: 72.902 }]);
 });
@@ -46,7 +48,10 @@ describe("suggestBeatMapping", () => {
       postOffice: "Post Office",
       territory: "Boundary",
       latitude: null,
-      longitude: null
+      longitude: null,
+      locality: null,
+      mainArea: null,
+      pincode: null
     });
     expect(suggestBeatMapping(["BEAT_NUMBER", "SECTOR", "OFFICE", "LAT", "LNG"])).toMatchObject({
       beatNumber: "BEAT_NUMBER",

@@ -108,7 +108,7 @@ describe("DeliveryCard — expanded (only fields the Delivery model actually has
   it("shows the address, parcel count/type, priority, tracking id and beat — and no invented weight", () => {
     renderCard(viewFor("OUT_FOR_DELIVERY"), true);
 
-    expect(screen.getByText("d1 Station Road, Bhandup West, Mumbai, Maharashtra, 400078")).toBeTruthy();
+    expect(screen.getByText("d1 Station Road / Bhandup West / Mumbai")).toBeTruthy();
     expect(screen.getByText("2 · Speed Post")).toBeTruthy();
     expect(screen.getByText("Phone")).toBeTruthy();
     expect(screen.getByText("NORMAL")).toBeTruthy();

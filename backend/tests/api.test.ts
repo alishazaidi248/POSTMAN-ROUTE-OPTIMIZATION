@@ -52,7 +52,7 @@ function asPostman(postmanId = "pm1") {
 }
 
 function delivery(status: string, over: Record<string, unknown> = {}) {
-  const row = { id: "d1", status, postOfficeId: "po1", assignedPostmanId: "pm1", ...over };
+  const row = { id: "d1", status, postOfficeId: "po1", assignedPostmanId: "pm1", postOffice: { proofMode: "NONE" }, proof: null, ...over };
   prismaMock.delivery.findUniqueOrThrow.mockResolvedValue(row);
   prismaMock.delivery.update.mockImplementation(async ({ data }: { data: { status: string } }) => ({ ...row, status: data.status }));
 }

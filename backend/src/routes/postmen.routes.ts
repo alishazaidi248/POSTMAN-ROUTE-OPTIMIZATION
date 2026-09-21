@@ -15,6 +15,7 @@ import { getOrPlanRoute, recalculateRoute } from "../services/routePlanner.servi
 import { getImageStorage, validateImage } from "../services/storage/imageStorage";
 import { ROUTABLE_STATUSES } from "../services/optimization/RoadRouteOptimizationService";
 import { env } from "../config/env";
+import { notifyPostman } from "../services/postmanNotifications.service";
 
 export const postmenRouter = Router();
 postmenRouter.use(requireAuth, adminOnly);
@@ -359,6 +360,7 @@ postmenRouter.post(
         name: postman.name,
         email: req.body.email,
         passwordHash: await hashPassword(req.body.password),
+        mustChangePassword: true, // set by the administrator: the postman chooses their own at first sign-in
         role: "POSTMAN",
         status: postman.status === "ACTIVE" ? "ACTIVE" : "INACTIVE",
         postOfficeId: postman.postOfficeId,
@@ -380,7 +382,7 @@ postmenRouter.post(
     if (!postman.user) throw AppError.notFound("This postman has no login account");
 
     await prisma.$transaction([
-      prisma.user.update({ where: { id: postman.user.id }, data: { passwordHash: await hashPassword(req.body.password) } }),
+      prisma.user.update({ where: { id: postman.user.id }, data: { passwordHash: await hashPassword(req.body.password), mustChangePassword: true, passwordChangedAt: null } }),
       // Every signed-in device must sign in again with the new password.
       prisma.refreshToken.updateMany({ where: { userId: postman.user.id, revokedAt: null }, data: { revokedAt: new Date() } })
     ]);
@@ -424,5 +426,25 @@ postmenRouter.delete(
     await getImageStorage().remove(postman.profilePhotoUrl); // the picture goes with the person
     await recordAudit({ req, action: "POSTMAN_DELETED", entityType: "Postman", entityId: postman.id, oldValue: postman });
     res.status(204).send();
+  })
+);
+
+// ── message to a postman ───────────────────────────────────────────────────
+
+/** An administrator writes to one postman: it is stored in their Notifications and pushed to their phone. */
+postmenRouter.post(
+  "/:id/message",
+  validate(z.object({ body: z.object({ message: z.string().trim().min(1).max(500), title: z.string().trim().min(1).max(80).optional(), urgent: z.boolean().optional() }) })),
+  asyncHandler(async (req, res) => {
+    const postman = await prisma.postman.findUniqueOrThrow({ where: { id: req.params.id } });
+    assertOwnsResource(req, postman.postOfficeId);
+    const delivered = await notifyPostman(postman.id, {
+      type: "ADMIN_MESSAGE",
+      title: req.body.title ?? "Message from your post office",
+      message: req.body.message,
+      severity: req.body.urgent ? "CRITICAL" : "INFO"
+    });
+    if (!delivered) throw AppError.conflict("This postman has no login, so there is no app to send the message to.");
+    res.status(201).json({ sent: true });
   })
 );

@@ -2,6 +2,7 @@ import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
 import { useAuth } from "../lib/auth";
 import { AppLayout } from "../components/AppLayout";
 import { LoginPage } from "../pages/LoginPage";
+import { ChangePasswordPage } from "../pages/ChangePasswordPage";
 import { DashboardPage } from "../pages/DashboardPage";
 import { PostmenPage } from "../pages/PostmenPage";
 import { PostmanDetailPage } from "../pages/PostmanDetailPage";
@@ -29,6 +30,8 @@ function RequireAuth({ children }: { children: JSX.Element }) {
     );
   }
   if (!user) return <Navigate to="/login" replace />;
+  // A temporary password must be replaced before anything else is shown.
+  if (user.mustChangePassword) return <ChangePasswordPage />;
   return children;
 }
 

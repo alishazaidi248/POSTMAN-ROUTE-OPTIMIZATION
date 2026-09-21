@@ -14,6 +14,9 @@ declare global {
   }
 }
 
+/** The only endpoints open to a token issued while a password change is required. */
+const PASSWORD_CHANGE_ALLOWED = /^\/api\/v1\/auth\/(change-password|logout|me)\/?$/;
+
 export function requireAuth(req: Request, _res: Response, next: NextFunction) {
   const header = req.headers.authorization;
   if (!header?.startsWith("Bearer ")) {
@@ -25,6 +28,10 @@ export function requireAuth(req: Request, _res: Response, next: NextFunction) {
   try {
     const payload = jwt.verify(token, env.jwtAccessSecret) as AccessTokenPayload;
     req.user = payload;
+    // An account that must choose a new password can do nothing else until it has (no route is left open by forgetting to check).
+    if (payload.mcp && !PASSWORD_CHANGE_ALLOWED.test(req.originalUrl.split("?")[0])) {
+      return next(new AppError("You must choose a new password before you can continue.", 403, { code: "PASSWORD_CHANGE_REQUIRED" }));
+    }
     next();
   } catch {
     next(AppError.unauthorized("Invalid or expired access token"));

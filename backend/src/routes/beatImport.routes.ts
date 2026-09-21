@@ -11,6 +11,9 @@ import { validate } from "../middleware/validate";
 import { asyncHandler } from "../utils/asyncHandler";
 import { AppError } from "../utils/AppError";
 import { recordAudit } from "../services/audit.service";
+import { canonical, normalizeValue } from "../services/addressing/normalize";
+import { invalidateDirectory } from "../services/addressing/beatDirectory.service";
+import { rematchOfficeDeliveries } from "../services/assignment.service";
 import {
   BEAT_FIELDS,
   BEAT_FIELD_LABELS,
@@ -185,31 +188,55 @@ beatImportRouter.post(
     if (importable.length === 0) throw AppError.badRequest("There are no beats that can be imported. Please fix the problems in the file and upload it again.");
 
     let created: string[];
+    let localityRecords = 0;
     try {
-      created = await prisma.$transaction(
+      const result = await prisma.$transaction(
         async (tx) => {
           const ids: string[] = [];
+          let localities = 0;
           for (const beat of importable) {
-            const rows = await tx.$queryRaw<{ id: string }[]>(Prisma.sql`
-              INSERT INTO "Beat" (id, "postOfficeId", beat_number, name, boundary, "centerLatitude", "centerLongitude", status, metadata,
-                                  "verificationStatus", "createdAt", "updatedAt")
-              VALUES (gen_random_uuid(), ${beat.postOfficeId}, ${beat.beatNumber}, ${beat.name},
-                      ${beat.territory ? Prisma.sql`ST_SetSRID(ST_GeomFromGeoJSON(${JSON.stringify(beat.territory)}), 4326)` : Prisma.sql`NULL`},
-                      ${beat.centerLatitude}, ${beat.centerLongitude}, 'ACTIVE',
-                      ${JSON.stringify({ importId: record.id, sourceRow: beat.rowNumber })}::jsonb,
-                      ${beat.territory ? "PENDING_VERIFICATION" : "NEEDS_REVIEW"}::"BeatVerificationStatus", now(), now())
-              RETURNING id
-            `);
-            ids.push(rows[0].id);
+            let beatId = beat.existingBeatId;
+            if (!beatId) {
+              const rows = await tx.$queryRaw<{ id: string }[]>(Prisma.sql`
+                INSERT INTO "Beat" (id, "postOfficeId", beat_number, name, boundary, "centerLatitude", "centerLongitude", status, metadata,
+                                    "verificationStatus", "createdAt", "updatedAt")
+                VALUES (gen_random_uuid(), ${beat.postOfficeId}, ${beat.beatNumber}, ${beat.name},
+                        ${beat.territory ? Prisma.sql`ST_SetSRID(ST_GeomFromGeoJSON(${JSON.stringify(beat.territory)}), 4326)` : Prisma.sql`NULL`},
+                        ${beat.centerLatitude}, ${beat.centerLongitude}, 'ACTIVE',
+                        ${JSON.stringify({ importId: record.id, sourceRow: beat.rowNumber })}::jsonb,
+                        ${beat.territory ? "PENDING_VERIFICATION" : "NEEDS_REVIEW"}::"BeatVerificationStatus", now(), now())
+                RETURNING id
+              `);
+              beatId = rows[0].id;
+              ids.push(beatId);
+            }
+            if (beat.localities.length > 0) {
+              const made = await tx.beatLocality.createMany({
+                data: beat.localities.map((l) => ({
+                  beatId: beatId!,
+                  postOfficeId: beat.postOfficeId,
+                  locality: l.locality,
+                  mainArea: l.mainArea,
+                  pincode: l.pincode,
+                  normalizedLocality: canonical(normalizeValue(l.locality)),
+                  normalizedMainArea: canonical(normalizeValue(l.mainArea)),
+                  source: `IMPORT:${record.id}`
+                })),
+                skipDuplicates: true
+              });
+              localities += made.count;
+            }
           }
           await tx.beatImport.update({
             where: { id: record.id },
             data: { status: "CONFIRMED", importedCount: ids.length, confirmedAt: new Date() }
           });
-          return ids;
+          return { ids, localities };
         },
-        { timeout: 60_000 }
+        { timeout: 120_000 }
       );
+      created = result.ids;
+      localityRecords = result.localities;
     } catch (err) {
       if (err instanceof Prisma.PrismaClientKnownRequestError && err.code === "P2002") {
         throw AppError.conflict("One of these beats was added by someone else while you were reviewing. Please upload the list again to check it.");
@@ -217,15 +244,19 @@ beatImportRouter.post(
       throw err;
     }
 
+    // The beat directory changed: deliveries waiting for a beat are matched against it now.
+    invalidateDirectory(record.postOfficeId);
+    const rematch = await rematchOfficeDeliveries(record.postOfficeId, 1000, { onlyUnassigned: true });
+
     await recordAudit({
       req,
       action: "BEAT_IMPORTED",
       entityType: "BeatImport",
       entityId: record.id,
-      newValue: { file: record.originalFilename, imported: created.length, skipped: preview.summary.errors, beatIds: created }
+      newValue: { file: record.originalFilename, imported: created.length, localityRecords, skipped: preview.summary.errors, duplicateLocalityRows: preview.summary.duplicateLocalityRows, beatIds: created, rematch }
     });
-    // Imported beats wait for verification; nothing is matched to them until then.
-    res.status(201).json({ imported: created.length, skipped: preview.summary.errors, beatIds: created });
+    // Imported territories wait for verification; until then beats are found by their localities (the beat directory).
+    res.status(201).json({ imported: created.length, existingBeatsUpdated: preview.summary.existingBeats, localityRecords, skipped: preview.summary.errors, duplicateLocalityRows: preview.summary.duplicateLocalityRows, beatIds: created, rematch });
   })
 );
 

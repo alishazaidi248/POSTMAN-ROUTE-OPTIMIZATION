@@ -1,0 +1,324 @@
+{
+  "generatedAt": "2026-09-21T07:33:23.496Z",
+  "osrm": "https://router.project-osrm.org",
+  "alnsSettings": {
+    "maxIterations": 2500,
+    "maxMillis": 1500,
+    "noImprovementLimit": 600,
+    "preserveClusters": true
+  },
+  "results": [
+    {
+      "label": "all 130 deliveries, one round",
+      "stops": 130,
+      "distinctCoordinates": 17,
+      "matrixMode": "ROAD",
+      "stages": [
+        {
+          "name": "Input order",
+          "cost": 22265,
+          "distanceKm": 372.4,
+          "travelMinutes": 371.1,
+          "runtimeMs": 0
+        },
+        {
+          "name": "Nearest Neighbor",
+          "cost": 8057.9,
+          "distanceKm": 120,
+          "travelMinutes": 134.3,
+          "runtimeMs": 0.8
+        },
+        {
+          "name": "NN + 2-opt",
+          "cost": 7516.9,
+          "distanceKm": 115.64,
+          "travelMinutes": 125.3,
+          "runtimeMs": 42
+        },
+        {
+          "name": "DBSCAN + NN + 2-opt",
+          "cost": 7518,
+          "distanceKm": 115.62,
+          "travelMinutes": 125.3,
+          "runtimeMs": 11
+        },
+        {
+          "name": "DBSCAN + NN + 2-opt + ALNS",
+          "cost": 6409.7,
+          "distanceKm": 96.1,
+          "travelMinutes": 106.8,
+          "runtimeMs": 369.7
+        }
+      ],
+      "alnsOver2OptPercent": 14.74,
+      "alnsOverNnPercent": 20.45,
+      "alnsOverInputPercent": 71.21,
+      "alnsDistanceOver2OptPercent": 16.88,
+      "alns": {
+        "iterations": 751,
+        "improvements": 5,
+        "stoppedBy": "NO_IMPROVEMENT"
+      }
+    },
+    {
+      "label": "beats 1-5 (24 deliveries)",
+      "stops": 24,
+      "distinctCoordinates": 4,
+      "matrixMode": "ROAD",
+      "stages": [
+        {
+          "name": "Input order",
+          "cost": 3918.4,
+          "distanceKm": 67.71,
+          "travelMinutes": 65.3,
+          "runtimeMs": 0
+        },
+        {
+          "name": "Nearest Neighbor",
+          "cost": 2632.2,
+          "distanceKm": 43.56,
+          "travelMinutes": 43.9,
+          "runtimeMs": 0
+        },
+        {
+          "name": "NN + 2-opt",
+          "cost": 2632.2,
+          "distanceKm": 43.56,
+          "travelMinutes": 43.9,
+          "runtimeMs": 0.8
+        },
+        {
+          "name": "DBSCAN + NN + 2-opt",
+          "cost": 2632.2,
+          "distanceKm": 43.56,
+          "travelMinutes": 43.9,
+          "runtimeMs": 1
+        },
+        {
+          "name": "DBSCAN + NN + 2-opt + ALNS",
+          "cost": 2632.2,
+          "distanceKm": 43.56,
+          "travelMinutes": 43.9,
+          "runtimeMs": 27.7
+        }
+      ],
+      "alnsOver2OptPercent": 0,
+      "alnsOverNnPercent": 0,
+      "alnsOverInputPercent": 32.82,
+      "alnsDistanceOver2OptPercent": 0,
+      "alns": {
+        "iterations": 600,
+        "improvements": 0,
+        "stoppedBy": "NO_IMPROVEMENT"
+      }
+    },
+    {
+      "label": "beats 6-10 (25 deliveries)",
+      "stops": 25,
+      "distinctCoordinates": 4,
+      "matrixMode": "ROAD",
+      "stages": [
+        {
+          "name": "Input order",
+          "cost": 4329.9,
+          "distanceKm": 68.79,
+          "travelMinutes": 72.2,
+          "runtimeMs": 0
+        },
+        {
+          "name": "Nearest Neighbor",
+          "cost": 2500,
+          "distanceKm": 40.48,
+          "travelMinutes": 41.7,
+          "runtimeMs": 0
+        },
+        {
+          "name": "NN + 2-opt",
+          "cost": 2489.1,
+          "distanceKm": 40.24,
+          "travelMinutes": 41.5,
+          "runtimeMs": 0.2
+        },
+        {
+          "name": "DBSCAN + NN + 2-opt",
+          "cost": 2489.1,
+          "distanceKm": 40.24,
+          "travelMinutes": 41.5,
+          "runtimeMs": 0
+        },
+        {
+          "name": "DBSCAN + NN + 2-opt + ALNS",
+          "cost": 2489.1,
+          "distanceKm": 40.24,
+          "travelMinutes": 41.5,
+          "runtimeMs": 28.1
+        }
+      ],
+      "alnsOver2OptPercent": 0,
+      "alnsOverNnPercent": 0.44,
+      "alnsOverInputPercent": 42.51,
+      "alnsDistanceOver2OptPercent": 0,
+      "alns": {
+        "iterations": 600,
+        "improvements": 0,
+        "stoppedBy": "NO_IMPROVEMENT"
+      }
+    },
+    {
+      "label": "beats 11-15 (25 deliveries)",
+      "stops": 25,
+      "distinctCoordinates": 5,
+      "matrixMode": "ROAD",
+      "stages": [
+        {
+          "name": "Input order",
+          "cost": 3418.8,
+          "distanceKm": 56.88,
+          "travelMinutes": 57,
+          "runtimeMs": 0
+        },
+        {
+          "name": "Nearest Neighbor",
+          "cost": 3007,
+          "distanceKm": 53.01,
+          "travelMinutes": 50.1,
+          "runtimeMs": 0
+        },
+        {
+          "name": "NN + 2-opt",
+          "cost": 3007,
+          "distanceKm": 53.01,
+          "travelMinutes": 50.1,
+          "runtimeMs": 0.1
+        },
+        {
+          "name": "DBSCAN + NN + 2-opt",
+          "cost": 3007,
+          "distanceKm": 53.01,
+          "travelMinutes": 50.1,
+          "runtimeMs": 0
+        },
+        {
+          "name": "DBSCAN + NN + 2-opt + ALNS",
+          "cost": 3007,
+          "distanceKm": 53.01,
+          "travelMinutes": 50.1,
+          "runtimeMs": 21
+        }
+      ],
+      "alnsOver2OptPercent": 0,
+      "alnsOverNnPercent": 0,
+      "alnsOverInputPercent": 12.05,
+      "alnsDistanceOver2OptPercent": 0,
+      "alns": {
+        "iterations": 600,
+        "improvements": 0,
+        "stoppedBy": "NO_IMPROVEMENT"
+      }
+    },
+    {
+      "label": "beats 16-20 (25 deliveries)",
+      "stops": 25,
+      "distinctCoordinates": 4,
+      "matrixMode": "ROAD",
+      "stages": [
+        {
+          "name": "Input order",
+          "cost": 3180.2,
+          "distanceKm": 54.62,
+          "travelMinutes": 53,
+          "runtimeMs": 0
+        },
+        {
+          "name": "Nearest Neighbor",
+          "cost": 1745.6,
+          "distanceKm": 28.42,
+          "travelMinutes": 29.1,
+          "runtimeMs": 0
+        },
+        {
+          "name": "NN + 2-opt",
+          "cost": 1706.3,
+          "distanceKm": 27.55,
+          "travelMinutes": 28.4,
+          "runtimeMs": 0.2
+        },
+        {
+          "name": "DBSCAN + NN + 2-opt",
+          "cost": 1706.3,
+          "distanceKm": 27.55,
+          "travelMinutes": 28.4,
+          "runtimeMs": 0
+        },
+        {
+          "name": "DBSCAN + NN + 2-opt + ALNS",
+          "cost": 1706.3,
+          "distanceKm": 27.55,
+          "travelMinutes": 28.4,
+          "runtimeMs": 22.5
+        }
+      ],
+      "alnsOver2OptPercent": 0,
+      "alnsOverNnPercent": 2.25,
+      "alnsOverInputPercent": 46.35,
+      "alnsDistanceOver2OptPercent": 0,
+      "alns": {
+        "iterations": 600,
+        "improvements": 0,
+        "stoppedBy": "NO_IMPROVEMENT"
+      }
+    },
+    {
+      "label": "beats 21-25 (25 deliveries)",
+      "stops": 25,
+      "distinctCoordinates": 4,
+      "matrixMode": "ROAD",
+      "stages": [
+        {
+          "name": "Input order",
+          "cost": 3643.1,
+          "distanceKm": 59.95,
+          "travelMinutes": 60.7,
+          "runtimeMs": 0
+        },
+        {
+          "name": "Nearest Neighbor",
+          "cost": 1869.8,
+          "distanceKm": 28.07,
+          "travelMinutes": 31.2,
+          "runtimeMs": 0
+        },
+        {
+          "name": "NN + 2-opt",
+          "cost": 1799,
+          "distanceKm": 27.01,
+          "travelMinutes": 30,
+          "runtimeMs": 0.2
+        },
+        {
+          "name": "DBSCAN + NN + 2-opt",
+          "cost": 1799,
+          "distanceKm": 27.01,
+          "travelMinutes": 30,
+          "runtimeMs": 0
+        },
+        {
+          "name": "DBSCAN + NN + 2-opt + ALNS",
+          "cost": 1799,
+          "distanceKm": 27.01,
+          "travelMinutes": 30,
+          "runtimeMs": 21.7
+        }
+      ],
+      "alnsOver2OptPercent": 0,
+      "alnsOverNnPercent": 3.79,
+      "alnsOverInputPercent": 50.62,
+      "alnsDistanceOver2OptPercent": 0,
+      "alns": {
+        "iterations": 600,
+        "improvements": 0,
+        "stoppedBy": "NO_IMPROVEMENT"
+      }
+    }
+  ]
+}

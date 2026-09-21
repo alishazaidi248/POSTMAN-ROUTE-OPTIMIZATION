@@ -55,6 +55,7 @@ const metricsFor = (stops: number): RouteMetrics => ({
   priorityPenalty: 0,
   totalCost: 60,
   loadWeight: 0.35,
+  loadBasis: "WEIGHT_KG",
   priorityWeight: 0.25,
   inputOrderCost: 60,
   dbscanNnCost: 60,

@@ -48,6 +48,7 @@ const delivery = (id: string, lat: number, lng: number, over: Record<string, unk
   latitude: lat,
   longitude: lng,
   parcelCount: 1,
+  weightKg: 1,
   priority: "NORMAL",
   serviceTimeMinutes: 3 as number | null,
   ...over
@@ -180,10 +181,10 @@ describe("planRouteFromInputs", () => {
     expect(sol.stops[1].distanceFromPreviousMeters).toBe(0);
   });
 
-  it("uses parcel count as carried load and lets it change the order (weight handling)", async () => {
+  it("uses the real weight (weightKg) as carried load and lets it change the order", async () => {
     // Stops N and S are the same distance from the start; only load can break the tie.
-    const north = delivery("north", 19.1536, 72.9345, { parcelCount: 1 });
-    const south = delivery("south", 19.1336, 72.9345, { parcelCount: 12 });
+    const north = delivery("north", 19.1536, 72.9345, { weightKg: 1 });
+    const south = delivery("south", 19.1336, 72.9345, { weightKg: 12 });
 
     const weighted = await planRouteFromInputs(
       { postmanId: "p", beatId: "b", start: START, deliveries: [north, south] },
@@ -269,6 +270,7 @@ describe("RoadRouteOptimizationService (loads deliveries from the database)", ()
     id,
     status,
     parcelCount: 1,
+    weightKg: 1,
     priority: "NORMAL",
     serviceTimeMinutes: null,
     address: { latitude: lat, longitude: lng }

@@ -3,7 +3,7 @@ import { prisma } from "../config/prisma";
 import { requireAuth, requireRole, resolvePostOfficeScope, assertOwnsResource, adminOnly } from "../middleware/auth";
 import { asyncHandler } from "../utils/asyncHandler";
 import { toCsv } from "../utils/csv";
-import { getGeocodingService } from "../services/geocoding";
+import { addressGeocodeData, geocodeAddress } from "../services/geocoding";
 import { assignDeliveryToBeat } from "../services/assignment.service";
 
 export const dataQualityRouter = Router();
@@ -77,23 +77,12 @@ dataQualityRouter.post(
 
     if (!delivery) return res.status(404).json({ error: { message: "No delivery associated with this row yet" } });
 
-    const geocoder = getGeocodingService();
-    const result = await geocoder.geocode(delivery.address);
+    const result = await geocodeAddress(delivery.address, delivery.postOfficeId);
 
     if (result.status === "SUCCESS") {
-      await prisma.address.update({
-        where: { id: delivery.addressId },
-        data: {
-          latitude: result.latitude,
-          longitude: result.longitude,
-          geocodingStatus: "SUCCESS",
-          geocodingSource: result.source,
-          geocodingConfidence: result.confidence,
-          geocodedAt: new Date()
-        }
-      });
-      await assignDeliveryToBeat(delivery.id, result.latitude, result.longitude);
+      await prisma.address.update({ where: { id: delivery.addressId }, data: addressGeocodeData(result, delivery.address) });
     }
+    await assignDeliveryToBeat(delivery.id);
 
     res.json({ status: result.status });
   })

@@ -1,11 +1,12 @@
 /**
  * Sets the system up with the Bhandup West data set in backend/data/bhandup/ (see build_data.py there).
  *
+ *   npx tsx scripts/setup-bhandup.ts init        an EMPTY database: the post office and the administrator (ADMIN_PASSWORD)
  *   npx tsx scripts/setup-bhandup.ts wipe        remove ALL operational data (deliveries, beats, postmen, their
  *                                                logins, imports, routes, audit trail, uploads). Keeps the schema,
  *                                                the post offices and the ADMIN / SUPER_ADMIN logins.
- *   npx tsx scripts/setup-bhandup.ts beats       26 beats through the beat-import API (territory from OpenStreetMap
- *                                                anchors, verified), then 26 postmen with logins, one per beat
+ *   npx tsx scripts/setup-bhandup.ts beats       26 beats + their locality directory through the beat-import API
+ *                                                (inferred territories stay unverified), then 26 postmen with logins
  *   npx tsx scripts/setup-bhandup.ts deliveries  the 130 deliveries through the real import (geocoding + PostGIS
  *                                                beat matching), exactly as an administrator would run it
  *
@@ -16,11 +17,11 @@ import fs from "node:fs";
 import path from "node:path";
 import { prisma } from "../src/config/prisma";
 import { confirmImport, createImportWithPreview } from "../src/services/imports/import.service";
+import { randomPassword, requiredEnv } from "./lib/credentials";
 
 const API = process.env.API_URL ?? "http://localhost:4000/api/v1";
 const DATA = path.join(__dirname, "..", "data", "bhandup");
-const ADMIN = { email: process.env.ADMIN_EMAIL ?? "admin.bhandup@postal.local", password: process.env.ADMIN_PASSWORD ?? "ChangeMe123!" };
-const POSTMAN_PASSWORD = "ChangeMe123!";
+const ADMIN = { email: process.env.ADMIN_EMAIL ?? "admin.bhandup@postal.local", get password() { return requiredEnv("ADMIN_PASSWORD", "the administrator's password"); } };
 const TERRITORY_RADIUS_M = 350;
 
 // ── helpers ──────────────────────────────────────────────────────────────────────────────────────────────────
@@ -141,20 +142,28 @@ async function beats() {
     byBeat.get(n)!.add(r[3]);
   }
 
-  // 1. the beat-import file: Beat No, Beat Name, Post Office, Boundary (WKT; empty = no territory known)
-  const lines = ["Beat No,Beat Name,Post Office,Boundary"];
+  // 1. the beat-import file, one row per (beat, locality, main area) - the structured beat list. The territory (WKT; empty =
+  //    none known) is given once per beat, on its first row.
+  const lines = ["Beat No,Beat Name,Post Office,Locality,Main Area,Pincode,Boundary"];
   const plan: { beat: number; localities: string[]; anchors: { key: string; a: Anchor }[] }[] = [];
+  const wktOf = new Map<number, string>();
   for (const n of [...byBeat.keys()].sort((a, b) => a - b)) {
     const localities = [...byBeat.get(n)!];
     const an = beatAnchors(n, localities, anchors);
     plan.push({ beat: n, localities, anchors: an });
-    const wkt = an.length ? await territoryWkt(an.map((x) => x.a)) : "";
-    const name = `Beat ${n} - ${localities[0]}`;
-    lines.push([String(n), name, po.name, wkt].map(csvCell).join(","));
+    wktOf.set(n, an.length ? await territoryWkt(an.map((x) => x.a)) : "");
+  }
+  const written = new Set<number>();
+  for (const r of dir) {
+    const n = Number(r[2]);
+    const boundary = written.has(n) ? "" : wktOf.get(n) ?? "";
+    written.add(n);
+    const name = `Beat ${n} - ${[...byBeat.get(n)!][0]}`;
+    lines.push([String(n), name, po.name, r[3], r[4] ?? "", r[5] ?? "", boundary].map(csvCell).join(","));
   }
   const importFile = path.join(DATA, "beats-import-generated.csv");
   fs.writeFileSync(importFile, lines.join("\n"));
-  console.log(`beat file written: ${plan.length} beats, ${plan.filter((p) => p.anchors.length).length} with a territory`);
+  console.log(`beat file written: ${plan.length} beats, ${dir.length} locality rows, ${plan.filter((p) => p.anchors.length).length} with an inferred territory`);
 
   const token = await login();
   const form = new FormData();
@@ -164,9 +173,9 @@ async function beats() {
   const confirmed = await call("POST", `/beats/import/${importId}/confirm`, token, {});
   console.log("beat import:", JSON.stringify(confirmed).slice(0, 300));
 
-  // 2. verify the beats that have a territory (an audited administrator action), and keep the directory with the beat
+  // 2. keep how each territory was inferred with the beat. They stay PENDING_VERIFICATION: an OpenStreetMap-anchor hull is a
+  //    starting point for an administrator to check on the map, not a surveyed boundary, so nothing here verifies it.
   const all = await prisma.beat.findMany({ where: { postOfficeId: po.id }, select: { id: true, beatNumber: true } });
-  let verified = 0;
   for (const b of all) {
     const p = plan.find((x) => String(x.beat) === b.beatNumber)!;
     await prisma.beat.update({
@@ -176,14 +185,14 @@ async function beats() {
           setNo: 1,
           localities: p.localities,
           territorySource: p.anchors.length
-            ? { method: `convex hull of ${p.anchors.length} OpenStreetMap anchor(s), buffered ${TERRITORY_RADIUS_M} m`, anchors: p.anchors.map((x) => ({ key: x.key, osm: x.a.osm, name: x.a.osmName, lat: x.a.lat, lng: x.a.lng })) }
+            ? { method: `convex hull of ${p.anchors.length} OpenStreetMap anchor(s), buffered ${TERRITORY_RADIUS_M} m - inferred, not surveyed`, anchors: p.anchors.map((x) => ({ key: x.key, osm: x.a.osm, name: x.a.osmName, lat: x.a.lat, lng: x.a.lng })) }
             : { method: "none - no OpenStreetMap anchor found for any locality of this beat" }
         }
       }
     });
-    if (p.anchors.length) { await call("POST", `/beats/${b.id}/verify`, token, {}); verified++; }
   }
-  console.log(`${all.length} beats created, ${verified} verified, ${all.length - verified} need a territory drawn`);
+  const pending = await prisma.beat.count({ where: { postOfficeId: po.id, verificationStatus: "PENDING_VERIFICATION" } });
+  console.log(`${all.length} beats created (${await prisma.beatLocality.count({ where: { postOfficeId: po.id } })} locality records), ${pending} with an inferred territory awaiting verification, ${all.length - pending} need a territory drawn`);
 
   // 3. one postman per beat, with a login, assigned to the beat
   const first = ["Ramesh", "Sunil", "Anil", "Prakash", "Deepak", "Sanjay", "Vijay", "Mahesh", "Ganesh", "Suresh", "Dinesh", "Manoj", "Ashok",
@@ -191,17 +200,23 @@ async function beats() {
   const last = ["Kadam", "Pawar", "Sawant", "Gaikwad", "More", "Shinde", "Jadhav", "Bhosale", "Kamble", "Salvi", "Mane", "Chavan", "Dalvi",
     "Naik", "Patil", "Rane", "Sutar", "Tambe", "Wagh", "Yadav", "Ghadge", "Bane", "Dhuri", "Gawde", "Khot", "Lad"];
   const pmByBeat: string[] = [];
+  const credentials: string[] = [];
   for (const b of all.sort((a, c) => Number(a.beatNumber) - Number(c.beatNumber))) {
     const i = Number(b.beatNumber);
     const nn = String(i).padStart(2, "0");
     const created = await call("POST", "/postmen", token, {
       employeeId: `BW-PM-${nn}`, name: `${first[i - 1]} ${last[i - 1]}`, phone: `97000000${nn}`, email: `beat${nn}.postman@postal.local`, address: "Bhandup West, Mumbai 400078"
     });
-    await call("POST", `/postmen/${created.id}/account`, token, { email: `beat${nn}.postman@postal.local`, password: POSTMAN_PASSWORD });
+    // A random temporary password per postman; the postman must choose their own at first sign-in.
+    const temporary = randomPassword();
+    credentials.push(`beat${nn}.postman@postal.local  ${temporary}`);
+    await call("POST", `/postmen/${created.id}/account`, token, { email: `beat${nn}.postman@postal.local`, password: temporary });
     await call("POST", `/postmen/${created.id}/assign-beat`, token, { beatId: b.id });
     pmByBeat.push(`Beat ${nn}: ${first[i - 1]} ${last[i - 1]}  beat${nn}.postman@postal.local`);
   }
-  console.log("postmen created:\n  " + pmByBeat.join("\n  ") + `\n  (password for all: ${POSTMAN_PASSWORD})`);
+  const credentialsFile = path.join(DATA, "credentials.local.txt");
+  fs.writeFileSync(credentialsFile, `Temporary passwords (each postman must change theirs at first sign-in). Local file, never commit.\n${credentials.join("\n")}\n`, { mode: 0o600 });
+  console.log("postmen created:\n  " + pmByBeat.join("\n  ") + `\n  (temporary passwords written to ${credentialsFile})`);
 }
 
 // ── deliveries: the real import pipeline ──────────────────────────────────────────────────────────────────────
@@ -223,12 +238,27 @@ async function deliveries() {
   console.log(`confirmed in ${Math.round((Date.now() - t0) / 1000)} s:`, JSON.stringify(result).slice(0, 400));
 }
 
+// ── init: a brand-new database gets the post office and the administrator (nothing is deleted) ──────────────────
+async function init() {
+  const existing = await prisma.postOffice.count();
+  if (existing > 0) throw new Error("This database already has a post office; init only prepares an EMPTY database.");
+  const argon2 = (await import("argon2")).default;
+  const office = await prisma.postOffice.create({
+    data: { code: "MUM-BHW-400078", name: "Bhandup West Post Office", addressLine: "Bhandup West, near LBS Marg", city: "Mumbai", state: "Maharashtra", pincode: "400078", latitude: 19.1436, longitude: 72.9345 }
+  });
+  await prisma.user.create({
+    data: { email: ADMIN.email, name: "Bhandup West Admin", role: "ADMIN", postOfficeId: office.id, passwordHash: await argon2.hash(ADMIN.password, { type: argon2.argon2id }) }
+  });
+  console.log(`initialised: ${office.name}, administrator ${ADMIN.email} (password from ADMIN_PASSWORD)`);
+}
+
 async function main() {
   const cmd = process.argv[2];
   if (cmd === "wipe") await wipe();
+  else if (cmd === "init") await init();
   else if (cmd === "beats") await beats();
   else if (cmd === "deliveries") await deliveries();
-  else console.log("usage: setup-bhandup.ts wipe | beats | deliveries");
+  else console.log("usage: setup-bhandup.ts init | wipe | beats | deliveries");
   await prisma.$disconnect();
 }
 main().catch(async (e) => { console.error(e); await prisma.$disconnect(); process.exit(1); });

@@ -1,9 +1,7 @@
 import fs from "fs";
 import { parse } from "csv-parse/sync";
 import ExcelJS from "exceljs";
-// pdf-parse has no types export path that plays well with strict esModuleInterop; require keeps it simple.
-// eslint-disable-next-line @typescript-eslint/no-var-requires
-const pdfParse = require("pdf-parse");
+import pdfParse from "pdf-parse";
 import { AppError } from "../../utils/AppError";
 
 export interface ParsedTable {

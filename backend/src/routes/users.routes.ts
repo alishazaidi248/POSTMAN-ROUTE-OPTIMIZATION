@@ -70,6 +70,7 @@ usersRouter.post(
         name: req.body.name,
         email: req.body.email,
         passwordHash,
+        mustChangePassword: true, // the administrator chose this one: the person chooses their own at first sign-in
         role: req.body.role,
         postOfficeId: req.body.role === "SUPER_ADMIN" ? null : req.body.postOfficeId,
         postmanId: req.body.role === "POSTMAN" ? req.body.postmanId : undefined

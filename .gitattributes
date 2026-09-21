@@ -1,0 +1,33 @@
+# Text files are stored with LF and checked out with the platform's own line ending, so a Windows and a Linux checkout
+# produce the same diffs (the repository had mixed CRLF / LF files before this).
+* text=auto
+
+*.ts   text eol=lf
+*.tsx  text eol=lf
+*.mts  text eol=lf
+*.mjs  text eol=lf
+*.js   text eol=lf
+*.json text eol=lf
+*.md   text eol=lf
+*.sql  text eol=lf
+*.prisma text eol=lf
+*.yml  text eol=lf
+*.yaml text eol=lf
+*.css  text eol=lf
+*.html text eol=lf
+*.py   text eol=lf
+*.sh   text eol=lf
+*.csv  text eol=lf
+
+# Binaries are never diffed or normalised
+*.pdf  binary
+*.png  binary
+*.jpg  binary
+*.jpeg binary
+*.webp binary
+*.ico  binary
+*.xlsx binary
+*.ttf  binary
+*.otf  binary
+*.woff binary
+*.woff2 binary

@@ -47,6 +47,7 @@ const beatRow = (over: Record<string, unknown> = {}) => ({
 
 beforeEach(() => {
   vi.clearAllMocks();
+  prismaMock.$queryRaw.mockReset();
   assignment.rematchOfficeDeliveries.mockResolvedValue({ checked: 0, changed: 0 });
   prismaMock.beat.update.mockResolvedValue({});
   prismaMock.auditLog.create.mockResolvedValue({});
@@ -54,9 +55,10 @@ beforeEach(() => {
 
 describe("POST /api/v1/beats/:id/verify", () => {
   it("verifies a beat: stores who and when, re-matches deliveries, and writes an audit entry", async () => {
-    // first read: pending; after the update: verified; then the overlap query
+    // first read: pending; the overlap check; after the update: verified; then the overlap query for the answer
     prismaMock.$queryRaw
       .mockResolvedValueOnce([beatRow()])
+      .mockResolvedValueOnce([])
       .mockResolvedValueOnce([beatRow({ verificationStatus: "VERIFIED", verifiedAt: "2026-09-21T10:00:00Z", verifiedByName: "Admin" })])
       .mockResolvedValueOnce([]);
 
@@ -83,6 +85,24 @@ describe("POST /api/v1/beats/:id/verify", () => {
     expect(prismaMock.auditLog.create).not.toHaveBeenCalled();
   });
 
+  it("a territory that overlaps another beat is not verified silently: 409 naming the beats, until the overlap is acknowledged", async () => {
+    prismaMock.$queryRaw.mockResolvedValueOnce([beatRow()]).mockResolvedValueOnce([{ id: "beat-2", beatNumber: "B202" }]);
+    const refused = await request(app).post("/api/v1/beats/beat-1/verify").set(bearer(token()));
+    expect(refused.status).toBe(409);
+    expect(refused.body.error.message).toMatch(/B201 overlaps Beat B202/);
+    expect(refused.body.error.details.requiresAcknowledgement).toBe(true);
+    expect(prismaMock.beat.update).not.toHaveBeenCalled();
+
+    prismaMock.$queryRaw
+      .mockResolvedValueOnce([beatRow()])
+      .mockResolvedValueOnce([{ id: "beat-2", beatNumber: "B202" }])
+      .mockResolvedValueOnce([beatRow({ verificationStatus: "VERIFIED" })])
+      .mockResolvedValueOnce([{ id: "beat-2", beatNumber: "B202" }]);
+    const accepted = await request(app).post("/api/v1/beats/beat-1/verify").set(bearer(token())).send({ acknowledgeOverlap: true });
+    expect(accepted.status).toBe(200);
+    expect(prismaMock.beat.update).toHaveBeenCalledTimes(1);
+  });
+
   it("refuses a beat that has no territory, in plain words", async () => {
     prismaMock.$queryRaw.mockResolvedValueOnce([beatRow({ hasTerritory: false, boundary: null, verificationStatus: "NEEDS_REVIEW" })]);
     const res = await request(app).post("/api/v1/beats/beat-1/verify").set(bearer(token()));
@@ -99,7 +119,7 @@ describe("POST /api/v1/beats/:id/verify", () => {
   });
 
   it("a super administrator can verify any office's beat", async () => {
-    prismaMock.$queryRaw.mockResolvedValueOnce([beatRow()]).mockResolvedValueOnce([beatRow({ verificationStatus: "VERIFIED" })]).mockResolvedValueOnce([]);
+    prismaMock.$queryRaw.mockResolvedValueOnce([beatRow()]).mockResolvedValueOnce([]).mockResolvedValueOnce([beatRow({ verificationStatus: "VERIFIED" })]).mockResolvedValueOnce([]);
     const res = await request(app).post("/api/v1/beats/beat-1/verify").set(bearer(token({ role: "SUPER_ADMIN", postOfficeId: null })));
     expect(res.status).toBe(200);
   });

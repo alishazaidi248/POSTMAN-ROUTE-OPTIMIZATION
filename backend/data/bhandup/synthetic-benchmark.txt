@@ -1,0 +1,179 @@
+ALNS settings: {"maxIterations":2500,"maxMillis":1500,"noImprovementLimit":600,"preserveClusters":true}
+
+Dataset: 25 deliveries
+
+Original (input order):
+  Distance: 203.51 km
+  Travel time: 512.5 min
+  Cost: 131734
+  Runtime: 0.0 ms
+
+NN:
+  Distance: 31.51 km
+  Travel time: 79.0 min
+  Cost: 27559
+  Runtime: 0.2 ms
+
+NN + 2-opt:
+  Distance: 31.04 km
+  Travel time: 77.9 min
+  Cost: 26691
+  Runtime: 1.8 ms
+
+DBSCAN + NN:
+  Distance: 31.51 km
+  Travel time: 79.0 min
+  Cost: 27559
+  Runtime: (included in the next stage)
+
+DBSCAN + NN + 2-opt:
+  Distance: 31.04 km
+  Travel time: 77.9 min
+  Cost: 26691
+  Runtime: 1.0 ms
+
+DBSCAN + NN + 2-opt + ALNS:
+  Distance: 28.60 km
+  Travel time: 72.1 min
+  Cost: 26689
+  Runtime: 36.7 ms
+
+ALNS improvement over 2-opt: 0.01%   (over NN: 3.16%, over input order: 79.74%)
+ALNS: 602 iterations, 1 new best routes, stopped by NO_IMPROVEMENT
+Production entry point returned the same route: yes
+
+----------------------------------------
+
+Dataset: 50 deliveries
+
+Original (input order):
+  Distance: 387.04 km
+  Travel time: 975.5 min
+  Cost: 408225
+  Runtime: 0.0 ms
+
+NN:
+  Distance: 79.32 km
+  Travel time: 194.9 min
+  Cost: 99553
+  Runtime: 0.1 ms
+
+NN + 2-opt:
+  Distance: 99.84 km
+  Travel time: 245.7 min
+  Cost: 69481
+  Runtime: 3.5 ms
+
+DBSCAN + NN:
+  Distance: 79.32 km
+  Travel time: 194.9 min
+  Cost: 99553
+  Runtime: (included in the next stage)
+
+DBSCAN + NN + 2-opt:
+  Distance: 83.15 km
+  Travel time: 204.0 min
+  Cost: 84260
+  Runtime: 2.0 ms
+
+DBSCAN + NN + 2-opt + ALNS:
+  Distance: 63.21 km
+  Travel time: 154.5 min
+  Cost: 71909
+  Runtime: 199.2 ms
+
+ALNS improvement over 2-opt: 14.66%   (over NN: 27.77%, over input order: 82.38%)
+ALNS: 1313 iterations, 10 new best routes, stopped by NO_IMPROVEMENT
+Production entry point returned the same route: yes
+
+----------------------------------------
+
+Dataset: 100 deliveries
+
+Original (input order):
+  Distance: 722.10 km
+  Travel time: 1817.3 min
+  Cost: 1676337
+  Runtime: 0.0 ms
+
+NN:
+  Distance: 106.87 km
+  Travel time: 260.5 min
+  Cost: 364197
+  Runtime: 0.1 ms
+
+NN + 2-opt:
+  Distance: 143.75 km
+  Travel time: 360.3 min
+  Cost: 254098
+  Runtime: 17.5 ms
+
+DBSCAN + NN:
+  Distance: 106.87 km
+  Travel time: 260.5 min
+  Cost: 364197
+  Runtime: (included in the next stage)
+
+DBSCAN + NN + 2-opt:
+  Distance: 115.42 km
+  Travel time: 282.8 min
+  Cost: 313335
+  Runtime: 12.0 ms
+
+DBSCAN + NN + 2-opt + ALNS:
+  Distance: 110.89 km
+  Travel time: 274.0 min
+  Cost: 297576
+  Runtime: 784.7 ms
+
+ALNS improvement over 2-opt: 5.03%   (over NN: 18.29%, over input order: 82.25%)
+ALNS: 2292 iterations, 14 new best routes, stopped by NO_IMPROVEMENT
+Production entry point returned the same route: yes
+
+----------------------------------------
+
+Dataset: 200 deliveries
+
+Original (input order):
+  Distance: 1583.94 km
+  Travel time: 3963.3 min
+  Cost: 7065930
+  Runtime: 0.0 ms
+
+NN:
+  Distance: 145.83 km
+  Travel time: 353.2 min
+  Cost: 1170495
+  Runtime: 0.5 ms
+
+NN + 2-opt:
+  Distance: 222.71 km
+  Travel time: 542.3 min
+  Cost: 678007
+  Runtime: 191.3 ms
+
+DBSCAN + NN:
+  Distance: 141.89 km
+  Travel time: 343.8 min
+  Cost: 1200565
+  Runtime: (included in the next stage)
+
+DBSCAN + NN + 2-opt:
+  Distance: 179.07 km
+  Travel time: 440.4 min
+  Cost: 1012468
+  Runtime: 70.0 ms
+
+DBSCAN + NN + 2-opt + ALNS:
+  Distance: 156.78 km
+  Travel time: 385.3 min
+  Cost: 921713
+  Runtime: 842.0 ms
+
+ALNS improvement over 2-opt: 8.96%   (over NN: 21.25%, over input order: 86.96%)
+ALNS: 891 iterations, 18 new best routes, stopped by NO_IMPROVEMENT
+Production entry point returned the same route: yes
+
+----------------------------------------
+
+INVARIANTS HOLD (ALNS never dearer than 2-opt)

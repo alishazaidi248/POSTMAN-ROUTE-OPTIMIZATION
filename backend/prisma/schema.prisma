@@ -75,6 +75,26 @@ enum DeliveryStatus {
   CANCELLED
 }
 
+enum GeocodingPrecision {
+  HOUSE
+  STREET
+  AREA
+  PINCODE
+  NONE
+}
+
+enum AssignmentMethod {
+  NAME
+  NAME_AND_TERRITORY
+  TERRITORY
+  MANUAL
+}
+
+enum ProofMode {
+  NONE
+  PHOTO
+}
+
 enum GeocodingStatus {
   PENDING
   SUCCESS
@@ -119,6 +139,9 @@ enum ExceptionReason {
   NO_POSTMAN_ASSIGNED
   INACTIVE_POSTMAN
   OUTSIDE_POST_OFFICE
+  AMBIGUOUS_MATCH
+  LOW_CONFIDENCE_MATCH
+  WEAK_LOCATION
 }
 
 enum ExceptionAction {
@@ -158,6 +181,7 @@ model PostOffice {
   latitude    Float
   longitude   Float
   isActive    Boolean  @default(true)
+  proofMode   ProofMode @default(NONE)
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
 
@@ -169,6 +193,8 @@ model PostOffice {
   imports            DeliveryImport[]
   beatImports        BeatImport[]
   optimizationReqs   OptimizationRequest[]
+  beatLocalities     BeatLocality[]
+  addressLocations   AddressLocation[]
 
   @@index([pincode])
 }
@@ -188,6 +214,8 @@ model User {
   postmanId    String?    @unique
   postman      Postman?   @relation(fields: [postmanId], references: [id])
   lastLoginAt  DateTime?
+  mustChangePassword Boolean  @default(false)
+  passwordChangedAt  DateTime?
   createdAt    DateTime   @default(now())
   updatedAt    DateTime   @updatedAt
 
@@ -197,6 +225,8 @@ model User {
   beatImports     BeatImport[]
   verifiedBeats   Beat[]         @relation("BeatVerifiedBy")
   notifications   Notification[]
+  pushTokens      PushToken[]
+  capturedProofs  DeliveryProof[]
 
   @@index([postOfficeId])
 }
@@ -239,6 +269,9 @@ model Beat {
   deliveries         Delivery[]
   assignmentHistory  DeliveryAssignmentHistory[]
   postmen            Postman[]
+  localities         BeatLocality[]
+  suggestedFor       AssignmentException[]
+  addressLocations   AddressLocation[]
 
   @@unique([postOfficeId, beatNumber])
   @@index([postOfficeId])
@@ -358,6 +391,9 @@ model Address {
   geocodingSource     String?
   geocodingConfidence Float?
   geocodedAt          DateTime?
+  geocodingPrecision  GeocodingPrecision?
+  geocodingMeta       Json?
+  normalizedKey       String?
   createdAt           DateTime        @default(now())
   updatedAt           DateTime        @updatedAt
 
@@ -365,6 +401,7 @@ model Address {
 
   @@index([pincode])
   @@index([recipientId])
+  @@index([normalizedKey])
 }
 
 model Delivery {
@@ -388,6 +425,10 @@ model Delivery {
   assignedPostman    Postman?       @relation(fields: [assignedPostmanId], references: [id])
   importRowId        String?        @unique
   importRow          DeliveryImportRow? @relation(fields: [importRowId], references: [id])
+  weightKg           Float?
+  assignmentMethod   AssignmentMethod?
+  assignmentConfidence Int?
+  assignmentEvidence Json?
   createdAt          DateTime       @default(now())
   updatedAt          DateTime       @updatedAt
 
@@ -396,6 +437,8 @@ model Delivery {
   assignmentHistory DeliveryAssignmentHistory[]
   exceptions        AssignmentException[]
   routeStops        RouteStop[]
+  proof             DeliveryProof?
+  locationSample    AddressLocationSample?
 
   @@index([postOfficeId])
   @@index([beatId])
@@ -453,6 +496,11 @@ model AssignmentException {
   details     String?
   resolvedAt  DateTime?
   lastAction  ExceptionAction?
+  suggestedBeatId String?
+  suggestedBeat   Beat?           @relation(fields: [suggestedBeatId], references: [id])
+  confidence      Int?
+  locationQuality GeocodingPrecision?
+  evidence        Json?
   createdAt   DateTime        @default(now())
 
   @@index([deliveryId])
@@ -600,9 +648,11 @@ model Notification {
   userId    String?
   user      User?                @relation(fields: [userId], references: [id])
   type      String
+  title     String?
   message   String
   severity  NotificationSeverity @default(INFO)
   isRead    Boolean              @default(false)
+  readAt    DateTime?
   metadata  Json?
   createdAt DateTime             @default(now())
 
@@ -650,4 +700,89 @@ model OptimizationResult {
   createdAt              DateTime             @default(now())
 
   @@index([optimizationRequestId])
+}
+
+
+// The beat directory: which localities (and main areas) belong to which beat. Many rows per beat.
+model BeatLocality {
+  id                 String     @id @default(uuid())
+  beatId             String
+  beat               Beat       @relation(fields: [beatId], references: [id], onDelete: Cascade)
+  postOfficeId       String
+  postOffice         PostOffice @relation(fields: [postOfficeId], references: [id], onDelete: Cascade)
+  locality           String
+  mainArea           String?
+  pincode            String?
+  normalizedLocality String
+  normalizedMainArea String     @default("")
+  source             String     @default("IMPORT")
+  createdAt          DateTime   @default(now())
+
+  @@unique([beatId, normalizedLocality, normalizedMainArea], map: "BeatLocality_beat_locality_area_key")
+  @@index([postOfficeId])
+  @@index([normalizedLocality])
+}
+
+// Address learning: where deliveries to an address were actually completed (the representative point).
+model AddressLocation {
+  id              String   @id @default(uuid())
+  postOfficeId    String
+  postOffice      PostOffice @relation(fields: [postOfficeId], references: [id], onDelete: Cascade)
+  normalizedKey   String
+  latitude        Float
+  longitude       Float
+  sampleCount     Int      @default(1)
+  confidence      Float    @default(0.5)
+  beatId          String?
+  beat            Beat?    @relation(fields: [beatId], references: [id])
+  lastDeliveredAt DateTime
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  samples AddressLocationSample[]
+
+  @@unique([postOfficeId, normalizedKey], map: "AddressLocation_office_key_key")
+}
+
+model AddressLocationSample {
+  id                String          @id @default(uuid())
+  addressLocationId String
+  addressLocation   AddressLocation @relation(fields: [addressLocationId], references: [id], onDelete: Cascade)
+  deliveryId        String          @unique(map: "AddressLocationSample_delivery_key")
+  delivery          Delivery        @relation(fields: [deliveryId], references: [id], onDelete: Cascade)
+  latitude          Float
+  longitude         Float
+  accuracyMeters    Float?
+  accepted          Boolean         @default(true)
+  note              String?
+  capturedAt        DateTime
+
+  @@index([addressLocationId], map: "AddressLocationSample_location_idx")
+}
+
+model DeliveryProof {
+  id           String   @id @default(uuid())
+  deliveryId   String   @unique
+  delivery     Delivery @relation(fields: [deliveryId], references: [id], onDelete: Cascade)
+  type         String   @default("PHOTO")
+  storageKey   String
+  contentType  String
+  sizeBytes    Int
+  latitude     Float?
+  longitude    Float?
+  capturedById String?
+  capturedBy   User?    @relation(fields: [capturedById], references: [id])
+  capturedAt   DateTime @default(now())
+}
+
+model PushToken {
+  id         String    @id @default(uuid())
+  userId     String
+  user       User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  token      String    @unique
+  platform   String
+  createdAt  DateTime  @default(now())
+  lastUsedAt DateTime?
+
+  @@index([userId])
 }

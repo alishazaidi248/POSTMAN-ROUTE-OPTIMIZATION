@@ -8,7 +8,9 @@ import { asyncHandler } from "../utils/asyncHandler";
 import { AppError } from "../utils/AppError";
 import { recordAudit } from "../services/audit.service";
 import { assignPostmanToBeatTx, rematchOfficeDeliveries, setBeatPostman } from "../services/assignment.service";
-import { assertValidBoundary, geoJsonPolygon } from "../services/beats/territory";
+import { TerritoryAnalysis, analyseTerritory, geoJsonPolygon, overlapPairs } from "../services/beats/territory";
+import { invalidateDirectory } from "../services/addressing/beatDirectory.service";
+import { AssignmentChange, announceAssignmentChanges } from "../services/postmanNotifications.service";
 
 /**
  * Beats are stored ONLY in PostgreSQL/PostGIS. The polygon is a PostGIS
@@ -54,6 +56,28 @@ async function overlappingBeats(db: Prisma.TransactionClient | typeof prisma, be
   `);
 }
 
+/**
+ * A territory is only saved when it is a real shape of a sensible size in the right place, and - unless the administrator
+ * says they have seen it - when it overlaps no other beat: an address inside two territories cannot be assigned, so an
+ * overlap is a decision, never an accident. Returns the analysis (centre point, overlaps) for the caller.
+ */
+async function requireSoundTerritory(
+  db: Prisma.TransactionClient | typeof prisma,
+  boundary: z.infer<typeof geoJsonPolygon>,
+  ctx: { postOfficeId: string; excludeBeatId?: string; beatNumber?: string; acknowledgeOverlap?: boolean }
+): Promise<TerritoryAnalysis> {
+  const analysis = await analyseTerritory(db, boundary, ctx);
+  if (!analysis.valid) throw AppError.badRequest(`The territory cannot be saved: ${analysis.problems.join(" ")}`, { problems: analysis.problems });
+  if (analysis.overlaps.length > 0 && !ctx.acknowledgeOverlap) {
+    throw new AppError(
+      `${analysis.overlaps.map((o) => o.message).join(" ")} Adjust the outline, or confirm that the overlap is intended (addresses inside it will need to be assigned by hand).`,
+      409,
+      { overlaps: analysis.overlaps, requiresAcknowledgement: true }
+    );
+  }
+  return analysis;
+}
+
 beatsRouter.get(
   "/",
   asyncHandler(async (req, res) => {
@@ -63,7 +87,48 @@ beatsRouter.get(
       WHERE (${postOfficeId}::text IS NULL OR b."postOfficeId" = ${postOfficeId})
       ORDER BY po.name ASC, b.beat_number ASC
     `);
-    res.json(beats.map((b) => ({ ...b, boundaryGeoJson: b.boundary })));
+    const pairs = await overlapPairs(prisma, postOfficeId ?? null);
+    const overlapsOf = (id: string) =>
+      pairs.flatMap((p) => (p.a.id === id ? [{ id: p.b.id, beatNumber: p.b.beatNumber, areaSqm: p.areaSqm }] : p.b.id === id ? [{ id: p.a.id, beatNumber: p.a.beatNumber, areaSqm: p.areaSqm }] : []));
+    res.json(beats.map((b) => ({ ...b, boundaryGeoJson: b.boundary, overlaps: overlapsOf(b.id) })));
+  })
+);
+
+/**
+ * The state of every territory of the office in one place: which beats have a verified territory, which are waiting for
+ * verification, which have none, and which overlap which. Read from PostGIS on every call.
+ */
+beatsRouter.get(
+  "/territory-report",
+  asyncHandler(async (req, res) => {
+    const postOfficeId = resolvePostOfficeScope(req);
+    const beats = await prisma.$queryRaw<
+      { id: string; beatNumber: string; name: string; status: string; verificationStatus: string; hasTerritory: boolean; areaSqm: number | null; postmen: number; deliveries: number }[]
+    >(Prisma.sql`
+      SELECT b.id, b.beat_number AS "beatNumber", b.name, b.status, b."verificationStatus", (b.boundary IS NOT NULL) AS "hasTerritory",
+             CASE WHEN b.boundary IS NULL THEN NULL ELSE ROUND(ST_Area(b.boundary::geography))::float END AS "areaSqm",
+             (SELECT COUNT(*)::int FROM "PostmanBeatAssignment" pba WHERE pba."beatId" = b.id AND pba."isActive" = true) AS postmen,
+             (SELECT COUNT(*)::int FROM "Delivery" d WHERE d."beatId" = b.id) AS deliveries
+      FROM "Beat" b
+      WHERE b.status = 'ACTIVE' AND (${postOfficeId}::text IS NULL OR b."postOfficeId" = ${postOfficeId})
+      ORDER BY b.beat_number
+    `);
+    const pairs = await overlapPairs(prisma, postOfficeId ?? null);
+    const overlapping = new Set(pairs.flatMap((p) => [p.a.id, p.b.id]));
+    const state = (b: (typeof beats)[number]) =>
+      !b.hasTerritory ? "MISSING" : b.verificationStatus === "VERIFIED" ? "VERIFIED" : "NEEDS_VERIFICATION";
+    res.json({
+      summary: {
+        total: beats.length,
+        verified: beats.filter((b) => state(b) === "VERIFIED").length,
+        needsVerification: beats.filter((b) => state(b) === "NEEDS_VERIFICATION").length,
+        missing: beats.filter((b) => state(b) === "MISSING").length,
+        overlapping: overlapping.size,
+        overlapPairs: pairs.length
+      },
+      beats: beats.map((b) => ({ ...b, territory: state(b), overlapping: overlapping.has(b.id) })),
+      overlaps: pairs
+    });
   })
 );
 
@@ -90,7 +155,9 @@ const beatSchema = z.object({
     boundary: geoJsonPolygon,
     metadata: z.record(z.any()).optional(),
     // Give the new beat its postman in the same transaction.
-    postmanId: z.string().uuid().nullable().optional()
+    postmanId: z.string().uuid().nullable().optional(),
+    // The administrator has seen that this territory overlaps another beat and wants it anyway.
+    acknowledgeOverlap: z.boolean().optional()
   })
 });
 
@@ -107,6 +174,7 @@ beatsRouter.post(
       throw AppError.forbidden("Cannot create resources for another post office");
     }
 
+    const assignmentChanges: AssignmentChange[] = [];
     const id = await prisma.$transaction(
       async (tx) => {
         const office = await tx.postOffice.findUnique({ where: { id: postOfficeId }, select: { id: true } });
@@ -115,9 +183,9 @@ beatsRouter.post(
         const duplicate = await tx.beat.findUnique({ where: { postOfficeId_beatNumber: { postOfficeId, beatNumber } }, select: { id: true } });
         if (duplicate) throw AppError.conflict(`Beat ${beatNumber} already exists in this post office`);
 
-        const computed = await assertValidBoundary(tx, boundary);
-        const centerLatitude = req.body.centerLatitude ?? computed.centerLatitude;
-        const centerLongitude = req.body.centerLongitude ?? computed.centerLongitude;
+        const computed = await requireSoundTerritory(tx, boundary, { postOfficeId, beatNumber, acknowledgeOverlap: req.body.acknowledgeOverlap });
+        const centerLatitude = req.body.centerLatitude ?? computed.centerLatitude!;
+        const centerLongitude = req.body.centerLongitude ?? computed.centerLongitude!;
 
         const rows = await tx.$queryRaw<{ id: string }[]>(Prisma.sql`
           INSERT INTO "Beat" (id, "postOfficeId", beat_number, name, boundary, "centerLatitude", "centerLongitude", status, metadata,
@@ -129,13 +197,15 @@ beatsRouter.post(
         `);
         const beatId = rows[0].id;
 
-        if (postmanId) await assignPostmanToBeatTx(tx, postmanId, beatId, req.user!.sub);
+        if (postmanId) await assignPostmanToBeatTx(tx, postmanId, beatId, req.user!.sub, assignmentChanges);
         return beatId;
       },
       { timeout: 30_000 }
     );
 
-    // A new polygon may now contain addresses that had no beat.
+    announceAssignmentChanges(assignmentChanges);
+    // A new beat (and polygon) may now identify addresses that had no beat.
+    invalidateDirectory(postOfficeId);
     const rematch = await rematchOfficeDeliveries(postOfficeId);
 
     // The record the client shows is read back from PostgreSQL, not echoed.
@@ -159,6 +229,7 @@ const beatUpdateSchema = z.object({
       // With a new boundary: mark the beat verified in the same action (the administrator has just
       // looked at the territory). Without it a changed territory awaits verification.
       verified: z.boolean().optional(),
+      acknowledgeOverlap: z.boolean().optional(),
       metadata: z.record(z.any()).optional()
     })
     .refine((b) => Object.keys(b).length > 0, { message: "Nothing to update" })
@@ -168,7 +239,7 @@ beatsRouter.put(
   "/:id",
   validate(beatUpdateSchema),
   asyncHandler(async (req, res) => {
-    const { boundary, verified, ...fields } = req.body as z.infer<typeof beatUpdateSchema>["body"];
+    const { boundary, verified, acknowledgeOverlap, ...fields } = req.body as z.infer<typeof beatUpdateSchema>["body"];
     const before = await readBeat(prisma, req.params.id);
     assertOwnsResource(req, before.postOfficeId);
 
@@ -183,7 +254,12 @@ beatsRouter.put(
     // Boundary and attributes change together or not at all.
     await prisma.$transaction(async (tx) => {
       if (boundary) {
-        const computed = await assertValidBoundary(tx, boundary);
+        const computed = await requireSoundTerritory(tx, boundary, {
+          postOfficeId: before.postOfficeId,
+          excludeBeatId: req.params.id,
+          beatNumber: fields.beatNumber ?? before.beatNumber,
+          acknowledgeOverlap
+        });
         await tx.$executeRaw(Prisma.sql`
           UPDATE "Beat" SET boundary = ST_SetSRID(ST_GeomFromGeoJSON(${JSON.stringify(boundary)}), 4326), "updatedAt" = now(),
             "verificationStatus" = ${verified ? "VERIFIED" : "PENDING_VERIFICATION"}::"BeatVerificationStatus",
@@ -191,8 +267,8 @@ beatsRouter.put(
             "verifiedById" = ${verified ? req.user!.sub : null}
           WHERE id = ${req.params.id}
         `);
-        if (fields.centerLatitude === undefined) fields.centerLatitude = computed.centerLatitude;
-        if (fields.centerLongitude === undefined) fields.centerLongitude = computed.centerLongitude;
+        if (fields.centerLatitude === undefined) fields.centerLatitude = computed.centerLatitude!;
+        if (fields.centerLongitude === undefined) fields.centerLongitude = computed.centerLongitude!;
       }
       await tx.beat.update({
         where: { id: req.params.id },
@@ -206,8 +282,9 @@ beatsRouter.put(
       });
     });
 
-    // Parcels whose address now falls in a different (or no) polygon follow it.
-    const rematch = boundary ? await rematchOfficeDeliveries(before.postOfficeId) : undefined;
+    // Parcels whose address now falls in a different (or no) polygon follow it; a rename changes how the beat is found.
+    invalidateDirectory(before.postOfficeId);
+    const rematch = boundary || fields.name || fields.beatNumber ? await rematchOfficeDeliveries(before.postOfficeId) : undefined;
 
     const updated = await readBeat(prisma, req.params.id);
     await recordAudit({
@@ -238,6 +315,15 @@ beatsRouter.post(
       throw AppError.badRequest("This beat has no territory yet. Draw its territory on the map, then verify it.");
     }
     if (before.verificationStatus !== "VERIFIED") {
+      // A territory that overlaps another beat is verified only knowingly.
+      const overlaps = await overlappingBeats(prisma, req.params.id);
+      if (overlaps.length > 0 && req.body?.acknowledgeOverlap !== true) {
+        throw new AppError(
+          `Beat ${before.beatNumber} overlaps Beat ${overlaps.map((o) => o.beatNumber).join(", Beat ")}. Adjust the outline, or confirm that the overlap is intended before verifying.`,
+          409,
+          { overlaps, requiresAcknowledgement: true }
+        );
+      }
       await prisma.beat.update({
         where: { id: req.params.id },
         data: { verificationStatus: "VERIFIED", verifiedAt: new Date(), verifiedById: req.user!.sub }
@@ -268,6 +354,7 @@ beatsRouter.post(
     const existing = await prisma.beat.findUniqueOrThrow({ where: { id: req.params.id } });
     assertOwnsResource(req, existing.postOfficeId);
     await prisma.beat.update({ where: { id: req.params.id }, data: { status: "INACTIVE" } });
+    invalidateDirectory(existing.postOfficeId);
     await recordAudit({ req, action: "BEAT_DEACTIVATED", entityType: "Beat", entityId: req.params.id });
     res.json(await readBeat(prisma, req.params.id));
   })
@@ -279,6 +366,7 @@ beatsRouter.post(
     const existing = await prisma.beat.findUniqueOrThrow({ where: { id: req.params.id } });
     assertOwnsResource(req, existing.postOfficeId);
     await prisma.beat.update({ where: { id: req.params.id }, data: { status: "ACTIVE" } });
+    invalidateDirectory(existing.postOfficeId);
     await rematchOfficeDeliveries(existing.postOfficeId);
     await recordAudit({ req, action: "BEAT_UPDATED", entityType: "Beat", entityId: req.params.id, newValue: { status: "ACTIVE" } });
     res.json(await readBeat(prisma, req.params.id));

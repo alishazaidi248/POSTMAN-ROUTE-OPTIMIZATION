@@ -5,6 +5,9 @@ import { formatAddress } from "../utils/formatting";
 import { openNavigation } from "../utils/navigation";
 import { notify, confirmAction } from "../utils/alerts";
 import { canTransition } from "../utils/status";
+import { usePostmanProfile } from "./usePostmanProfile";
+import { takeProofPhoto } from "../services/proofService";
+import { getFreshFix } from "../services/lastFix";
 
 export interface PrimaryAction {
   label: string;
@@ -48,7 +51,10 @@ interface Coordinates {
  */
 export function useDeliveryActions(delivery: Delivery, status: DeliveryStatus, coords: Coordinates) {
   const updateStatus = useUpdateDeliveryStatus();
+  const profile = usePostmanProfile();
   const primary = primaryActionFor(status);
+  // What the post office requires is the server's setting, read from the postman's own profile.
+  const proofRequired = profile.data?.postOffice?.proofMode === "PHOTO";
 
   const run = useCallback(async () => {
     if (!primary) return;
@@ -62,8 +68,29 @@ export function useDeliveryActions(delivery: Delivery, status: DeliveryStatus, c
       if (!ok) return;
     }
 
+    // A required photo is taken BEFORE anything is sent, so "Delivered" is never recorded without it (the server refuses that too).
+    let proof: { proofUri: string; proofCapturedAt: string } | undefined;
+    if (primary.next === "DELIVERED" && proofRequired) {
+      const taken = await takeProofPhoto();
+      if (!taken.ok) {
+        notify(
+          "Photo needed",
+          taken.reason === "PERMISSION_DENIED"
+            ? "This post office requires a photo of the delivery. Allow camera access in Settings to complete it."
+            : "This post office requires a photo of the delivery. Take the photo to complete it."
+        );
+        return;
+      }
+      proof = { proofUri: taken.photo.uri, proofCapturedAt: taken.photo.capturedAt };
+    }
+
+    // Where the postman IS when they act (never the address's own coordinates): the server uses it, when it is a good fix,
+    // to learn where this address is.
+    const fix = primary.next === "DELIVERED" ? getFreshFix() : null;
+    const location = fix ? { latitude: fix.latitude, longitude: fix.longitude, ...(fix.accuracy != null ? { accuracyMeters: fix.accuracy } : {}) } : {};
+
     updateStatus.mutate(
-      { deliveryId: delivery.id, status: primary.next },
+      { deliveryId: delivery.id, status: primary.next, ...proof, ...location },
       {
         onSuccess: (result) => {
           if (result.queued) {
@@ -75,7 +102,7 @@ export function useDeliveryActions(delivery: Delivery, status: DeliveryStatus, c
         }
       }
     );
-  }, [primary, updateStatus, delivery]);
+  }, [primary, updateStatus, delivery, proofRequired]);
 
   const navigate = useCallback(async () => {
     const opened = await openNavigation({

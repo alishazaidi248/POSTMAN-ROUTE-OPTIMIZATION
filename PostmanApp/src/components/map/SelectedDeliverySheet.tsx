@@ -1,7 +1,7 @@
 import React from "react";
 import { Pressable, StyleSheet, Text, View } from "react-native";
 import { StopView, legLabel } from "../../utils/routeView";
-import { formatAddress, formatTime } from "../../utils/formatting";
+import { formatAddressShort, formatTime } from "../../utils/formatting";
 import { colors } from "../../theme/colors";
 import { radius, spacing } from "../../theme/spacing";
 import { typography } from "../../theme/typography";
@@ -39,7 +39,7 @@ export function SelectedDeliverySheet({ view, onClose, onOpenDetails }: Props) {
       </View>
 
       <Text style={styles.address} numberOfLines={2}>
-        {formatAddress(delivery.address)}
+        {formatAddressShort(delivery.address)}
       </Text>
       <Text style={styles.meta}>
         {`Parcels: ${delivery.parcelCount}${delivery.parcelType ? ` · ${delivery.parcelType}` : ""} · Priority: ${delivery.priority}`}

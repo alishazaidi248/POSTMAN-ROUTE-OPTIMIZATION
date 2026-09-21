@@ -49,6 +49,12 @@
       ],
       "expo-notifications",
       [
+        "expo-image-picker",
+        {
+          "cameraPermission": "Allow $(PRODUCT_NAME) to use the camera to take the proof-of-delivery photo."
+        }
+      ],
+      [
         "expo-build-properties",
         {
           "android": {

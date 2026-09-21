@@ -1,5 +1,5 @@
-import { ActiveBadge, VerificationBadge } from "./StatusBadge";
-import { BeatRecord, deliveriesOf, formatWhen, territoryLabel } from "./beatTypes";
+import { ActiveBadge, OverlapBadge, VerificationBadge } from "./StatusBadge";
+import { BeatRecord, deliveriesOf, formatWhen, territoryLabel, territoryState } from "./beatTypes";
 import { OtherFeature } from "./BeatMap";
 import { Icon } from "../../components/icons";
 import styles from "./beats.module.css";
@@ -26,7 +26,7 @@ export function BeatDetailsPanel({ beat, onClose, onEditBeat, onAssign, onVerify
           <h2 className={styles.panelTitle}>Beat {beat.beatNumber}</h2>
           <p className={styles.panelSub}>{beat.name}</p>
           <div style={{ display: "flex", gap: 6, marginTop: 8, flexWrap: "wrap" }}>
-            <VerificationBadge value={beat.verificationStatus} />
+            <VerificationBadge value={territoryState(beat)} /><OverlapBadge beat={beat} />
             <ActiveBadge active={beat.status === "ACTIVE"} />
           </div>
         </div>
@@ -47,6 +47,12 @@ export function BeatDetailsPanel({ beat, onClose, onEditBeat, onAssign, onVerify
         {beat.verificationStatus === "VERIFIED" && (
           <p className={`${styles.callout} ${styles.calloutGood}`}>
             Verified{beat.verifiedByName ? ` by ${beat.verifiedByName}` : ""} · {formatWhen(beat.verifiedAt)}
+          </p>
+        )}
+
+        {beat.overlaps && beat.overlaps.length > 0 && (
+          <p className={`${styles.callout} ${styles.calloutReview}`} data-testid="overlap-warning">
+            {beat.overlaps.map((o) => `Beat ${beat.beatNumber} overlaps Beat ${o.beatNumber} (${o.areaSqm.toLocaleString("en-IN")} m²).`).join(" ")} An address inside the overlap cannot be assigned automatically and goes to Assignment Exceptions.
           </p>
         )}
 

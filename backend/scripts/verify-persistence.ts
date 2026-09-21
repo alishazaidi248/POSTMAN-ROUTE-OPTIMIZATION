@@ -1,3 +1,5 @@
+import { requiredEnv } from "./lib/credentials";
+
 /**
  * End-to-end persistence & synchronisation check against a RUNNING backend.
  *
@@ -12,11 +14,11 @@
  * them on re-runs.
  *
  * API_URL defaults to http://localhost:4000/api/v1
- * ADMIN_EMAIL / ADMIN_PASSWORD default to the seeded Bhandup West admin.
+ * ADMIN_EMAIL defaults to the seeded Bhandup West admin; ADMIN_PASSWORD and SUPER_PASSWORD have no default (a signed-in account must have chosen its own password first).
  */
 const API = process.env.API_URL ?? "http://localhost:4000/api/v1";
-const ADMIN = { email: process.env.ADMIN_EMAIL ?? "admin.bhandup@postal.local", password: process.env.ADMIN_PASSWORD ?? "ChangeMe123!" };
-const SUPER = { email: process.env.SUPER_EMAIL ?? "superadmin@postal.local", password: process.env.SUPER_PASSWORD ?? "ChangeMe123!" };
+const ADMIN = { email: process.env.ADMIN_EMAIL ?? "admin.bhandup@postal.local", password: requiredEnv("ADMIN_PASSWORD", "the administrator's password") };
+const SUPER = { email: process.env.SUPER_EMAIL ?? "superadmin@postal.local", password: requiredEnv("SUPER_PASSWORD", "the super administrator's password") };
 
 // A polygon that overlaps neither seeded beat (B01 / B02).
 const TEST_POLYGON = {
@@ -102,7 +104,7 @@ async function setup() {
   await ensurePostman(token, office, POSTMAN_B);
 
   // Beat 100 + its polygon + Postman A - ONE request, one transaction.
-  let beats = (await call("GET", "/beats", { token })).data as any[];
+  const beats = (await call("GET", "/beats", { token })).data as any[];
   let beat = beats.find((b) => b.beatNumber === BEAT.beatNumber);
   if (!beat) {
     const r = await call("POST", "/beats", { token, body: { ...BEAT, boundary: TEST_POLYGON, postmanId: a.id } });
@@ -115,7 +117,7 @@ async function setup() {
   }
 
   // A delivery created directly: coordinates inside the polygon.
-  let d1 = (await call("GET", "/deliveries?q=TEST001", { token })).data.rows.find((x: any) => x.trackingId === "TEST001");
+  const d1 = (await call("GET", "/deliveries?q=TEST001", { token })).data.rows.find((x: any) => x.trackingId === "TEST001");
   if (!d1) {
     const r = await call("POST", "/deliveries", {
       token,
@@ -295,7 +297,7 @@ async function isolation() {
   const sup = await login(SUPER);
   const admin1 = await login(ADMIN);
 
-  let offices = (await call("GET", "/post-offices", { token: sup.accessToken })).data as any[];
+  const offices = (await call("GET", "/post-offices", { token: sup.accessToken })).data as any[];
   let office2 = offices.find((o) => o.code === "TEST-PO-2");
   if (!office2) {
     const r = await call("POST", "/post-offices", {

@@ -9,6 +9,8 @@ export interface AuthUser {
   role: UserRole;
   postOfficeId: string | null;
   postmanId: string | null;
+  /** The account still has the temporary password an administrator set: a new one must be chosen first. */
+  mustChangePassword?: boolean;
 }
 
 export interface LoginRequest {

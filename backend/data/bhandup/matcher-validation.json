@@ -1,0 +1,54 @@
+{
+  "generatedAt": "2026-09-21T07:35:03.169Z",
+  "thresholds": {
+    "high": 65,
+    "medium": 45,
+    "margin": 15
+  },
+  "deliveries": 130,
+  "directoryRows": 201,
+  "views": {
+    "LOCALITY-ONLY": {
+      "auto": 89,
+      "autoCorrect": 89,
+      "autoWrong": 0,
+      "review": 0,
+      "reviewSuggestionCorrect": 0,
+      "ambiguous": 41,
+      "ambiguousContainsTruth": 41,
+      "low": 0,
+      "none": 0,
+      "wrongCases": []
+    },
+    "HOLD-OUT": {
+      "auto": 91,
+      "autoCorrect": 91,
+      "autoWrong": 0,
+      "review": 0,
+      "reviewSuggestionCorrect": 0,
+      "ambiguous": 39,
+      "ambiguousContainsTruth": 39,
+      "low": 0,
+      "none": 0,
+      "wrongCases": []
+    },
+    "IN-SAMPLE": {
+      "auto": 129,
+      "autoCorrect": 129,
+      "autoWrong": 0,
+      "review": 0,
+      "reviewSuggestionCorrect": 0,
+      "ambiguous": 1,
+      "ambiguousContainsTruth": 1,
+      "low": 0,
+      "none": 0,
+      "wrongCases": []
+    }
+  },
+  "sweep": {
+    "settings": 85,
+    "anyWrong": false,
+    "maxCorrect": 91,
+    "minCorrect": 88
+  }
+}

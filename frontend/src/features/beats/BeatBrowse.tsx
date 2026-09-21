@@ -1,25 +1,27 @@
 import { useEffect, useMemo, useRef, useState } from "react";
-import { ActiveBadge, VerificationBadge } from "./StatusBadge";
-import { BeatRecord, VERIFICATION_COLOR, deliveriesOf, formatWhen, matchesSearch } from "./beatTypes";
+import { ActiveBadge, OverlapBadge, VerificationBadge } from "./StatusBadge";
+import { BeatRecord, VERIFICATION_COLOR, deliveriesOf, formatWhen, isOverlapping, matchesSearch, territoryState } from "./beatTypes";
 import { Icon } from "../../components/icons";
 import styles from "./beats.module.css";
 
-export type Filter = "ALL" | "VERIFIED" | "PENDING" | "ATTENTION";
+export type Filter = "ALL" | "VERIFIED" | "PENDING" | "ATTENTION" | "OVERLAP";
 
 export const matchesFilter = (b: BeatRecord, f: Filter) =>
   f === "ALL" ||
-  (f === "VERIFIED" && b.verificationStatus === "VERIFIED") ||
-  (f === "PENDING" && b.verificationStatus === "PENDING_VERIFICATION") ||
-  (f === "ATTENTION" && b.verificationStatus === "NEEDS_REVIEW");
+  (f === "VERIFIED" && territoryState(b) === "VERIFIED") ||
+  (f === "PENDING" && territoryState(b) === "PENDING_VERIFICATION") ||
+  (f === "ATTENTION" && territoryState(b) === "NEEDS_REVIEW") ||
+  (f === "OVERLAP" && isOverlapping(b));
 
 /** Compact totals; each one filters the list below when clicked. */
 export function BeatSummary({ beats, filter, onFilter }: { beats: BeatRecord[]; filter: Filter; onFilter: (f: Filter) => void }) {
   const count = (f: Filter) => beats.filter((b) => matchesFilter(b, f)).length;
   const items: { key: Filter; label: string; color?: string }[] = [
     { key: "ALL", label: "Total beats" },
-    { key: "VERIFIED", label: "Verified", color: VERIFICATION_COLOR.VERIFIED },
-    { key: "PENDING", label: "Pending verification", color: VERIFICATION_COLOR.PENDING_VERIFICATION },
-    { key: "ATTENTION", label: "Need attention", color: VERIFICATION_COLOR.NEEDS_REVIEW }
+    { key: "VERIFIED", label: "✓ Verified", color: VERIFICATION_COLOR.VERIFIED },
+    { key: "PENDING", label: "⚠ Needs verification", color: VERIFICATION_COLOR.PENDING_VERIFICATION },
+    { key: "ATTENTION", label: "❌ Missing territory", color: VERIFICATION_COLOR.NEEDS_REVIEW },
+    { key: "OVERLAP", label: "⚠ Overlapping", color: "#7c3aed" }
   ];
   return (
     <div className={styles.summary} data-testid="beat-summary">
@@ -97,7 +99,7 @@ export function BeatSearch({ beats, onPick }: { beats: BeatRecord[]; onPick: (b:
                   <strong>{b.beatNumber}</strong> — {b.name}
                   <div className={styles.muted}>{b.postOfficeName}</div>
                 </span>
-                <VerificationBadge value={b.verificationStatus} />
+                <VerificationBadge value={territoryState(b)} />
               </button>
             ))
           )}
@@ -132,7 +134,8 @@ export function BeatTable({ beats, selectedId, onView, emptyMessage }: { beats: 
                   <td>{b.name}</td>
                   <td>{b.postOfficeName}</td>
                   <td style={{ display: "flex", gap: 6, alignItems: "center" }}>
-                    <VerificationBadge value={b.verificationStatus} />
+                    <VerificationBadge value={territoryState(b)} />
+                    <OverlapBadge beat={b} />
                     {b.status === "INACTIVE" && <ActiveBadge active={false} />}
                   </td>
                   <td>{b.assignedPostmanName ?? <span className={styles.muted}>Not assigned</span>}</td>

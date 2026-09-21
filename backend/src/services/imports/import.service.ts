@@ -2,10 +2,11 @@ import { ImportFileType, ImportRowStatus, ParcelPriority, Prisma } from "@prisma
 import { prisma } from "../../config/prisma";
 import { logger } from "../../config/logger";
 import { AppError } from "../../utils/AppError";
-import { suggestColumnMapping, SystemField } from "./columnMapping";
+import { suggestColumnMapping } from "./columnMapping";
 import { parseCsv, parseXlsx, parsePdf, ParsedTable } from "./parsers";
 import { normalizeAndValidateRow } from "./validation";
-import { getGeocodingService } from "../geocoding";
+import { geocodeAddress } from "../geocoding";
+import { FAILED_RESULT } from "../geocoding/GeocodingService";
 import { assignDeliveryToBeat } from "../assignment.service";
 import { GeocodeOutcome, createDeliveryRecords } from "../delivery.service";
 import { recordAudit } from "../audit.service";
@@ -223,7 +224,6 @@ export async function confirmImport(importId: string, userId: string) {
 
   try {
     const validRows = await prisma.deliveryImportRow.findMany({ where: { importId, status: "VALID" }, orderBy: { rowNumber: "asc" } });
-    const geocoder = getGeocodingService();
 
     for (const row of validRows) {
       const data = row.normalizedData as any;
@@ -238,19 +238,20 @@ export async function confirmImport(importId: string, userId: string) {
         continue;
       }
 
-      const geocodeResult = await geocoder
-        .geocode({
+      const geocodeResult = await geocodeAddress(
+        {
           addressLine1: data.addressLine1,
           addressLine2: data.addressLine2,
           area: data.area,
           city: data.city,
           state: data.state,
           pincode: data.pincode
-        })
-        .catch((err): GeocodeOutcome => {
-          logger.warn({ err, row: row.rowNumber }, "geocoding threw; recording as FAILED");
-          return { status: "FAILED", latitude: 0, longitude: 0, confidence: 0, source: "error" };
-        });
+        },
+        importRecord.postOfficeId
+      ).catch((err): GeocodeOutcome => {
+        logger.warn({ err, row: row.rowNumber }, "geocoding threw; recording as FAILED");
+        return FAILED_RESULT("error");
+      });
 
       let deliveryId: string;
       try {
@@ -272,6 +273,7 @@ export async function confirmImport(importId: string, userId: string) {
               parcelType: data.parcelType,
               priority: parsePriority(data.priority),
               serviceTimeMinutes: data.serviceTime,
+              weightKg: data.weightKg,
               importRowId: row.id
             },
             geocodeResult
@@ -292,17 +294,15 @@ export async function confirmImport(importId: string, userId: string) {
 
       successCount++;
 
-      if (geocodeResult.status === "SUCCESS") {
-        try {
-          const result = await assignDeliveryToBeat(deliveryId, geocodeResult.latitude, geocodeResult.longitude);
-          if (result.status !== "ASSIGNED") assignmentFailed++;
-        } catch (err) {
-          // The delivery is saved; repairUnassignedDeliveries() will assign it.
-          logger.error({ err, deliveryId }, "beat assignment failed after the delivery was saved");
-          assignmentFailed++;
-        }
-      } else {
-        geocodingFailed++;
+      if (geocodeResult.status !== "SUCCESS") geocodingFailed++;
+      // The beat list identifies the beat even when the address could not be located, so assignment always runs.
+      try {
+        const result = await assignDeliveryToBeat(deliveryId);
+        if (result.status !== "ASSIGNED") assignmentFailed++;
+      } catch (err) {
+        // The delivery is saved; repairUnassignedDeliveries() will assign it.
+        logger.error({ err, deliveryId }, "beat assignment failed after the delivery was saved");
+        assignmentFailed++;
       }
     }
 

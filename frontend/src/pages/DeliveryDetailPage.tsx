@@ -2,6 +2,8 @@ import { useParams } from "react-router-dom";
 import { useQuery, useQueryClient, useMutation } from "@tanstack/react-query";
 import { apiClient } from "../lib/apiClient";
 import { Badge } from "../components/Badge";
+import { ProofPhoto } from "../components/ProofPhoto";
+import { friendlyError } from "../lib/friendlyError";
 import styles from "../styles/components.module.css";
 
 export function DeliveryDetailPage() {
@@ -30,6 +32,19 @@ export function DeliveryDetailPage() {
         <p>Beat: {data.beat?.beatNumber ?? "Unassigned"}</p>
         <p>Postman: {data.assignedPostman?.name ?? "Unassigned"}</p>
         <p>Status: <Badge value={data.status} /></p>
+        {data.assignmentMethod && (
+          <div data-testid="assignment-evidence">
+            <p>
+              Assigned by: <strong>{String(data.assignmentMethod).replace(/_/g, " ").toLowerCase()}</strong>
+              {data.assignmentConfidence != null && <> · {data.assignmentConfidence}% confidence</>}
+            </p>
+            {Array.isArray(data.assignmentEvidence?.evidence) && data.assignmentEvidence.evidence.length > 0 && (
+              <ul style={{ margin: "0 0 8px 18px", padding: 0, fontSize: 12 }}>
+                {data.assignmentEvidence.evidence.map((line: string) => <li key={line}>{line}</li>)}
+              </ul>
+            )}
+          </div>
+        )}
 
         <div className={styles.formGroup}>
           <label>Change status</label>
@@ -39,7 +54,16 @@ export function DeliveryDetailPage() {
               <option key={s} value={s}>{s.replace(/_/g, " ")}</option>
             ))}
           </select>
+          {statusMutation.isError && <p className={styles.errorText}>{friendlyError(statusMutation.error, "The status could not be changed.")}</p>}
         </div>
+
+        {data.proof && (
+          <div>
+            <h3 className={styles.sectionTitle} style={{ marginTop: 16 }}>Proof of delivery</h3>
+            <p style={{ fontSize: 12 }}>Photo taken {new Date(data.proof.capturedAt).toLocaleString()}</p>
+            <ProofPhoto deliveryId={data.id} />
+          </div>
+        )}
       </div>
 
       <div className={styles.card}>

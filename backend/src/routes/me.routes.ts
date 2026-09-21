@@ -9,6 +9,8 @@ import { resolveSelfPostman } from "../services/postmanSelf.service";
 import { getOrPlanRoute, recalculateRoute, toPostmanRoute } from "../services/routePlanner.service";
 import { recordAudit } from "../services/audit.service";
 import { FinishedStatus, listFinishedDeliveries } from "../services/deliveryHistory.service";
+import { registerPushToken, removePushToken } from "../services/push.service";
+import { AppError } from "../utils/AppError";
 
 /**
  * Self-service endpoints for the React Native postman app (spec §36 gap
@@ -18,6 +20,34 @@ import { FinishedStatus, listFinishedDeliveries } from "../services/deliveryHist
  */
 export const meRouter = Router();
 meRouter.use(requireAuth, requireRole("POSTMAN"));
+
+/**
+ * A phone registers the Expo push token it was given, so the server can push to it. The token belongs to the signed-in
+ * login (a device changing hands moves the token to the new login); the client never says WHOSE it is.
+ */
+meRouter.post(
+  "/push-token",
+  validate(z.object({ body: z.object({ token: z.string().min(10).max(300), platform: z.enum(["ios", "android", "web"]) }) })),
+  asyncHandler(async (req, res) => {
+    try {
+      await registerPushToken(req.user!.sub, req.body.token, req.body.platform);
+    } catch (err) {
+      if (err instanceof Error && err.message === "INVALID_PUSH_TOKEN") throw AppError.badRequest("That is not a valid push token.");
+      throw err;
+    }
+    res.status(204).send();
+  })
+);
+
+/** Signing out (or turning notifications off) stops pushes to this phone. */
+meRouter.delete(
+  "/push-token",
+  validate(z.object({ body: z.object({ token: z.string().min(10).max(300) }) })),
+  asyncHandler(async (req, res) => {
+    await removePushToken(req.user!.sub, req.body.token);
+    res.status(204).send();
+  })
+);
 
 meRouter.get(
   "/profile",
@@ -31,7 +61,7 @@ meRouter.get(
         where: { postmanId: postman.id },
         orderBy: { recordedAt: "desc" }
       }),
-      prisma.postOffice.findUnique({ where: { id: postman.postOfficeId }, select: { id: true, name: true, code: true } })
+      prisma.postOffice.findUnique({ where: { id: postman.postOfficeId }, select: { id: true, name: true, code: true, proofMode: true } })
     ]);
     res.json({ postman, beat, postOffice, lastKnownLocation: latestLocation });
   })

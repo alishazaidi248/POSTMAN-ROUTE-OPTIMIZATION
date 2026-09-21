@@ -1,8 +1,8 @@
 import { Link } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
 import { apiClient } from "../lib/apiClient";
-import { ActiveBadge, VerificationBadge } from "../features/beats/StatusBadge";
-import { BeatRecord, deliveriesOf, formatWhen } from "../features/beats/beatTypes";
+import { ActiveBadge, OverlapBadge, VerificationBadge } from "../features/beats/StatusBadge";
+import { BeatRecord, deliveriesOf, formatWhen, territoryState } from "../features/beats/beatTypes";
 import styles from "../styles/components.module.css";
 
 function groupByPostOffice(beats: BeatRecord[]) {
@@ -35,7 +35,7 @@ function BeatTable({ beats }: { beats: BeatRecord[] }) {
           <tr key={b.id}>
             <td><strong>{b.beatNumber}</strong></td>
             <td>{b.name}</td>
-            <td><VerificationBadge value={b.verificationStatus} /></td>
+            <td><VerificationBadge value={territoryState(b)} /> <OverlapBadge beat={b} /></td>
             <td>{b.assignedPostmanName ?? "Not assigned"}</td>
             <td>{deliveriesOf(b)}</td>
             <td><ActiveBadge active={b.status === "ACTIVE"} /></td>

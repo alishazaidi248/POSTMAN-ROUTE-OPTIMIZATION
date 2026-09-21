@@ -1,5 +1,6 @@
 import { PrismaClient } from "@prisma/client";
 import argon2 from "argon2";
+import { randomBytes } from "crypto";
 
 const prisma = new PrismaClient();
 
@@ -23,12 +24,15 @@ async function main() {
     }
   });
 
-  const passwordHash = await argon2.hash("ChangeMe123!", { type: argon2.argon2id });
+  // No password is written into the source. The seeded accounts get SEED_PASSWORD when it is set, otherwise a random one that
+  // is printed once at the end. Either way every account must choose its own password at first sign-in (mustChangePassword).
+  const initialPassword = process.env.SEED_PASSWORD ?? `${randomBytes(9).toString("base64url")}9a`;
+  const passwordHash = await argon2.hash(initialPassword, { type: argon2.argon2id });
 
   await prisma.user.upsert({
     where: { email: "superadmin@postal.local" },
     update: {},
-    create: { email: "superadmin@postal.local", passwordHash, name: "Super Admin", role: "SUPER_ADMIN" }
+    create: { email: "superadmin@postal.local", passwordHash, mustChangePassword: true, name: "Super Admin", role: "SUPER_ADMIN" }
   });
 
   await prisma.user.upsert({
@@ -37,6 +41,7 @@ async function main() {
     create: {
       email: "admin.bhandup@postal.local",
       passwordHash,
+      mustChangePassword: true,
       name: "Bhandup West Admin",
       role: "ADMIN",
       postOfficeId: postOffice.id
@@ -117,6 +122,7 @@ async function main() {
       create: {
         email: def.loginEmail,
         passwordHash,
+        mustChangePassword: true,
         name: def.name,
         role: "POSTMAN",
         postOfficeId: postOffice.id,
@@ -139,6 +145,7 @@ async function main() {
   });
 
   console.log("Seed complete:", { postOfficeId: postOffice.id, beatIds });
+  if (!process.env.SEED_PASSWORD) console.log(`Initial password of the seeded accounts (shown once; each must change it at first sign-in): ${initialPassword}`);
 }
 
 main()

@@ -1,3 +1,5 @@
+import { randomPassword, requiredEnv } from "./lib/credentials";
+
 /**
  * Live proof of the route optimizer against a RUNNING backend and the real routing engine.
  *
@@ -23,11 +25,11 @@
  */
 const API = process.env.API_URL ?? "http://localhost:4000/api/v1";
 const OSRM = (process.env.OSRM_BASE_URL ?? "https://router.project-osrm.org").replace(/\/+$/, "");
-const ADMIN = { email: process.env.ADMIN_EMAIL ?? "admin.bhandup@postal.local", password: process.env.ADMIN_PASSWORD ?? "ChangeMe123!" };
+const ADMIN = { email: process.env.ADMIN_EMAIL ?? "admin.bhandup@postal.local", password: requiredEnv("ADMIN_PASSWORD", "the administrator's password") };
 // The seeded postmen. Whichever of them currently has deliveries is used for the read-only checks
 // (an administrator may have moved a beat between postmen since the data was seeded).
-const SEEDED_POSTMEN = ["ramesh.kadam@postal.local", "sunita.pawar@postal.local"].map((email) => ({ email, password: process.env.POSTMAN_PASSWORD ?? "ChangeMe123!" }));
-const TEST_A = { email: "test.postman.a@postal.local", password: "TestPass123!" };
+const SEEDED_POSTMEN = ["ramesh.kadam@postal.local", "sunita.pawar@postal.local"].map((email) => ({ email, password: requiredEnv("POSTMAN_PASSWORD", "the seeded postmen's password") }));
+const TEST_A = { email: "test.postman.a@postal.local", password: randomPassword() };
 
 let failed = 0;
 let passed = 0;

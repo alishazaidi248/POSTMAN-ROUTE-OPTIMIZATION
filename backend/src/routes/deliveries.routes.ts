@@ -1,4 +1,4 @@
-import { Router } from "express";
+import { NextFunction, Request, RequestHandler, Response, Router } from "express";
 import { z } from "zod";
 import { Prisma, DeliveryStatus, ParcelPriority } from "@prisma/client";
 import { prisma } from "../config/prisma";
@@ -11,6 +11,13 @@ import { transitionDeliveryStatus } from "../services/deliveryStatus.service";
 import { overrideAssignment } from "../services/assignment.service";
 import { createAndAssignDelivery } from "../services/delivery.service";
 import { recordAudit } from "../services/audit.service";
+import { learnFromDelivery } from "../services/addressLearning.service";
+import multer from "multer";
+import fs from "fs";
+import { env } from "../config/env";
+import { saveDeliveryProof } from "../services/deliveryProof.service";
+import { proofPhotoPath } from "../services/storage/proofStorage";
+import { logger } from "../config/logger";
 
 export const deliveriesRouter = Router();
 deliveriesRouter.use(requireAuth);
@@ -84,6 +91,7 @@ const createDeliverySchema = z.object({
       pincode: z.string().regex(/^\d{6}$/, "Pincode must be 6 digits"),
       parcelType: z.string().optional(),
       parcelCount: z.number().int().min(1).max(1000).optional(),
+      weightKg: z.number().positive().max(1000).optional(),
       priority: z.nativeEnum(ParcelPriority).optional(),
       urgency: z.string().optional(),
       serviceTimeMinutes: z.number().int().min(0).max(600).optional(),
@@ -125,6 +133,7 @@ deliveriesRouter.post(
         address: { addressLine1: b.addressLine1, addressLine2: b.addressLine2, area: b.area, city: b.city, state: b.state, pincode: b.pincode },
         parcelType: b.parcelType,
         parcelCount: b.parcelCount,
+        weightKg: b.weightKg,
         priority: b.priority,
         urgency: b.urgency,
         serviceTimeMinutes: b.serviceTimeMinutes
@@ -153,7 +162,9 @@ deliveriesRouter.get(
         assignedPostman: true,
         statusHistory: { orderBy: { createdAt: "desc" } },
         assignmentHistory: { orderBy: { createdAt: "desc" } },
-        exceptions: true
+        exceptions: true,
+        // metadata only: the storage key never leaves the server, the photo is read through GET /:id/proof
+        proof: { select: { id: true, type: true, capturedAt: true, contentType: true, sizeBytes: true, latitude: true, longitude: true } }
       }
     });
     assertOwnsResource(req, delivery.postOfficeId);
@@ -165,7 +176,16 @@ deliveriesRouter.get(
 deliveriesRouter.post(
   "/:id/status",
   requireRole("ADMIN", "SUPER_ADMIN", "POSTMAN"),
-  validate(z.object({ body: z.object({ status: z.nativeEnum(DeliveryStatus), reason: z.string().optional() }) })),
+  validate(
+    z.object({
+      body: z.object({
+        status: z.nativeEnum(DeliveryStatus),
+        reason: z.string().optional(),
+        // The postman's GPS fix at the door; only used to learn where the address is (see addressing/locationLearning.ts).
+        location: z.object({ latitude: z.number().min(-90).max(90), longitude: z.number().min(-180).max(180), accuracyMeters: z.number().positive().optional() }).optional()
+      })
+    })
+  ),
   asyncHandler(async (req, res) => {
     const existing = await prisma.delivery.findUniqueOrThrow({ where: { id: req.params.id } });
     assertOwnsResource(req, existing.postOfficeId);
@@ -184,6 +204,10 @@ deliveriesRouter.post(
       newValue: { status: updated.status },
       reason: req.body.reason
     });
+    if (updated.status === "DELIVERED" && req.body.location) {
+      // Learning is a by-product: it never fails or delays the delivery itself.
+      await learnFromDelivery(updated.id, req.body.location).catch((err) => logger.warn({ err, deliveryId: updated.id }, "address learning failed"));
+    }
     res.json(updated);
   })
 );
@@ -281,5 +305,58 @@ deliveriesRouter.post(
     });
 
     res.json({ updated: deliveryIds.length });
+  })
+);
+
+// ── proof of delivery ──────────────────────────────────────────────────────
+
+const proofUpload = multer({ storage: multer.memoryStorage(), limits: { fileSize: env.maxProofPhotoMb * 1024 * 1024, files: 1 } });
+const receiveProof: RequestHandler = (req: Request, res: Response, next: NextFunction) => {
+  proofUpload.single("photo")(req, res, (err: unknown) => {
+    if (!err) return next();
+    if (err instanceof multer.MulterError && err.code === "LIMIT_FILE_SIZE") {
+      return next(AppError.badRequest(`This photo is too large. Please use one under ${env.maxProofPhotoMb} MB.`));
+    }
+    return next(AppError.badRequest("The photo could not be uploaded. Please try again."));
+  });
+};
+
+/** The postman the delivery belongs to (or an administrator of its post office) adds the photo while it is out for delivery. */
+deliveriesRouter.post(
+  "/:id/proof",
+  requireRole("ADMIN", "SUPER_ADMIN", "POSTMAN"),
+  receiveProof,
+  asyncHandler(async (req, res) => {
+    const existing = await prisma.delivery.findUniqueOrThrow({ where: { id: req.params.id } });
+    assertOwnsResource(req, existing.postOfficeId);
+    await assertPostmanOwnsDelivery(req, existing.assignedPostmanId);
+    const num = (v: unknown) => (typeof v === "string" && v !== "" && Number.isFinite(Number(v)) ? Number(v) : undefined);
+    const capturedAt = typeof req.body?.capturedAt === "string" && !Number.isNaN(Date.parse(req.body.capturedAt)) ? new Date(req.body.capturedAt) : undefined;
+    const proof = await saveDeliveryProof({
+      deliveryId: existing.id,
+      buffer: req.file?.buffer,
+      userId: req.user!.sub,
+      latitude: num(req.body?.latitude),
+      longitude: num(req.body?.longitude),
+      capturedAt: capturedAt && capturedAt.getTime() <= Date.now() + 60_000 ? capturedAt : undefined
+    });
+    res.status(201).json(proof);
+  })
+);
+
+/** The photo itself: only for the office's administrators and the delivery's own postman, never cached or shared. */
+deliveriesRouter.get(
+  "/:id/proof",
+  asyncHandler(async (req, res) => {
+    const delivery = await prisma.delivery.findUniqueOrThrow({ where: { id: req.params.id }, include: { proof: true } });
+    assertOwnsResource(req, delivery.postOfficeId);
+    await assertPostmanOwnsDelivery(req, delivery.assignedPostmanId);
+    if (!delivery.proof) throw AppError.notFound("This delivery has no proof photo");
+    const file = proofPhotoPath(delivery.proof.storageKey);
+    if (!fs.existsSync(file)) throw AppError.notFound("This delivery has no proof photo");
+    res.setHeader("Content-Type", delivery.proof.contentType);
+    res.setHeader("Cache-Control", "private, no-store");
+    res.setHeader("X-Content-Type-Options", "nosniff");
+    fs.createReadStream(file).pipe(res);
   })
 );

@@ -10,7 +10,10 @@ import {
   signAccessToken,
   issueRefreshToken,
   rotateRefreshToken,
-  revokeRefreshToken
+  revokeRefreshToken,
+  revokeAllRefreshTokens,
+  checkPasswordPolicy,
+  tokenClaims
 } from "../services/auth.service";
 import { recordAudit } from "../services/audit.service";
 import { requireAuth } from "../middleware/auth";
@@ -41,12 +44,7 @@ authRouter.post(
       throw AppError.forbidden("This account is not linked to a Postman profile. Contact your post office admin.");
     }
 
-    const accessToken = signAccessToken({
-      sub: user.id,
-      role: user.role,
-      postOfficeId: user.postOfficeId,
-      email: user.email
-    });
+    const accessToken = signAccessToken(tokenClaims(user));
     const refreshToken = await issueRefreshToken(user.id);
 
     await prisma.user.update({ where: { id: user.id }, data: { lastLoginAt: new Date() } });
@@ -61,8 +59,41 @@ authRouter.post(
         email: user.email,
         role: user.role,
         postOfficeId: user.postOfficeId,
-        postmanId: user.postmanId
-      }
+        postmanId: user.postmanId,
+        mustChangePassword: user.mustChangePassword
+      },
+      mustChangePassword: user.mustChangePassword
+    });
+  })
+);
+
+/**
+ * The signed-in user chooses a new password. Required after an account was created or reset by someone else (the first
+ * password is temporary), and available to everyone. It checks the current password, applies the password rules, ends every
+ * other session, and answers with fresh tokens that are no longer restricted.
+ */
+authRouter.post(
+  "/change-password",
+  requireAuth,
+  validate(z.object({ body: z.object({ currentPassword: z.string().min(1).max(200), newPassword: z.string().min(1).max(200) }) })),
+  asyncHandler(async (req, res) => {
+    const user = await prisma.user.findUniqueOrThrow({ where: { id: req.user!.sub } });
+    if (user.status !== "ACTIVE" || !(await verifyPassword(user.passwordHash, req.body.currentPassword))) {
+      throw AppError.unauthorized("The current password is not correct.");
+    }
+    const problems = checkPasswordPolicy(req.body.newPassword, { email: user.email, current: req.body.currentPassword });
+    if (problems.length > 0) throw AppError.badRequest(`The new password is not acceptable. ${problems.join(" ")}`, { problems });
+
+    const updated = await prisma.user.update({
+      where: { id: user.id },
+      data: { passwordHash: await hashPassword(req.body.newPassword), mustChangePassword: false, passwordChangedAt: new Date() }
+    });
+    await revokeAllRefreshTokens(user.id);
+    await recordAudit({ req, action: "PASSWORD_CHANGED", entityType: "User", entityId: user.id });
+    res.json({
+      accessToken: signAccessToken(tokenClaims(updated)),
+      refreshToken: await issueRefreshToken(user.id),
+      mustChangePassword: false
     });
   })
 );
@@ -72,12 +103,7 @@ authRouter.post(
   validate(z.object({ body: z.object({ refreshToken: z.string() }) })),
   asyncHandler(async (req, res) => {
     const { user, refreshToken } = await rotateRefreshToken(req.body.refreshToken);
-    const accessToken = signAccessToken({
-      sub: user.id,
-      role: user.role,
-      postOfficeId: user.postOfficeId,
-      email: user.email
-    });
+    const accessToken = signAccessToken(tokenClaims(user));
     res.json({ accessToken, refreshToken });
   })
 );
@@ -99,7 +125,7 @@ authRouter.get(
   asyncHandler(async (req, res) => {
     const user = await prisma.user.findUniqueOrThrow({
       where: { id: req.user!.sub },
-      select: { id: true, name: true, email: true, role: true, postOfficeId: true, status: true, postmanId: true, postOffice: { select: { name: true } } }
+      select: { id: true, name: true, email: true, role: true, postOfficeId: true, status: true, postmanId: true, mustChangePassword: true, postOffice: { select: { name: true } } }
     });
     const { postOffice, ...rest } = user;
     res.json({ ...rest, postOfficeName: postOffice?.name ?? null });

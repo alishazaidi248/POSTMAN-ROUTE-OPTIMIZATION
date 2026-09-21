@@ -1,6 +1,6 @@
 import React from "react";
 import { Pressable, StyleSheet, Text, View } from "react-native";
-import { formatAddress, formatTime } from "../../utils/formatting";
+import { formatAddressShort, formatTime } from "../../utils/formatting";
 import { legLabel, StopState, StopView } from "../../utils/routeView";
 import { useDeliveryActions } from "../../hooks/useDeliveryActions";
 import { colors } from "../../theme/colors";
@@ -41,7 +41,7 @@ function badgeText(view: StopView): string {
 export function DeliveryCard({ view, expanded, onToggle, onOpenDetails }: Props) {
   const { delivery, status } = view;
   const leg = legLabel(view);
-  const address = formatAddress(delivery.address);
+  const address = formatAddressShort(delivery.address);
   const finished = view.state === "DONE" || view.state === "FAILED";
 
   return (

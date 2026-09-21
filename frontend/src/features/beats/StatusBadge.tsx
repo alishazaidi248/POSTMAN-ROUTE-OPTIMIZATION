@@ -1,4 +1,4 @@
-import { Verification, VERIFICATION_LABEL } from "./beatTypes";
+import { BeatRecord, Verification, VERIFICATION_LABEL, isOverlapping, overlapLabel } from "./beatTypes";
 import styles from "./beats.module.css";
 
 const TONE: Record<Verification, string> = {
@@ -13,6 +13,16 @@ export function VerificationBadge({ value }: { value: Verification }) {
     <span className={`${styles.badge} ${TONE[value]}`}>
       <span className={styles.dot} aria-hidden="true" />
       {VERIFICATION_LABEL[value]}
+    </span>
+  );
+}
+
+/** Shown next to the verification pill when this territory overlaps another beat. */
+export function OverlapBadge({ beat }: { beat: BeatRecord }) {
+  if (!isOverlapping(beat)) return null;
+  return (
+    <span className={`${styles.badge} ${styles.badgeReview}`} title="Addresses inside the overlap cannot be assigned automatically">
+      {overlapLabel(beat)}
     </span>
   );
 }

@@ -12,23 +12,39 @@ interface ExceptionRow {
   reason: string;
   details: string | null;
   createdAt: string;
+  suggestedBeat: { id: string; beatNumber: string; name: string } | null;
+  confidence: number | null;
+  confidenceLevel: "High" | "Medium" | "Low" | "Ambiguous" | null;
+  locationQuality: string | null;
+  locationQualityLabel: string | null;
+  evidence: { evidence?: string[]; contenders?: string[] } | null;
   delivery: {
     trackingId: string;
     recipient: { name: string; phone: string };
-    address: { addressLine1: string; pincode: string; latitude: number | null; longitude: number | null };
+    address: { addressLine1: string; addressLine2: string | null; area: string | null; city: string; pincode: string; latitude: number | null; longitude: number | null };
   };
+}
+
+/** "B20 — Farid Nagar": the beat number and the descriptive part of its name (never "Beat 20 — Beat 20"). */
+function beatLabel(b: { beatNumber: string; name: string }) {
+  const rest = b.name.replace(/^\s*beat\s*[-#]?\s*\d+\s*[-:–—]?\s*/i, "").trim();
+  return rest ? `B${b.beatNumber} — ${rest}` : `B${b.beatNumber}`;
+}
+
+/** Address lines without repeating a part another line already contains. */
+function addressLines(a: ExceptionRow["delivery"]["address"]): string[] {
+  const out: string[] = [];
+  for (const part of [a.addressLine1, a.addressLine2, a.area, a.city]) {
+    const t = part?.trim();
+    if (t && !out.some((o) => o.toLowerCase().includes(t.toLowerCase()))) out.push(t);
+  }
+  return out;
 }
 
 interface BeatOption {
   id: string;
   beatNumber: string;
   name: string;
-}
-
-interface PostmanOption {
-  id: string;
-  name: string;
-  employeeId: string;
 }
 
 function CorrectAddressModal({ exception, onClose }: { exception: ExceptionRow; onClose: () => void }) {
@@ -62,8 +78,8 @@ function CorrectAddressModal({ exception, onClose }: { exception: ExceptionRow; 
   }
 
   return (
-    <Modal title={`Correct Address — ${exception.delivery.trackingId}`} onClose={onClose}>
-      <p style={{ fontSize: 13, marginBottom: 12 }}>{exception.delivery.address.addressLine1}, {exception.delivery.address.pincode}</p>
+    <Modal title={`Correct Location — ${exception.delivery.trackingId}`} onClose={onClose}>
+      <p style={{ fontSize: 13, marginBottom: 12 }}>{addressLines(exception.delivery.address).join(", ")} — {exception.delivery.address.pincode}</p>
       <form onSubmit={handleSubmit}>
         <div className={styles.formGroup}>
           <label>Latitude</label>
@@ -83,10 +99,9 @@ function CorrectAddressModal({ exception, onClose }: { exception: ExceptionRow; 
   );
 }
 
-function AssignManuallyModal({ exception, onClose }: { exception: ExceptionRow; onClose: () => void }) {
+function ChooseBeatModal({ exception, onClose }: { exception: ExceptionRow; onClose: () => void }) {
   const queryClient = useQueryClient();
-  const [beatId, setBeatId] = useState("");
-  const [postmanId, setPostmanId] = useState("");
+  const [beatId, setBeatId] = useState(exception.suggestedBeat?.id ?? "");
   const [reason, setReason] = useState("");
   const [error, setError] = useState<string | null>(null);
 
@@ -94,17 +109,12 @@ function AssignManuallyModal({ exception, onClose }: { exception: ExceptionRow; 
     queryKey: ["beats"],
     queryFn: () => apiClient.get("/beats").then((r) => r.data)
   });
-  const { data: postmen } = useQuery<PostmanOption[]>({
-    queryKey: ["postmen-for-assignment"],
-    queryFn: () => apiClient.get("/postmen").then((r) => r.data)
-  });
 
   const resolveMutation = useMutation({
     mutationFn: () =>
       apiClient.post(`/assignments/exceptions/${exception.id}/resolve`, {
-        beatId: beatId || undefined,
-        postmanId: postmanId || undefined,
-        reason: reason || "Manually assigned from Assignment Exceptions"
+        beatId,
+        reason: reason || "Beat chosen from Assignment Exceptions"
       }),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["assignment-exceptions"] });
@@ -114,33 +124,24 @@ function AssignManuallyModal({ exception, onClose }: { exception: ExceptionRow; 
   });
 
   return (
-    <Modal title={`Assign Manually — ${exception.delivery.trackingId}`} onClose={onClose}>
+    <Modal title={`Choose Beat — ${exception.delivery.trackingId}`} onClose={onClose}>
+      <p style={{ fontSize: 13, marginBottom: 12 }}>{addressLines(exception.delivery.address).join(", ")}</p>
       <div className={styles.formGroup}>
         <label>Beat</label>
         <select className={styles.input} value={beatId} onChange={(e) => setBeatId(e.target.value)}>
-          <option value="">No change</option>
-          {beats?.map((b) => <option key={b.id} value={b.id}>{b.beatNumber} — {b.name}</option>)}
+          <option value="">Select a beat…</option>
+          {beats?.map((b) => <option key={b.id} value={b.id}>{beatLabel(b)}</option>)}
         </select>
+        <small>The delivery goes to the postman who covers this beat.</small>
       </div>
       <div className={styles.formGroup}>
-        <label>Postman</label>
-        <select className={styles.input} value={postmanId} onChange={(e) => setPostmanId(e.target.value)}>
-          <option value="">No change</option>
-          {postmen?.map((p) => <option key={p.id} value={p.id}>{p.name} ({p.employeeId})</option>)}
-        </select>
-      </div>
-      <div className={styles.formGroup}>
-        <label>Reason</label>
-        <input className={styles.input} value={reason} onChange={(e) => setReason(e.target.value)} placeholder="Why is this being assigned manually?" />
+        <label>Reason (optional)</label>
+        <input className={styles.input} value={reason} onChange={(e) => setReason(e.target.value)} placeholder="Why this beat?" />
       </div>
       {error && <p className={styles.errorText}>{error}</p>}
       <div className={styles.toolbar} style={{ justifyContent: "flex-end" }}>
         <button type="button" className={styles.button} onClick={onClose}>Cancel</button>
-        <button
-          className={styles.buttonPrimary}
-          disabled={resolveMutation.isPending || (!beatId && !postmanId)}
-          onClick={() => resolveMutation.mutate()}
-        >
+        <button className={styles.buttonPrimary} disabled={resolveMutation.isPending || !beatId} onClick={() => resolveMutation.mutate()}>
           Assign
         </button>
       </div>
@@ -153,6 +154,7 @@ export function AssignmentExceptionsPage() {
   const [correctingId, setCorrectingId] = useState<string | null>(null);
   const [assigningId, setAssigningId] = useState<string | null>(null);
   const [retryError, setRetryError] = useState<string | null>(null);
+  const [assignError, setAssignError] = useState<string | null>(null);
 
   const { data, isLoading } = useQuery<ExceptionRow[]>({
     queryKey: ["assignment-exceptions"],
@@ -162,6 +164,19 @@ export function AssignmentExceptionsPage() {
   const ignoreMutation = useMutation({
     mutationFn: (id: string) => apiClient.post(`/assignments/exceptions/${id}/ignore`),
     onSuccess: () => queryClient.invalidateQueries({ queryKey: ["assignment-exceptions"] })
+  });
+
+  const acceptMutation = useMutation({
+    mutationFn: (exc: ExceptionRow) =>
+      apiClient.post(`/assignments/exceptions/${exc.id}/resolve`, {
+        beatId: exc.suggestedBeat!.id,
+        reason: `Suggested beat accepted (${exc.confidence ?? "?"}% confidence)`
+      }),
+    onSuccess: () => {
+      setAssignError(null);
+      queryClient.invalidateQueries({ queryKey: ["assignment-exceptions"] });
+    },
+    onError: (err: any) => setAssignError(err.response?.data?.error?.message ?? "Failed to assign")
   });
 
   async function retryGeocoding(exception: ExceptionRow) {
@@ -182,43 +197,76 @@ export function AssignmentExceptionsPage() {
   return (
     <div>
       <p style={{ fontSize: 13, color: "var(--color-ink-500)", marginBottom: 12 }}>
-        Deliveries that could not be auto-assigned to a beat/postman — geocoding failures, no beat covering the
-        address, multiple overlapping beats, or no postman on the matched beat. Resolve, retry, or ignore each one.
+        Deliveries the system would not assign on its own: the address does not identify one beat clearly enough, the
+        location is too imprecise to decide, or the beat has no postman. <b>Assign</b> accepts the suggested beat,
+        <b>Choose Beat</b> picks another, <b>Ignore</b> dismisses the item.
       </p>
       {retryError && <p className={styles.errorText}>{retryError}</p>}
+      {assignError && <p className={styles.errorText}>{assignError}</p>}
 
       <table className={styles.table}>
         <thead>
           <tr>
-            <th>Tracking ID</th>
+            <th>Delivery</th>
             <th>Recipient</th>
             <th>Address</th>
+            <th>Suggested beat</th>
+            <th>Confidence</th>
             <th>Reason</th>
-            <th>Raised</th>
+            <th>Location quality</th>
             <th>Actions</th>
           </tr>
         </thead>
         <tbody>
           {data.length === 0 && (
-            <tr><td colSpan={6}>No open exceptions. Everything auto-assigned cleanly.</td></tr>
+            <tr><td colSpan={8}>No open exceptions. Everything was assigned with enough confidence.</td></tr>
           )}
-          {data.map((exc) => (
-            <tr key={exc.id}>
-              <td><Link to={`/deliveries/${exc.deliveryId}`}>{exc.delivery.trackingId}</Link></td>
-              <td>{exc.delivery.recipient.name}<br /><small>{exc.delivery.recipient.phone}</small></td>
-              <td>{exc.delivery.address.addressLine1}<br /><small>{exc.delivery.address.pincode}</small></td>
-              <td><Badge value={exc.reason} /></td>
-              <td>{new Date(exc.createdAt).toLocaleString()}</td>
-              <td>
-                <div className={styles.toolbar} style={{ margin: 0 }}>
-                  <button className={styles.button} onClick={() => retryGeocoding(exc)}>Retry Geocode</button>
-                  <button className={styles.button} onClick={() => setCorrectingId(exc.id)}>Correct Address</button>
-                  <button className={styles.button} onClick={() => setAssigningId(exc.id)}>Assign Manually</button>
-                  <button className={styles.button} onClick={() => ignoreMutation.mutate(exc.id)}>Ignore</button>
-                </div>
-              </td>
-            </tr>
-          ))}
+          {data.map((exc) => {
+            const contenders = exc.evidence?.contenders;
+            return (
+              <tr key={exc.id}>
+                <td><Link to={`/deliveries/${exc.deliveryId}`}>{exc.delivery.trackingId}</Link><br /><small>{new Date(exc.createdAt).toLocaleString()}</small></td>
+                <td>{exc.delivery.recipient.name}<br /><small>{exc.delivery.recipient.phone}</small></td>
+                <td>
+                  {addressLines(exc.delivery.address).map((line) => <div key={line}>{line}</div>)}
+                  <small>{exc.delivery.address.pincode}</small>
+                </td>
+                <td>
+                  {exc.suggestedBeat ? beatLabel(exc.suggestedBeat) : "—"}
+                  {contenders && contenders.length > 1 && <><br /><small>Also fits beats {contenders.join(", ")}</small></>}
+                </td>
+                <td>
+                  {exc.confidence != null && exc.confidenceLevel ? <>{exc.confidence}% — <Badge value={exc.confidenceLevel} /></> : "—"}
+                </td>
+                <td>
+                  <Badge value={exc.reason} />
+                  {exc.details && <div style={{ fontSize: 12, marginTop: 4 }}>{exc.details}</div>}
+                  {exc.evidence?.evidence && exc.evidence.evidence.length > 0 && (
+                    <details style={{ fontSize: 12 }}>
+                      <summary>Evidence</summary>
+                      <ul style={{ margin: "4px 0 0 16px", padding: 0 }}>{exc.evidence.evidence.map((line) => <li key={line}>{line}</li>)}</ul>
+                    </details>
+                  )}
+                </td>
+                <td>{exc.locationQualityLabel ?? "—"}</td>
+                <td>
+                  <div className={styles.toolbar} style={{ margin: 0, flexWrap: "wrap" }}>
+                    {exc.suggestedBeat && exc.reason !== "NO_POSTMAN_ASSIGNED" && (
+                      <button className={styles.buttonPrimary} disabled={acceptMutation.isPending} onClick={() => acceptMutation.mutate(exc)}>Assign</button>
+                    )}
+                    <button className={styles.button} onClick={() => setAssigningId(exc.id)}>Choose Beat</button>
+                    <button className={styles.button} onClick={() => ignoreMutation.mutate(exc.id)}>Ignore</button>
+                    {exc.reason !== "NO_POSTMAN_ASSIGNED" && (
+                      <>
+                        <button className={styles.button} onClick={() => retryGeocoding(exc)}>Retry Geocode</button>
+                        <button className={styles.button} onClick={() => setCorrectingId(exc.id)}>Correct Location</button>
+                      </>
+                    )}
+                  </div>
+                </td>
+              </tr>
+            );
+          })}
         </tbody>
       </table>
 
@@ -226,7 +274,7 @@ export function AssignmentExceptionsPage() {
         <CorrectAddressModal exception={activeException} onClose={() => setCorrectingId(null)} />
       )}
       {assigningId && activeException && (
-        <AssignManuallyModal exception={activeException} onClose={() => setAssigningId(null)} />
+        <ChooseBeatModal exception={activeException} onClose={() => setAssigningId(null)} />
       )}
     </div>
   );

@@ -1,7 +1,11 @@
-import { DeliveryStatus, ExceptionReason, Prisma, PrismaClient } from "@prisma/client";
+import { AssignmentMethod, DeliveryStatus, ExceptionAction, ExceptionReason, GeocodingPrecision, Prisma, PrismaClient } from "@prisma/client";
 import { prisma } from "../config/prisma";
 import { AppError } from "../utils/AppError";
 import { recordAudit } from "./audit.service";
+import { loadDirectory } from "./addressing/beatDirectory.service";
+import { matchBeatByName } from "./addressing/beatMatcher";
+import { Decision, ExceptionKind, Explanation, decideAssignment, isUsable } from "./addressing/assignmentDecision";
+import { AssignmentChange, announceAssignmentChanges } from "./postmanNotifications.service";
 
 /**
  * Assignment is the one place that decides "which postman serves this
@@ -23,13 +27,16 @@ type Db = Prisma.TransactionClient | PrismaClient;
  * DELIVERED, failed attempts, RETURNED, CANCELLED — is left with whoever has it. */
 export const AUTO_ASSIGNABLE_STATUSES: DeliveryStatus[] = ["SORTED", "ASSIGNED", "RESCHEDULED"];
 const TERMINAL_STATUSES: DeliveryStatus[] = ["DELIVERED", "RETURNED", "CANCELLED"];
-const ALL_ASSIGNMENT_REASONS: ExceptionReason[] = [
+/** The reasons the matching step can raise. Re-running the match replaces them all (the newest verdict is the only true one). */
+const MATCHING_REASONS: ExceptionReason[] = [
   "GEOCODING_FAILED",
   "NO_BEAT_MATCH",
   "MULTIPLE_BEAT_MATCH",
-  "NO_POSTMAN_ASSIGNED",
-  "INACTIVE_POSTMAN"
+  "AMBIGUOUS_MATCH",
+  "LOW_CONFIDENCE_MATCH",
+  "WEAK_LOCATION"
 ];
+const ALL_ASSIGNMENT_REASONS: ExceptionReason[] = [...MATCHING_REASONS, "NO_POSTMAN_ASSIGNED", "INACTIVE_POSTMAN"];
 
 export interface BeatMatch {
   beatId: string;
@@ -39,21 +46,36 @@ export interface BeatMatch {
 
 // ── exceptions ─────────────────────────────────────────────────────────────
 
-/** Opens an exception unless the same one is already open (re-running an
- * assignment must not pile up duplicate work items for the admin). */
-async function openException(db: Db, deliveryId: string, reason: ExceptionReason, details?: string) {
+interface ExceptionDetail {
+  details?: string;
+  suggestedBeatId?: string | null;
+  confidence?: number | null;
+  locationQuality?: GeocodingPrecision | null;
+  evidence?: Explanation;
+}
+
+/** Opens an exception unless the same one is already open (re-running an assignment must not pile up duplicate work
+ * items for the admin); an open one is refreshed with the latest suggestion and evidence. */
+async function openException(db: Db, deliveryId: string, reason: ExceptionReason, detail: ExceptionDetail = {}) {
+  const data = {
+    details: detail.details,
+    suggestedBeatId: detail.suggestedBeatId ?? null,
+    confidence: detail.confidence == null ? null : Math.round(detail.confidence),
+    locationQuality: detail.locationQuality ?? null,
+    evidence: detail.evidence ? (detail.evidence as unknown as Prisma.InputJsonValue) : Prisma.DbNull
+  };
   const existing = await db.assignmentException.findFirst({ where: { deliveryId, reason, resolvedAt: null } });
-  if (existing) return existing;
-  return db.assignmentException.create({ data: { deliveryId, reason, details } });
+  if (existing) return db.assignmentException.update({ where: { id: existing.id }, data });
+  return db.assignmentException.create({ data: { deliveryId, reason, ...data } });
 }
 
 /** Closes open exceptions the system has just fixed itself. */
-async function resolveExceptions(db: Db, deliveryId: string, reasons: ExceptionReason[]) {
+async function resolveExceptions(db: Db, deliveryId: string, reasons: ExceptionReason[], action?: ExceptionAction) {
   await db.assignmentException.updateMany({
     where: { deliveryId, reason: { in: reasons }, resolvedAt: null },
     data: {
       resolvedAt: new Date(),
-      lastAction: reasons.includes("GEOCODING_FAILED") ? "GEOCODING_RETRIED" : "BEAT_CHANGED"
+      lastAction: action ?? (reasons.includes("GEOCODING_FAILED") ? "GEOCODING_RETRIED" : "BEAT_CHANGED")
     }
   });
 }
@@ -76,7 +98,7 @@ async function activePostmanOfBeat(db: Db, beatId: string) {
  * Parcels an admin assigned by hand (an override in the history) and parcels already
  * out for delivery are never touched.
  */
-export async function syncBeatDeliveries(db: Db, beatId: string, changedBy?: string) {
+export async function syncBeatDeliveries(db: Db, beatId: string, changedBy?: string, sink?: AssignmentChange[]) {
   const postmanId = await activePostmanOfBeat(db, beatId);
 
   const deliveries = await db.delivery.findMany({
@@ -85,7 +107,7 @@ export async function syncBeatDeliveries(db: Db, beatId: string, changedBy?: str
       status: { in: AUTO_ASSIGNABLE_STATUSES },
       assignmentHistory: { none: { isOverride: true } }
     },
-    select: { id: true, status: true, assignedPostmanId: true }
+    select: { id: true, status: true, assignedPostmanId: true, trackingId: true, priority: true }
   });
 
   let assigned = 0;
@@ -102,6 +124,7 @@ export async function syncBeatDeliveries(db: Db, beatId: string, changedBy?: str
         data: { deliveryId: d.id, beatId, postmanId, reason: "BEAT_POSTMAN_CHANGED", changedBy }
       });
       await resolveExceptions(db, d.id, ["NO_POSTMAN_ASSIGNED", "INACTIVE_POSTMAN"]);
+      sink?.push({ deliveryId: d.id, trackingId: d.trackingId, priority: d.priority, fromPostmanId: d.assignedPostmanId, toPostmanId: postmanId });
       assigned++;
     } else {
       if (d.assignedPostmanId === null && d.status === "SORTED") continue;
@@ -112,7 +135,8 @@ export async function syncBeatDeliveries(db: Db, beatId: string, changedBy?: str
       await db.deliveryAssignmentHistory.create({
         data: { deliveryId: d.id, beatId, postmanId: null, reason: "BEAT_LEFT_WITHOUT_POSTMAN", changedBy }
       });
-      await openException(db, d.id, "NO_POSTMAN_ASSIGNED", "The beat has no active postman");
+      await openException(db, d.id, "NO_POSTMAN_ASSIGNED", { details: "The beat has no active postman" });
+      sink?.push({ deliveryId: d.id, trackingId: d.trackingId, priority: d.priority, fromPostmanId: d.assignedPostmanId, toPostmanId: null });
       released++;
     }
   }
@@ -128,7 +152,7 @@ export async function syncBeatDeliveries(db: Db, beatId: string, changedBy?: str
  * caller's transaction so it can be combined with other writes (creating a beat
  * and giving it a postman is ONE atomic step).
  */
-export async function assignPostmanToBeatTx(tx: Prisma.TransactionClient, postmanId: string, beatId: string | null, changedBy?: string) {
+export async function assignPostmanToBeatTx(tx: Prisma.TransactionClient, postmanId: string, beatId: string | null, changedBy?: string, sink?: AssignmentChange[]) {
   const postman = await tx.postman.findUniqueOrThrow({ where: { id: postmanId } });
 
   if (beatId) {
@@ -168,20 +192,24 @@ export async function assignPostmanToBeatTx(tx: Prisma.TransactionClient, postma
 
   const updated = await tx.postman.update({ where: { id: postmanId }, data: { assignedBeatId: beatId } });
 
-  for (const id of affectedBeats) await syncBeatDeliveries(tx, id, changedBy);
+  for (const id of affectedBeats) await syncBeatDeliveries(tx, id, changedBy, sink);
 
   return updated;
 }
 
-export function setPostmanBeatAssignment(postmanId: string, beatId: string | null, changedBy?: string) {
-  return prisma.$transaction((tx) => assignPostmanToBeatTx(tx, postmanId, beatId, changedBy), { timeout: 30_000 });
+export async function setPostmanBeatAssignment(postmanId: string, beatId: string | null, changedBy?: string) {
+  const changes: AssignmentChange[] = [];
+  const updated = await prisma.$transaction((tx) => assignPostmanToBeatTx(tx, postmanId, beatId, changedBy, changes), { timeout: 30_000 });
+  announceAssignmentChanges(changes); // after the commit: nobody is told about something that was rolled back
+  return updated;
 }
 
 /** Clears (postmanId null) or sets the postman of a beat — the beat-centric mirror of the above. */
 export async function setBeatPostman(beatId: string, postmanId: string | null, changedBy?: string) {
   if (postmanId) return setPostmanBeatAssignment(postmanId, beatId, changedBy);
 
-  return prisma.$transaction(
+  const changes: AssignmentChange[] = [];
+  const beat = await prisma.$transaction(
     async (tx) => {
       const beat = await tx.beat.findUniqueOrThrow({ where: { id: beatId } });
       const current = await tx.postmanBeatAssignment.findMany({ where: { beatId, isActive: true } });
@@ -190,18 +218,148 @@ export async function setBeatPostman(beatId: string, postmanId: string | null, c
         data: { isActive: false, endDate: new Date() }
       });
       for (const a of current) await tx.postman.update({ where: { id: a.postmanId }, data: { assignedBeatId: null } });
-      await syncBeatDeliveries(tx, beat.id, changedBy);
+      await syncBeatDeliveries(tx, beat.id, changedBy, changes);
       return beat;
     },
     { timeout: 30_000 }
   );
+  announceAssignmentChanges(changes);
+  return beat;
 }
 
 // ── delivery -> beat -> postman ────────────────────────────────────────────
 
+export type AssignResult =
+  | { status: "ASSIGNED"; beatId: string; postmanId: string; method: AssignmentMethod; confidence: number }
+  | { status: "NO_POSTMAN_ASSIGNED"; beatId: string; method: AssignmentMethod; confidence: number }
+  | { status: "NO_BEAT_MATCH" }
+  | { status: "MULTIPLE_BEAT_MATCH"; matches: BeatMatch[] }
+  | { status: "EXCEPTION"; reason: ExceptionKind; suggestedBeatId?: string }
+  | { status: "SKIPPED"; reason: "NOT_ASSIGNABLE_STATUS" | "MANUAL_OVERRIDE" };
+
+const EXCEPTION_REASON: Record<ExceptionKind, ExceptionReason> = {
+  NO_BEAT_MATCH: "NO_BEAT_MATCH",
+  MULTIPLE_BEAT_MATCH: "MULTIPLE_BEAT_MATCH",
+  AMBIGUOUS_MATCH: "AMBIGUOUS_MATCH",
+  LOW_CONFIDENCE_MATCH: "LOW_CONFIDENCE_MATCH",
+  WEAK_LOCATION: "WEAK_LOCATION",
+  GEOCODING_FAILED: "GEOCODING_FAILED"
+};
+
 /**
- * Point-in-polygon beat lookup via PostGIS ST_Contains — never a
- * nearest-center-distance approximation (spec §24).
+ * delivery address -> normalise -> match against the BEAT LIST -> (only if that is not conclusive) location precision +
+ * verified territory (PostGIS ST_Contains) -> assign the beat's active postman, or open an assignment exception.
+ * See services/addressing/assignmentDecision.ts for the rules and ADDRESS_MATCHING.md for how they were validated.
+ *
+ * The delivery's address row is the input: the beat list does NOT need coordinates, so a delivery whose geocoding failed
+ * is still matched by name. The verdict, its confidence and its evidence are stored on the delivery (assignmentMethod /
+ * assignmentConfidence / assignmentEvidence) or on the exception, written atomically with the assignment history.
+ */
+export async function assignDeliveryToBeat(deliveryId: string): Promise<AssignResult> {
+  const delivery = await prisma.delivery.findUniqueOrThrow({
+    where: { id: deliveryId },
+    include: {
+      address: true,
+      postOffice: { select: { name: true, pincode: true } },
+      assignmentHistory: { where: { isOverride: true }, take: 1, select: { id: true } }
+    }
+  });
+
+  // A parcel that is out for delivery / finished must never be pulled back by a re-match, and a hand-made assignment is
+  // not overwritten by an automatic one.
+  if (delivery.status !== "RECEIVED" && !AUTO_ASSIGNABLE_STATUSES.includes(delivery.status)) {
+    return { status: "SKIPPED", reason: "NOT_ASSIGNABLE_STATUS" };
+  }
+  if (delivery.assignmentHistory.length > 0) return { status: "SKIPPED", reason: "MANUAL_OVERRIDE" };
+
+  const a = delivery.address;
+  const located = (a.geocodingStatus === "SUCCESS" || a.geocodingStatus === "MANUAL") && a.latitude != null && a.longitude != null;
+  // A located address written before precision existed (or by a provider that could not say) is treated as the weakest
+  // usable kind: it can support a name match but never decide on its own.
+  const precision: GeocodingPrecision = !located ? "NONE" : a.geocodingPrecision ?? "AREA";
+
+  const directory = await loadDirectory(delivery.postOfficeId);
+  const name = matchBeatByName(
+    {
+      parts: [a.addressLine1, a.addressLine2, a.area, a.city, a.state, a.pincode],
+      localityField: a.area,
+      postOfficeName: delivery.postOffice.name,
+      postOfficePincode: delivery.postOffice.pincode
+    },
+    directory
+  );
+  // Territories are only consulted for a location precise enough to be believed.
+  const territories = located && isUsable(precision) ? await findContainingBeats(delivery.postOfficeId, a.latitude!, a.longitude!) : [];
+
+  const decision = decideAssignment({ name, location: { located, precision }, territories });
+  const result = await applyDecision(deliveryId, delivery.status, decision, precision, territories);
+  // Tell the postmen once the decision is committed: the new one (batched, or at once when URGENT) and the one who lost it.
+  const now = result.status === "ASSIGNED" ? result.postmanId : null;
+  announceAssignmentChanges([{ deliveryId, trackingId: delivery.trackingId, priority: delivery.priority, fromPostmanId: delivery.assignedPostmanId, toPostmanId: now }]);
+  return result;
+}
+
+async function applyDecision(
+  deliveryId: string,
+  status: DeliveryStatus,
+  decision: Decision,
+  precision: GeocodingPrecision,
+  territories: BeatMatch[]
+): Promise<AssignResult> {
+  return prisma.$transaction(async (tx) => {
+    const keepStatus: DeliveryStatus = status === "RESCHEDULED" ? "RESCHEDULED" : "SORTED";
+
+    if (decision.action === "EXCEPTION") {
+      const reason = EXCEPTION_REASON[decision.reason];
+      await tx.delivery.update({
+        where: { id: deliveryId },
+        data: { status: keepStatus, beatId: null, assignedPostmanId: null, assignmentMethod: null, assignmentConfidence: null, assignmentEvidence: Prisma.DbNull }
+      });
+      await openException(tx, deliveryId, reason, {
+        details: decision.message,
+        suggestedBeatId: decision.suggestedBeatId,
+        confidence: decision.confidence,
+        locationQuality: precision,
+        evidence: decision.explanation
+      });
+      // The newest verdict is the only true one; and with no beat there is no postman to be missing.
+      await resolveExceptions(tx, deliveryId, ALL_ASSIGNMENT_REASONS.filter((r) => r !== reason));
+      if (decision.reason === "NO_BEAT_MATCH") return { status: "NO_BEAT_MATCH" } as const;
+      if (decision.reason === "MULTIPLE_BEAT_MATCH") return { status: "MULTIPLE_BEAT_MATCH", matches: territories } as const;
+      return { status: "EXCEPTION", reason: decision.reason, suggestedBeatId: decision.suggestedBeatId } as const;
+    }
+
+    const { beatId, method, confidence, explanation } = decision;
+    const postmanId = await activePostmanOfBeat(tx, beatId);
+
+    await tx.delivery.update({
+      where: { id: deliveryId },
+      data: {
+        beatId,
+        assignedPostmanId: postmanId,
+        status: status === "RESCHEDULED" ? "RESCHEDULED" : postmanId ? "ASSIGNED" : "SORTED",
+        assignmentMethod: method,
+        assignmentConfidence: Math.round(confidence),
+        assignmentEvidence: explanation as unknown as Prisma.InputJsonValue
+      }
+    });
+    await tx.deliveryAssignmentHistory.create({
+      data: { deliveryId, beatId, postmanId, reason: `AUTO_${method}` }
+    });
+
+    await resolveExceptions(tx, deliveryId, MATCHING_REASONS);
+    if (!postmanId) {
+      await openException(tx, deliveryId, "NO_POSTMAN_ASSIGNED", { details: "The matched beat has no active postman", suggestedBeatId: beatId });
+      return { status: "NO_POSTMAN_ASSIGNED", beatId, method, confidence } as const;
+    }
+    await resolveExceptions(tx, deliveryId, ["NO_POSTMAN_ASSIGNED", "INACTIVE_POSTMAN"]);
+    return { status: "ASSIGNED", beatId, postmanId, method, confidence } as const;
+  });
+}
+
+/**
+ * Point-in-polygon beat lookup via PostGIS ST_Contains over VERIFIED territories only - never a nearest-centre
+ * approximation, and an unverified polygon is a draft, not evidence.
  */
 export async function findContainingBeats(postOfficeId: string, latitude: number, longitude: number): Promise<BeatMatch[]> {
   const rows = await prisma.$queryRaw<BeatMatch[]>(Prisma.sql`
@@ -216,109 +374,34 @@ export async function findContainingBeats(postOfficeId: string, latitude: number
   return rows;
 }
 
-export type AssignResult =
-  | { status: "ASSIGNED"; beatId: string; postmanId: string }
-  | { status: "NO_POSTMAN_ASSIGNED"; beatId: string }
-  | { status: "NO_BEAT_MATCH" }
-  | { status: "MULTIPLE_BEAT_MATCH"; matches: BeatMatch[] }
-  | { status: "SKIPPED"; reason: "NOT_ASSIGNABLE_STATUS" | "MANUAL_OVERRIDE" };
-
 /**
- * delivery address -> lat/lng -> ST_Contains -> beat -> the beat's active postman,
- * written atomically together with the assignment history and exception updates.
+ * Re-runs the whole match for every delivery of an office that the system (not an admin) placed. Called when a beat, its
+ * list of localities or its boundary changes, so Delivery.beatId always reflects the CURRENT beat list and territories.
  */
-export async function assignDeliveryToBeat(deliveryId: string, latitude: number, longitude: number): Promise<AssignResult> {
-  const delivery = await prisma.delivery.findUniqueOrThrow({
-    where: { id: deliveryId },
-    include: { assignmentHistory: { where: { isOverride: true }, take: 1, select: { id: true } } }
-  });
-
-  // A parcel that is out for delivery / finished must never be pulled back by a
-  // re-geocode, and a hand-made assignment is not overwritten by an automatic one.
-  if (delivery.status !== "RECEIVED" && !AUTO_ASSIGNABLE_STATUSES.includes(delivery.status)) {
-    return { status: "SKIPPED", reason: "NOT_ASSIGNABLE_STATUS" };
-  }
-  if (delivery.assignmentHistory.length > 0) return { status: "SKIPPED", reason: "MANUAL_OVERRIDE" };
-
-  const matches = await findContainingBeats(delivery.postOfficeId, latitude, longitude);
-
-  return prisma.$transaction(async (tx) => {
-    // Geocoding just succeeded (that's the only way this runs), so an earlier
-    // GEOCODING_FAILED exception is stale.
-    await resolveExceptions(tx, deliveryId, ["GEOCODING_FAILED"]);
-
-    if (matches.length !== 1) {
-      const reason: ExceptionReason = matches.length === 0 ? "NO_BEAT_MATCH" : "MULTIPLE_BEAT_MATCH";
-      await tx.delivery.update({
-        where: { id: deliveryId },
-        data: { status: delivery.status === "RESCHEDULED" ? "RESCHEDULED" : "SORTED", beatId: null, assignedPostmanId: null }
-      });
-      await openException(tx, deliveryId, reason, matches.length > 1 ? JSON.stringify(matches) : undefined);
-      // The other outcome can no longer be true.
-      await resolveExceptions(tx, deliveryId, ALL_ASSIGNMENT_REASONS.filter((r) => r !== reason && r !== "GEOCODING_FAILED"));
-      return matches.length === 0
-        ? ({ status: "NO_BEAT_MATCH" } as const)
-        : ({ status: "MULTIPLE_BEAT_MATCH", matches } as const);
-    }
-
-    const beatId = matches[0].beatId;
-    const postmanId = await activePostmanOfBeat(tx, beatId);
-
-    await tx.delivery.update({
-      where: { id: deliveryId },
-      data: {
-        beatId,
-        assignedPostmanId: postmanId,
-        status: delivery.status === "RESCHEDULED" ? "RESCHEDULED" : postmanId ? "ASSIGNED" : "SORTED"
-      }
-    });
-    await tx.deliveryAssignmentHistory.create({
-      data: { deliveryId, beatId, postmanId, reason: "AUTO_BEAT_MATCH" }
-    });
-
-    if (!postmanId) {
-      await openException(tx, deliveryId, "NO_POSTMAN_ASSIGNED", "The matched beat has no active postman");
-      await resolveExceptions(tx, deliveryId, ["NO_BEAT_MATCH", "MULTIPLE_BEAT_MATCH"]);
-      return { status: "NO_POSTMAN_ASSIGNED", beatId } as const;
-    }
-
-    await resolveExceptions(tx, deliveryId, ["NO_BEAT_MATCH", "MULTIPLE_BEAT_MATCH", "NO_POSTMAN_ASSIGNED", "INACTIVE_POSTMAN"]);
-    return { status: "ASSIGNED", beatId, postmanId } as const;
-  });
-}
-
-/**
- * Re-runs the PostGIS beat match for every delivery of an office that the system
- * (not an admin) placed. Called when a beat boundary changes or a beat becomes
- * active, so Delivery.beatId always reflects the CURRENT polygons.
- */
-export async function rematchOfficeDeliveries(postOfficeId: string, limit = 2000) {
+export async function rematchOfficeDeliveries(postOfficeId: string, limit = 2000, opts: { onlyUnassigned?: boolean } = {}) {
   const candidates = await prisma.delivery.findMany({
     where: {
       postOfficeId,
+      ...(opts.onlyUnassigned ? { beatId: null } : {}),
       status: { in: ["RECEIVED", ...AUTO_ASSIGNABLE_STATUSES] },
-      assignmentHistory: { none: { isOverride: true } },
-      address: { latitude: { not: null }, longitude: { not: null } }
+      assignmentHistory: { none: { isOverride: true } }
     },
-    include: { address: { select: { latitude: true, longitude: true } } },
+    select: { id: true, beatId: true, assignedPostmanId: true },
     take: limit
   });
 
   let changed = 0;
   for (const d of candidates) {
-    if (d.address.latitude == null || d.address.longitude == null) continue;
-    const before = `${d.beatId}|${d.assignedPostmanId}`;
-    await assignDeliveryToBeat(d.id, d.address.latitude, d.address.longitude);
+    await assignDeliveryToBeat(d.id);
     const after = await prisma.delivery.findUniqueOrThrow({ where: { id: d.id }, select: { beatId: true, assignedPostmanId: true } });
-    if (before !== `${after.beatId}|${after.assignedPostmanId}`) changed++;
+    if (`${d.beatId}|${d.assignedPostmanId}` !== `${after.beatId}|${after.assignedPostmanId}`) changed++;
   }
   return { checked: candidates.length, changed };
 }
 
 /**
- * Safety net for a crash between "delivery committed" and "beat matched" (an
- * import confirms row by row): parcels that were geocoded but never assigned are
- * assigned now. Idempotent and cheap; run at startup.
+ * Safety net for a crash between "delivery committed" and "beat matched" (an import confirms row by row): parcels that
+ * were never assigned and have no open exception are matched now. Idempotent and cheap; run at startup.
  */
 export async function repairUnassignedDeliveries(olderThanMs = 60_000, postOfficeId?: string) {
   const stuck = await prisma.delivery.findMany({
@@ -327,20 +410,14 @@ export async function repairUnassignedDeliveries(olderThanMs = 60_000, postOffic
       beatId: null,
       createdAt: { lt: new Date(Date.now() - olderThanMs) },
       ...(postOfficeId ? { postOfficeId } : {}),
-      address: { latitude: { not: null }, longitude: { not: null } },
       exceptions: { none: { resolvedAt: null } }
     },
-    include: { address: { select: { latitude: true, longitude: true } } },
+    select: { id: true },
     take: 500
   });
 
-  let repaired = 0;
-  for (const d of stuck) {
-    if (d.address.latitude == null || d.address.longitude == null) continue;
-    await assignDeliveryToBeat(d.id, d.address.latitude, d.address.longitude);
-    repaired++;
-  }
-  return { checked: stuck.length, repaired };
+  for (const d of stuck) await assignDeliveryToBeat(d.id);
+  return { checked: stuck.length, repaired: stuck.length };
 }
 
 // ── manual override ────────────────────────────────────────────────────────
@@ -372,11 +449,14 @@ export async function overrideAssignment(params: {
     if (postman.status !== "ACTIVE") throw AppError.conflict("Only an active postman can be assigned deliveries");
   }
 
-  const postmanChanged = !!params.postmanId && params.postmanId !== existing.assignedPostmanId;
+  // "Choose Beat" without a postman: the parcel goes to whoever covers that beat now.
+  const postmanId = params.postmanId ?? (params.beatId ? (await activePostmanOfBeat(prisma, params.beatId)) ?? undefined : undefined);
+
+  const postmanChanged = !!postmanId && postmanId !== existing.assignedPostmanId;
   // A parcel handed to a different postman must be started by them, so it goes
   // back to ASSIGNED — except a rescheduled one, which keeps its meaning.
   const nextStatus: DeliveryStatus | undefined =
-    params.postmanId && (postmanChanged || existing.status === "SORTED" || existing.status === "RECEIVED")
+    postmanId && (postmanChanged || existing.status === "SORTED" || existing.status === "RECEIVED")
       ? existing.status === "RESCHEDULED"
         ? "RESCHEDULED"
         : "ASSIGNED"
@@ -385,33 +465,51 @@ export async function overrideAssignment(params: {
   const delivery = await prisma.$transaction(async (tx) => {
     const updated = await tx.delivery.update({
       where: { id: params.deliveryId },
-      data: { beatId: params.beatId, assignedPostmanId: params.postmanId, status: nextStatus }
+      data: {
+        beatId: params.beatId,
+        assignedPostmanId: postmanId,
+        status: nextStatus,
+        // A person decided: the automatic evidence no longer describes this assignment.
+        ...(params.beatId
+          ? {
+              assignmentMethod: "MANUAL" as const,
+              assignmentConfidence: 100,
+              assignmentEvidence: { by: params.userId, reason: params.reason, previousBeatId: existing.beatId, previousMethod: existing.assignmentMethod, previousConfidence: existing.assignmentConfidence } as Prisma.InputJsonValue
+            }
+          : {})
+      }
     });
     await tx.deliveryAssignmentHistory.create({
       data: {
         deliveryId: params.deliveryId,
         beatId: params.beatId,
-        postmanId: params.postmanId,
+        postmanId,
         reason: params.reason,
         changedBy: params.userId,
         isOverride: true
       }
     });
-    if (params.postmanId) {
-      await resolveExceptions(tx, params.deliveryId, ["NO_POSTMAN_ASSIGNED", "INACTIVE_POSTMAN"]);
+    if (postmanId) {
+      await resolveExceptions(tx, params.deliveryId, ["NO_POSTMAN_ASSIGNED", "INACTIVE_POSTMAN"], "MANUALLY_ASSIGNED");
     }
     if (params.beatId) {
-      await resolveExceptions(tx, params.deliveryId, ["NO_BEAT_MATCH", "MULTIPLE_BEAT_MATCH"]);
+      await resolveExceptions(tx, params.deliveryId, MATCHING_REASONS, "MANUALLY_ASSIGNED");
+      // A beat nobody covers is not a finished assignment: the parcel waits, and the administrator is still told.
+      if (!postmanId) await openException(tx, params.deliveryId, "NO_POSTMAN_ASSIGNED", { details: "The chosen beat has no active postman", suggestedBeatId: params.beatId });
     }
     return updated;
   });
+
+  announceAssignmentChanges([
+    { deliveryId: existing.id, trackingId: existing.trackingId, priority: existing.priority, fromPostmanId: existing.assignedPostmanId, toPostmanId: delivery.assignedPostmanId }
+  ]);
 
   await recordAudit({
     userId: params.userId,
     action: "ASSIGNMENT_OVERRIDDEN",
     entityType: "Delivery",
     entityId: params.deliveryId,
-    newValue: { beatId: params.beatId, postmanId: params.postmanId },
+    newValue: { beatId: params.beatId, postmanId },
     reason: params.reason
   });
 

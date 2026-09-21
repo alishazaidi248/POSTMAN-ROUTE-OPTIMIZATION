@@ -44,7 +44,7 @@ export function OfflineSyncScreen() {
           {queue.map((item) => (
             <View key={item.id} style={styles.row}>
               <Text style={styles.rowTitle}>{statusLabel(item.status)}</Text>
-              <Text style={styles.caption}>Saved {formatRelativeTime(item.queuedAt)}{item.attempts > 0 ? ` · tried ${item.attempts} time${item.attempts === 1 ? "" : "s"}` : ""}</Text>
+              <Text style={styles.caption}>Saved {formatRelativeTime(item.queuedAt)}{item.proofUri ? " · photo saved" : ""}{item.attempts > 0 ? ` · tried ${item.attempts} time${item.attempts === 1 ? "" : "s"}` : ""}</Text>
             </View>
           ))}
         </View>
@@ -56,7 +56,7 @@ export function OfflineSyncScreen() {
           {conflicts.map((c) => (
             <View key={c.deliveryId} style={styles.row}>
               <Text style={styles.rowTitle}>{statusLabel(c.attemptedStatus)} was not applied</Text>
-              <Text style={styles.caption}>The delivery is now &ldquo;{statusLabel(c.serverStatus)}&rdquo; on the server.</Text>
+              <Text style={styles.caption}>{c.reason ?? `The delivery is now “${statusLabel(c.serverStatus)}” on the server.`}</Text>
               <Text style={styles.link} onPress={() => clearConflict(c.deliveryId)} accessibilityRole="button">Dismiss</Text>
             </View>
           ))}

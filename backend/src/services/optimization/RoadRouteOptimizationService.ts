@@ -61,8 +61,31 @@ export interface RoutableDelivery {
   latitude: number;
   longitude: number;
   parcelCount: number;
+  /** Real weight of the delivery in kilograms, when known (Delivery.weightKg). */
+  weightKg?: number | null;
   priority: string;
   serviceTimeMinutes: number | null;
+}
+
+export type LoadBasis = RouteMetrics["loadBasis"];
+
+const median = (xs: number[]) => {
+  const s = [...xs].sort((a, b) => a - b);
+  const m = Math.floor(s.length / 2);
+  return s.length % 2 ? s[m] : (s[m - 1] + s[m]) / 2;
+};
+
+/**
+ * The per-stop load of the cost function, from REAL weights only. A parcel count says how many items, not how heavy, so
+ * it is never used as a weight: with no weights the load term is off, with some the unknown stops get the median known
+ * weight (and the route says so through loadBasis).
+ */
+export function stopWeights(deliveries: readonly { weightKg?: number | null }[]): { loads: number[]; basis: LoadBasis } {
+  const known = deliveries.map((d) => (d.weightKg != null && Number.isFinite(d.weightKg) && d.weightKg > 0 ? d.weightKg : null));
+  const present = known.filter((w): w is number => w !== null);
+  if (present.length === 0) return { loads: deliveries.map(() => 0), basis: "NONE" };
+  const fill = median(present);
+  return { loads: known.map((w) => w ?? fill), basis: present.length === deliveries.length ? "WEIGHT_KG" : "PARTIAL_WEIGHT_KG" };
 }
 
 export interface PlanInput {
@@ -139,7 +162,10 @@ type StageMetrics = Pick<
  */
 export async function planRouteFromInputs(input: PlanInput, routing: RoutingService): Promise<OptimizationSolution> {
   const now = input.now ?? new Date();
-  const params = input.costParams ?? DEFAULT_COST_PARAMS;
+  const requested = input.costParams ?? DEFAULT_COST_PARAMS;
+  const weights = stopWeights(input.deliveries);
+  // No real weights: the load term is off rather than fed a stand-in.
+  const params = weights.basis === "NONE" ? { ...requested, loadWeight: 0 } : requested;
   const defaultServiceMinutes = input.defaultServiceMinutes ?? env.defaultServiceTimeMinutes;
   const minPts = input.dbscanMinPoints ?? env.dbscanMinPoints;
   const eps = input.dbscanEpsSeconds ?? env.dbscanEpsSeconds;
@@ -162,6 +188,7 @@ export async function planRouteFromInputs(input: PlanInput, routing: RoutingServ
     totalCost: 0,
     loadWeight: params.loadWeight,
     priorityWeight: params.priorityWeight,
+    loadBasis: weights.basis,
     inputOrderCost: 0,
     dbscanNnCost: 0,
     twoOptCost: 0,
@@ -214,8 +241,8 @@ export async function planRouteFromInputs(input: PlanInput, routing: RoutingServ
   const points: LatLng[] = [input.start, ...deliveries];
   const matrix = await routing.getMatrix(points);
 
-  const stopLoads: StopLoad[] = deliveries.map((d) => ({
-    load: Math.max(0, d.parcelCount ?? 1),
+  const stopLoads: StopLoad[] = deliveries.map((d, i) => ({
+    load: weights.loads[i],
     priorityFactor: PRIORITY_FACTOR[d.priority] ?? 0,
     serviceSeconds: (d.serviceTimeMinutes ?? defaultServiceMinutes) * 60
   }));
@@ -395,6 +422,7 @@ export async function planRouteFromInputs(input: PlanInput, routing: RoutingServ
     totalCost: round(finalCost.total, 2),
     loadWeight: params.loadWeight,
     priorityWeight: params.priorityWeight,
+    loadBasis: weights.basis,
     inputOrderCost: round(inputCost.total, 2),
     dbscanNnCost: round(stage.dbscanNnCost, 2),
     twoOptCost: round(stage.twoOptCost, 2),
@@ -505,7 +533,7 @@ export class RoadRouteOptimizationService implements OptimizationService {
   private async solve(problem: OptimizationProblem): Promise<OptimizationSolution> {
     const rows = await prisma.delivery.findMany({
       where: { id: { in: problem.deliveryIds } },
-      include: { address: { select: { latitude: true, longitude: true } } }
+      include: { address: { select: { latitude: true, longitude: true, geocodingPrecision: true } } }
     });
 
     const byId = new Map(rows.map((r) => [r.id, r]));
@@ -527,6 +555,12 @@ export class RoadRouteOptimizationService implements OptimizationService {
         unroutable.push({ deliveryId: id, reason: "MISSING_COORDINATES" });
         continue;
       }
+      // A pincode-level point is the middle of a whole postal area, not a place to drive to: it would put every such stop
+      // on one spot of the map. It is left out of the route and reported, for an administrator to correct.
+      if (row.address.geocodingPrecision === "PINCODE") {
+        unroutable.push({ deliveryId: id, reason: "IMPRECISE_LOCATION" });
+        continue;
+      }
       if (!isUsableCoordinate(latitude, longitude)) {
         unroutable.push({ deliveryId: id, reason: "INVALID_COORDINATES" });
         continue;
@@ -536,6 +570,7 @@ export class RoadRouteOptimizationService implements OptimizationService {
         latitude,
         longitude,
         parcelCount: row.parcelCount,
+        weightKg: row.weightKg,
         priority: row.priority,
         serviceTimeMinutes: row.serviceTimeMinutes
       });

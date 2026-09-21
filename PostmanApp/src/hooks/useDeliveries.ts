@@ -66,6 +66,10 @@ interface UpdateStatusInput {
   reason?: string;
   latitude?: number;
   longitude?: number;
+  accuracyMeters?: number;
+  /** A proof photo on the device; it is sent before the status change (or queued with it when offline). */
+  proofUri?: string;
+  proofCapturedAt?: string;
 }
 
 /**
@@ -86,7 +90,13 @@ export function useUpdateDeliveryStatus() {
         return { queued: true as const };
       }
       try {
-        const delivery = await deliveryApi.updateStatus(input.deliveryId, input.status, input.reason);
+        if (input.proofUri) {
+          await deliveryApi.uploadProof(input.deliveryId, { uri: input.proofUri, latitude: input.latitude, longitude: input.longitude, capturedAt: input.proofCapturedAt });
+        }
+        const location = input.latitude !== undefined && input.longitude !== undefined ? { latitude: input.latitude, longitude: input.longitude, accuracyMeters: input.accuracyMeters } : undefined;
+        const delivery = location
+          ? await deliveryApi.updateStatus(input.deliveryId, input.status, input.reason, location)
+          : await deliveryApi.updateStatus(input.deliveryId, input.status, input.reason);
         return { queued: false as const, delivery };
       } catch (err) {
         // The isOnline flag can be briefly stale relative to the actual

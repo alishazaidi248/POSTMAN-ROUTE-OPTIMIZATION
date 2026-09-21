@@ -42,6 +42,7 @@ function fakeDb(opts: { activePostmanId: string | null; deliveries: Delivery[] }
     assignmentException: {
       findFirst: vi.fn(async ({ where }: any) => state.exceptions.find((e) => e.deliveryId === where.deliveryId && e.reason === where.reason) ?? null),
       create: vi.fn(async ({ data }: any) => state.exceptions.push(data)),
+      update: vi.fn(async ({ data }: any) => data),
       updateMany: vi.fn(async (args: any) => state.resolved.push(args))
     }
   };

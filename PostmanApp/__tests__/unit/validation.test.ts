@@ -2,12 +2,12 @@ import { isCallablePhoneNumber, loginSchema } from "../../src/utils/validation";
 
 describe("loginSchema", () => {
   it("accepts a valid email and password", () => {
-    const result = loginSchema.safeParse({ email: "postman@postal.local", password: "ChangeMe123!" });
+    const result = loginSchema.safeParse({ email: "postman@postal.local", password: "a-Test-password-1" });
     expect(result.success).toBe(true);
   });
 
   it("rejects an invalid email", () => {
-    const result = loginSchema.safeParse({ email: "not-an-email", password: "ChangeMe123!" });
+    const result = loginSchema.safeParse({ email: "not-an-email", password: "a-Test-password-1" });
     expect(result.success).toBe(false);
   });
 

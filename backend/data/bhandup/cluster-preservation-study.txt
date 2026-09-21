@@ -1,0 +1,16 @@
+Cluster preservation study (scripts/cluster-preservation-study.ts), 20 deterministic synthetic rounds per row,
+street-grid road model with a river (tests/support/routeBenchmark.ts), ALNS wall-clock cap off. Measured 2026-09-21.
+PLAIN = every delivery NORMAL priority, no weights (cost = driving time; the condition of the real Bhandup data set).
+MIXED = random priorities and weights (priority / load terms live).
+
+condition  stops  travel min (preserve | free)   difference   km (preserve | free)   ms (preserve | free)   free shorter in
+PLAIN         25       90.0 | 89.7          -0.3 %      36.6 | 36.5          30 | 51       4/20 rounds
+PLAIN         50      123.0 | 123.2          0.2 %      50.1 | 50.2         122 | 331      4/20 rounds
+PLAIN        100      184.7 | 184.6         -0.0 %      75.9 | 75.7         348 | 1491     10/20 rounds
+MIXED         25      108.0 | 119.2         10.4 %      43.9 | 48.3          28 | 57       5/20 rounds
+MIXED         50      168.1 | 183.9          9.4 %      67.8 | 74.6         126 | 380      1/20 rounds
+MIXED        100      269.0 | 309.9         15.2 %     109.5 | 126.6        377 | 1945     3/20 rounds
+
+Reading: with plain deliveries the two settings drive the same time (differences of a few tenths of a percent, either way);
+preserving clusters is 1.7-4x faster. With priorities and weights live, letting ALNS break clusters gives a LOWER cost but a
+9-15 % LONGER drive (it spends driving time on the priority / load terms). Decision: keep ROUTE_ALNS_PRESERVE_CLUSTERS=true.

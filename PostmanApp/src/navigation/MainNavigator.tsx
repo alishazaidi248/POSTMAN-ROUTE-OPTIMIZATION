@@ -13,6 +13,8 @@ import { IdCardScreen } from "../screens/account/IdCardScreen";
 import { NotificationsScreen } from "../screens/account/NotificationsScreen";
 import { OfflineSyncScreen } from "../screens/account/OfflineSyncScreen";
 import { Icon, IconName } from "../components/common/Icon";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
+import { usePushRegistration } from "../hooks/usePushRegistration";
 import { colors } from "../theme/colors";
 
 const Tab = createBottomTabNavigator<MainTabParamList>();
@@ -69,6 +71,11 @@ function tabIcon(name: IconName) {
 // Four bottom tabs: Home (today at a glance), Deliveries, Map and Account. Secondary screens live in each
 // tab's own stack.
 export function MainNavigator() {
+  // The bar's height follows the device's own bottom inset (gesture bar, home indicator) instead of a fixed number, and the
+  // label gets a line height taller than its font, so the text is never clipped at the bottom edge.
+  usePushRegistration();
+  const insets = useSafeAreaInsets();
+  const bottom = Math.max(insets.bottom, 8);
   return (
     <Tab.Navigator
       initialRouteName="HomeTab"
@@ -76,8 +83,9 @@ export function MainNavigator() {
         headerShown: false,
         tabBarActiveTintColor: colors.primary,
         tabBarInactiveTintColor: colors.textDisabled,
-        tabBarLabelStyle: { fontSize: 11, fontWeight: "600" },
-        tabBarStyle: { height: 68, paddingBottom: 14, paddingTop: 6, backgroundColor: colors.surface, borderTopColor: colors.border }
+        tabBarLabelStyle: { fontSize: 11, lineHeight: 15, fontWeight: "600" },
+        tabBarAllowFontScaling: false,
+        tabBarStyle: { height: 56 + bottom, paddingBottom: bottom, paddingTop: 6, backgroundColor: colors.surface, borderTopColor: colors.border }
       }}
     >
       <Tab.Screen name="HomeTab" component={HomeScreen} options={{ title: "Home", tabBarIcon: tabIcon("home") }} />

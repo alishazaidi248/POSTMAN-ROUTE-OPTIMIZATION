@@ -1,4 +1,5 @@
 import { setLastFix } from "../services/lastFix";
+import { unregisterPushToken } from "../services/notificationService";
 import { create } from "zustand";
 import { AuthUser, LoginRequest, Session } from "../types/auth";
 import { authApi } from "../api/authApi";
@@ -14,6 +15,7 @@ interface AuthState {
   error: string | null;
   hydrate: () => Promise<void>;
   login: (payload: LoginRequest) => Promise<void>;
+  changePassword: (currentPassword: string, newPassword: string) => Promise<void>;
   logout: () => Promise<void>;
 }
 
@@ -113,7 +115,17 @@ export const useAuthStore = create<AuthState>((set, get) => ({
     }
   },
 
+  changePassword: async (currentPassword, newPassword) => {
+    const tokens = await authApi.changePassword(currentPassword, newPassword);
+    await secureStorage.saveTokens(tokens.accessToken, tokens.refreshToken);
+    const me = await authApi.me();
+    await secureStorage.saveUser(JSON.stringify(me));
+    set({ user: me });
+  },
+
   logout: async () => {
+    // Stop pushes to this phone while the login is still valid for the call.
+    await unregisterPushToken();
     const refreshToken = await secureStorage.getRefreshToken();
     try {
       if (refreshToken) await authApi.logout(refreshToken);

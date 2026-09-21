@@ -11,7 +11,8 @@ export const SYSTEM_FIELDS = [
   "trackingId",
   "parcelType",
   "priority",
-  "serviceTime"
+  "serviceTime",
+  "weightKg"
 ] as const;
 
 export type SystemField = (typeof SYSTEM_FIELDS)[number];
@@ -30,7 +31,8 @@ const ALIASES: Record<SystemField, string[]> = {
   trackingId: ["tracking_id", "parcel_id", "awb", "awb_number", "consignment_no"],
   parcelType: ["parcel_type", "item_type"],
   priority: ["priority", "urgency"],
-  serviceTime: ["service_time", "service_time_minutes"]
+  serviceTime: ["service_time", "service_time_minutes"],
+  weightKg: ["weight_kg", "weight", "weight_in_kg", "parcel_weight", "parcel_weight_kg", "wt_kg"]
 };
 
 function normalizeHeader(header: string): string {

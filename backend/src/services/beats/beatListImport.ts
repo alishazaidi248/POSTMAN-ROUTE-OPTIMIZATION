@@ -5,6 +5,7 @@ import ExcelJS from "exceljs";
 import { AppError } from "../../utils/AppError";
 import { prisma } from "../../config/prisma";
 import { Polygon, checkTerritory, parseTerritoryCell } from "./territory";
+import { canonical, normalizeValue } from "../addressing/normalize";
 
 /**
  * Beat-list import: reading a CSV/XLSX beat list, working out which column is which,
@@ -16,7 +17,7 @@ import { Polygon, checkTerritory, parseTerritoryCell } from "./territory";
  * administrator can correct any match in the wizard.
  */
 
-export const BEAT_FIELDS = ["beatNumber", "name", "postOffice", "territory", "latitude", "longitude"] as const;
+export const BEAT_FIELDS = ["beatNumber", "name", "postOffice", "territory", "latitude", "longitude", "locality", "mainArea", "pincode"] as const;
 export type BeatField = (typeof BEAT_FIELDS)[number];
 export type BeatMapping = Record<BeatField, string | null>;
 
@@ -26,7 +27,10 @@ export const BEAT_FIELD_LABELS: Record<BeatField, string> = {
   postOffice: "Post office",
   territory: "Territory (boundary)",
   latitude: "Centre latitude",
-  longitude: "Centre longitude"
+  longitude: "Centre longitude",
+  locality: "Locality (one per row)",
+  mainArea: "Main area",
+  pincode: "Pincode"
 };
 
 export interface RawRow {
@@ -43,12 +47,18 @@ export interface RawTable {
 
 const ALIASES: Record<BeatField, string[]> = {
   beatNumber: ["beat_number", "beat_no", "beat_no.", "beatno", "beat", "beat_id", "beat_code", "beat_num", "beat_#", "beat_number."],
-  name: ["beat_name", "name", "sector", "sector_name", "beat_area", "area", "locality", "area_name", "beat_description", "description"],
+  name: ["beat_name", "name", "sector", "sector_name", "beat_area", "area", "area_name", "beat_description", "description"],
   postOffice: ["post_office", "post_office_name", "postoffice", "office", "office_name", "po", "post_office_code", "office_code", "sub_office", "so"],
   territory: ["territory", "boundary", "polygon", "geojson", "wkt", "geometry", "boundary_geojson", "territory_boundary", "area_boundary"],
   latitude: ["latitude", "lat", "center_latitude", "centre_latitude", "center_lat", "centre_lat"],
-  longitude: ["longitude", "lng", "lon", "long", "center_longitude", "centre_longitude", "center_lng", "centre_lng"]
+  longitude: ["longitude", "lng", "lon", "long", "center_longitude", "centre_longitude", "center_lng", "centre_lng"],
+  locality: ["locality", "localities", "locality_name", "beat_locality", "colony", "locality_colony"],
+  mainArea: ["main_area", "mainarea", "main_area_name", "sub_area", "sub_locality", "chawl", "society", "landmark"],
+  pincode: ["pincode", "pin_code", "pin", "postal_code", "zip", "zip_code"]
 };
+
+/** The order fields claim columns in: the specific ones first, so "Locality" is never taken for the beat name. */
+const MAPPING_ORDER: BeatField[] = ["locality", "mainArea", "beatNumber", "name", "postOffice", "territory", "latitude", "longitude", "pincode"];
 
 const normalizeHeader = (h: string) => h.trim().toLowerCase().replace(/[\s\-/]+/g, "_");
 
@@ -57,7 +67,7 @@ export function suggestBeatMapping(columns: string[]): BeatMapping {
   const used = new Set<string>();
   const normalized = columns.map((raw) => ({ raw, n: normalizeHeader(raw) }));
   // Exact names first (so "beat_name" is not taken as the beat NUMBER), then looser containment.
-  for (const field of BEAT_FIELDS) {
+  for (const field of MAPPING_ORDER) {
     const hit = normalized.find((c) => !used.has(c.raw) && ALIASES[field].includes(c.n));
     if (hit) {
       mapping[field] = hit.raw;
@@ -171,22 +181,27 @@ export async function readBeatListFile(filePath: string, originalName: string): 
 
 export type RowStatus = "READY" | "WARNING" | "ERROR";
 export type TerritoryState = "PRESENT" | "MISSING" | "INVALID";
+/** What a row does when imported: starts a beat, adds a locality to a beat, or nothing (and says why in its messages). */
+export type RowAction = "NEW_BEAT" | "ADD_LOCALITY" | "SKIPPED";
 
 export interface CheckedRow {
   rowNumber: number;
   beatNumber: string;
   name: string;
+  locality: string;
+  mainArea: string;
   postOfficeId: string | null;
   postOfficeName: string;
   territoryState: TerritoryState;
   hasCentre: boolean;
   status: RowStatus;
+  action: RowAction;
   messages: string[];
 }
 
 export interface PreviewSummary {
   totalRows: number;
-  /** Rows that will be imported (ready + warnings). */
+  /** Beats that will be created or receive localities (ready + warnings). */
   importable: number;
   ready: number;
   warnings: number;
@@ -194,6 +209,21 @@ export interface PreviewSummary {
   duplicates: number;
   missingTerritory: number;
   invalidTerritory: number;
+  /** The list has one row per (beat, locality) - a beat number may repeat. */
+  structured: boolean;
+  /** Distinct beats that do not exist yet and will be created. */
+  newBeats: number;
+  /** Beats that already exist and only receive localities. */
+  existingBeats: number;
+  /** Locality records that will be added to the beat directory. */
+  localityRecords: number;
+  /** Rows repeating a (beat, locality, main area) that is already in the file or the directory: reported, adding nothing. */
+  duplicateLocalityRows: number;
+  /** Rows naming a post office the system does not know. */
+  unknownPostOffices: number;
+  missingBeatNumbers: number;
+  /** New beats that end up with no locality at all (they can only be found by name until localities are added). */
+  beatsWithoutLocality: number;
 }
 
 export interface BeatListCheck {
@@ -201,6 +231,13 @@ export interface BeatListCheck {
   summary: PreviewSummary;
   /** Problems with the file as a whole (e.g. no beat-number column). */
   fileProblems: string[];
+}
+
+export interface ImportableLocality {
+  rowNumber: number;
+  locality: string;
+  mainArea: string | null;
+  pincode: string | null;
 }
 
 export interface ImportableBeat {
@@ -211,9 +248,14 @@ export interface ImportableBeat {
   territory: Polygon | null;
   centerLatitude: number | null;
   centerLongitude: number | null;
+  /** Set when the beat already exists: only its localities are added. */
+  existingBeatId: string | null;
+  localities: ImportableLocality[];
 }
 
 const norm = (s: string) => s.toLowerCase().replace(/\s+/g, " ").trim();
+/** Comparison form of a locality / main area (spelling variants and abbreviations unified, like the matcher does). */
+const localityKey = (s: string) => canonical(normalizeValue(s));
 
 function toNumber(text: string): number | null {
   if (!text) return null;
@@ -225,6 +267,12 @@ function toNumber(text: string): number | null {
  * Checks every row against the mapping, the post offices and the beats that already exist.
  * `scopeOfficeId`: the administrator's own office (rows naming another office are refused);
  * a super administrator passes undefined and may import into any office.
+ *
+ * Two kinds of list are understood:
+ *   - one row per beat (no locality column): a beat number that repeats is a duplicate;
+ *   - one row per (beat, locality) (a locality and/or main-area column is mapped): the rows of one beat number are ONE
+ *     beat with several localities, which become the beat directory the address matcher reads. Rows that repeat a
+ *     (beat, locality, main area) are reported as duplicates and add nothing - never dropped silently.
  */
 export async function checkBeatList(
   table: { rows: RawRow[] },
@@ -246,12 +294,18 @@ export async function checkBeatList(
     return partial.length === 1 ? partial[0].id : null;
   };
 
+  const structured = !!(mapping.locality || mapping.mainArea);
   const fileProblems: string[] = [];
   if (!mapping.beatNumber) fileProblems.push("No column has been chosen for the beat number.");
   if (table.rows.length === 0) fileProblems.push("The file has no beats in it.");
 
-  const existing = await prisma.beat.findMany({ select: { postOfficeId: true, beatNumber: true } });
-  const existingKeys = new Set(existing.map((b) => `${b.postOfficeId}|${norm(b.beatNumber)}`));
+  const existing = await prisma.beat.findMany({ select: { id: true, postOfficeId: true, beatNumber: true } });
+  const existingBeatId = new Map(existing.map((b) => [`${b.postOfficeId}|${norm(b.beatNumber)}`, b.id]));
+  const existingLocalities = new Set(
+    (await prisma.beatLocality.findMany({ select: { beatId: true, normalizedLocality: true, normalizedMainArea: true } })).map(
+      (l) => `${l.beatId}|${l.normalizedLocality}|${l.normalizedMainArea}`
+    )
+  );
 
   const cell = (row: RawRow, field: BeatField): string => (mapping[field] ? (row.cells[mapping[field] as string] ?? "").trim() : "");
 
@@ -270,14 +324,19 @@ export async function checkBeatList(
   }
 
   const rows: CheckedRow[] = [];
-  const importable: ImportableBeat[] = [];
+  const beats = new Map<string, ImportableBeat>();
+  const seenLocalities = new Map<string, number>(); // beat key | locality | main area -> first row number
   let duplicates = 0;
   let missingTerritory = 0;
   let invalidTerritory = 0;
+  let duplicateLocalityRows = 0;
+  let unknownPostOffices = 0;
+  let missingBeatNumbers = 0;
 
   for (const { row, beatNumber, officeText, officeId } of identity) {
     const messages: string[] = [];
     let status = "READY" as RowStatus;
+    let action: RowAction = "NEW_BEAT";
     const fail = (m: string) => {
       messages.push(m);
       status = "ERROR";
@@ -288,28 +347,33 @@ export async function checkBeatList(
     };
 
     // beat number
-    if (!beatNumber) fail("The beat number is missing.");
-    else if (beatNumber.length > 30) fail("The beat number is too long (30 characters at most).");
+    if (!beatNumber) {
+      missingBeatNumbers++;
+      fail("The beat number is missing.");
+    } else if (beatNumber.length > 30) fail("The beat number is too long (30 characters at most).");
 
     // post office
     let officeName = officeId ? (officeById.get(officeId)?.name ?? "") : "";
     if (officeText && !officeId) {
       officeName = officeText;
+      unknownPostOffices++;
       fail(`The post office "${officeText}" was not recognised.`);
     } else if (officeId && scope.scopeOfficeId && officeId !== scope.scopeOfficeId) {
       fail(`This beat belongs to ${officeName}, which is not your post office.`);
     }
 
-    // duplicates
+    const beatKey = beatNumber && officeId ? `${officeId}|${norm(beatNumber)}` : null;
+    const dbBeatId = beatKey ? (existingBeatId.get(beatKey) ?? null) : null;
+
+    // duplicates: a repeated beat number is only a duplicate in a one-row-per-beat list
     let isDuplicate = false;
-    if (beatNumber && officeId) {
-      const key = `${officeId}|${norm(beatNumber)}`;
-      const same = rowsByKey.get(key) ?? [];
+    if (beatKey && !structured) {
+      const same = rowsByKey.get(beatKey) ?? [];
       if (same.length > 1) {
         isDuplicate = true;
         fail(`Beat number ${beatNumber} appears more than once in the file (rows ${same.join(", ")}).`);
       }
-      if (existingKeys.has(key)) {
+      if (dbBeatId) {
         isDuplicate = true;
         fail(`Beat ${beatNumber} already exists in ${officeName || "this post office"}.`);
       }
@@ -317,12 +381,23 @@ export async function checkBeatList(
     if (isDuplicate) duplicates++;
 
     // name
-    let name = cell(row, "name");
+    const givenName = cell(row, "name");
+    let name = givenName;
     if (!name && beatNumber) {
       name = `Beat ${beatNumber}`;
-      if (mapping.name) warn("The beat has no name, so it will be called \"Beat " + beatNumber + "\".");
+      if (mapping.name && !structured) warn("The beat has no name, so it will be called \"Beat " + beatNumber + "\".");
     }
     if (name.length > 120) fail("The beat name is too long (120 characters at most).");
+
+    // locality (the beat directory)
+    const locality = cell(row, "locality");
+    const mainArea = cell(row, "mainArea");
+    const pincodeText = cell(row, "pincode");
+    const pincode = /^[1-9]\d{5}$/.test(pincodeText) ? pincodeText : "";
+    if (pincodeText && !pincode) warn(`"${pincodeText}" is not a 6-digit pincode and was ignored.`);
+    if (locality.length > 200 || mainArea.length > 200) fail("The locality or main area is too long (200 characters at most).");
+    if (structured && !locality && mainArea) fail("A main area was given without its locality.");
+    if (structured && locality && localityKey(locality) === "") fail("The locality has no readable words.");
 
     // territory / centre
     let territoryState: TerritoryState = "MISSING";
@@ -353,11 +428,6 @@ export async function checkBeatList(
         }
       }
     }
-    // (a row that already cannot be imported does not also get a "no territory" note)
-    if (territoryState === "MISSING" && status !== "ERROR") {
-      missingTerritory++;
-      warn("No territory yet. It will be imported as \"Needs review\" and you will need to draw the territory on the map.");
-    }
 
     const lat = toNumber(cell(row, "latitude"));
     const lng = toNumber(cell(row, "longitude"));
@@ -372,22 +442,90 @@ export async function checkBeatList(
       warn("Only one of latitude / longitude was given, so the centre was ignored.");
     }
 
+    // what the row contributes
+    if (status !== "ERROR" && beatKey && officeId) {
+      const localityRecord = locality
+        ? { rowNumber: row.rowNumber, locality, mainArea: mainArea || null, pincode: pincode || null }
+        : null;
+      const recordKey = localityRecord ? `${beatKey}|${localityKey(locality)}|${localityKey(mainArea)}` : null;
+
+      let alreadyInFile: number | undefined;
+      let alreadyInDirectory = false;
+      if (recordKey) {
+        alreadyInFile = seenLocalities.get(recordKey);
+        alreadyInDirectory = !!dbBeatId && existingLocalities.has(`${dbBeatId}|${localityKey(locality)}|${localityKey(mainArea)}`);
+      }
+
+      let beat = beats.get(beatKey);
+      if (localityRecord && (alreadyInFile !== undefined || alreadyInDirectory)) {
+        action = "SKIPPED";
+        duplicateLocalityRows++;
+        warn(
+          alreadyInFile !== undefined
+            ? `Repeats row ${alreadyInFile} (same beat, locality and main area). It adds nothing.`
+            : `Beat ${beatNumber} already lists this locality and main area. It adds nothing.`
+        );
+      } else if (structured && !localityRecord && (dbBeatId || beat)) {
+        action = "SKIPPED";
+        warn(dbBeatId ? `Beat ${beatNumber} already exists and this row names no locality, so there is nothing to add.` : `Beat ${beatNumber} is already defined by an earlier row and this row names no locality.`);
+      } else {
+        if (!beat) {
+          beat = {
+            rowNumber: row.rowNumber,
+            beatNumber,
+            name,
+            postOfficeId: officeId,
+            territory,
+            centerLatitude,
+            centerLongitude,
+            existingBeatId: dbBeatId,
+            localities: []
+          };
+          beats.set(beatKey, beat);
+          action = dbBeatId ? "ADD_LOCALITY" : "NEW_BEAT";
+          if (dbBeatId) warn(`Beat ${beatNumber} already exists; its localities are added to it.`);
+          else if (!territory) warn("No territory yet. It will be imported as \"Needs review\" and you will need to draw the territory on the map.");
+        } else {
+          action = "ADD_LOCALITY";
+          if (givenName && beat.name !== givenName && !/^Beat /.test(beat.name) && !dbBeatId) warn(`Named "${givenName}" here but "${beat.name}" on an earlier row; the first name is kept.`);
+          if (!beat.territory && territory) {
+            beat.territory = territory;
+            beat.centerLatitude = centerLatitude;
+            beat.centerLongitude = centerLongitude;
+          }
+          if (beat.name.startsWith("Beat ") && givenName && !dbBeatId) beat.name = givenName;
+        }
+        if (localityRecord) {
+          beat.localities.push(localityRecord);
+          seenLocalities.set(recordKey!, row.rowNumber);
+        }
+      }
+    } else {
+      action = "SKIPPED";
+    }
+
     rows.push({
       rowNumber: row.rowNumber,
       beatNumber,
       name,
+      locality,
+      mainArea,
       postOfficeId: officeId,
       postOfficeName: officeName,
       territoryState,
       hasCentre: centerLatitude !== null,
       status,
+      action,
       messages
     });
-    if (status !== "ERROR" && officeId) {
-      importable.push({ rowNumber: row.rowNumber, beatNumber, name, postOfficeId: officeId, territory, centerLatitude, centerLongitude });
-    }
   }
 
+  // A beat with no territory needs one drawn later (counted once per beat, not once per locality row).
+  for (const beat of beats.values()) {
+    if (!beat.existingBeatId && !beat.territory) missingTerritory++;
+  }
+
+  const importable = [...beats.values()];
   const count = (s: RowStatus) => rows.filter((r) => r.status === s).length;
   return {
     check: {
@@ -401,7 +539,15 @@ export async function checkBeatList(
         errors: count("ERROR"),
         duplicates,
         missingTerritory,
-        invalidTerritory
+        invalidTerritory,
+        structured,
+        newBeats: importable.filter((b) => !b.existingBeatId).length,
+        existingBeats: importable.filter((b) => b.existingBeatId).length,
+        localityRecords: importable.reduce((n, b) => n + b.localities.length, 0),
+        duplicateLocalityRows,
+        unknownPostOffices,
+        missingBeatNumbers,
+        beatsWithoutLocality: importable.filter((b) => !b.existingBeatId && b.localities.length === 0).length
       }
     },
     importable: fileProblems.length > 0 ? [] : importable
@@ -411,14 +557,15 @@ export async function checkBeatList(
 /** The error report the administrator can download: one line per row that has a problem. */
 export function errorReportCsv(rows: CheckedRow[]): string {
   const esc = (v: string | number) => `"${String(v).replace(/"/g, '""')}"`;
-  const lines = [["Row", "Beat number", "Beat name", "Result", "What to fix"].map(esc).join(",")];
+  // The locality columns only appear for a list that has localities (one row per beat and locality).
+  const withLocality = rows.some((r) => r.locality || r.mainArea);
+  const head = ["Row", "Beat number", "Beat name", ...(withLocality ? ["Locality", "Main area"] : []), "Result", "What to fix"];
+  const lines = [head.map(esc).join(",")];
   for (const r of rows) {
     if (r.status === "READY") continue;
-    lines.push(
-      [r.rowNumber, r.beatNumber, r.name, r.status === "ERROR" ? "Will not be imported" : "Imported with a warning", r.messages.join(" ")]
-        .map(esc)
-        .join(",")
-    );
+    const result = r.status === "ERROR" ? "Will not be imported" : r.action === "SKIPPED" ? "Skipped (adds nothing)" : "Imported with a warning";
+    const cells = [r.rowNumber, r.beatNumber, r.name, ...(withLocality ? [r.locality, r.mainArea] : []), result, r.messages.join(" ")];
+    lines.push(cells.map(esc).join(","));
   }
-  return "﻿" + lines.join("\r\n") + "\r\n";
+  return "\ufeff" + lines.join("\r\n") + "\r\n";
 }

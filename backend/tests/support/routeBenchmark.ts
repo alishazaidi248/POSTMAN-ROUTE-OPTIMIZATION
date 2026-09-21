@@ -70,6 +70,7 @@ export function makeRound(n: number, seed: number): RoutableDelivery[] {
       latitude: clustered ? c.latitude + (rnd() - 0.5) * 0.004 : 19.11 + rnd() * 0.07,
       longitude: clustered ? c.longitude + (rnd() - 0.5) * 0.004 : 72.9 + rnd() * 0.09,
       parcelCount: 1 + Math.floor(rnd() * 5),
+      weightKg: 0.5 + Math.floor(rnd() * 9) * 0.5,
       priority: ["LOW", "NORMAL", "NORMAL", "HIGH", "URGENT"][Math.floor(rnd() * 5)],
       serviceTimeMinutes: 2 + Math.floor(rnd() * 4)
     };
@@ -157,7 +158,7 @@ function build(deliveries: RoutableDelivery[]) {
   const durations = Array.from({ length: n }, (_, i) => Array.from({ length: n }, (_, j) => (i === j ? 0 : roadSeconds(nodes[i], nodes[j]))));
   const distances = Array.from({ length: n }, (_, i) => Array.from({ length: n }, (_, j) => (i === j ? 0 : roadMeters(nodes[i], nodes[j]))));
   const stops: StopLoad[] = deliveries.map((d) => ({
-    load: d.parcelCount,
+    load: d.weightKg!,
     priorityFactor: PRIORITY_FACTOR[d.priority] ?? 0,
     serviceSeconds: (d.serviceTimeMinutes ?? 0) * 60
   }));

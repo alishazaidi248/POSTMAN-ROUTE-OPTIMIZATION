@@ -24,7 +24,7 @@ import { AppError } from "../src/utils/AppError";
 const ALL_STATUSES = Object.keys(ALLOWED_TRANSITIONS) as DeliveryStatus[];
 
 function deliveryIn(status: DeliveryStatus, assignedPostmanId: string | null = "pm1") {
-  prismaMock.delivery.findUniqueOrThrow.mockResolvedValue({ id: "d1", status, assignedPostmanId });
+  prismaMock.delivery.findUniqueOrThrow.mockResolvedValue({ id: "d1", status, assignedPostmanId, postOffice: { proofMode: "NONE" }, proof: null });
   prismaMock.delivery.update.mockImplementation(async ({ data }: { data: { status: DeliveryStatus } }) => ({
     id: "d1",
     status: data.status
@@ -54,6 +54,16 @@ describe("transitionDeliveryStatus — state machine", () => {
         }
       }
     }
+  });
+
+  it("a post office that requires a photo never completes a delivery without one, but does once the proof exists", async () => {
+    prismaMock.delivery.findUniqueOrThrow.mockResolvedValue({ id: "d1", status: "OUT_FOR_DELIVERY", assignedPostmanId: "pm1", postOffice: { proofMode: "PHOTO" }, proof: null });
+    await expect(transitionDeliveryStatus({ deliveryId: "d1", toStatus: "DELIVERED", changedBy: "u1" })).rejects.toMatchObject({ statusCode: 400, details: { proofRequired: true } });
+    expect(prismaMock.delivery.update).not.toHaveBeenCalled();
+
+    prismaMock.delivery.findUniqueOrThrow.mockResolvedValue({ id: "d1", status: "OUT_FOR_DELIVERY", assignedPostmanId: "pm1", postOffice: { proofMode: "PHOTO" }, proof: { id: "p1" } });
+    prismaMock.delivery.update.mockResolvedValue({ id: "d1", status: "DELIVERED" });
+    await expect(transitionDeliveryStatus({ deliveryId: "d1", toStatus: "DELIVERED", changedBy: "u1" })).resolves.toMatchObject({ status: "DELIVERED" });
   });
 
   it("does not let a delivery jump from ASSIGNED straight to DELIVERED", async () => {

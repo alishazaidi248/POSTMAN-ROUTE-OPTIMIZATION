@@ -1,0 +1,189 @@
+name: CI
+
+# Every job runs the project's own commands. Nothing here is skipped or allowed to fail: if a check is red, the change is red.
+on:
+  push:
+    branches: ["**"]
+  pull_request:
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  NODE_VERSION: "22"
+
+jobs:
+  backend:
+    name: Backend (typecheck, lint, build, unit + integration tests)
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: backend
+    services:
+      postgres:
+        image: postgis/postgis:16-3.4
+        env:
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_DB: postal_test
+        ports: ["5432:5432"]
+        options: >-
+          --health-cmd "pg_isready -U postgres"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 12
+    env:
+      # Integration tests wipe this database: its name must end in _test (the tests refuse anything else)
+      DATABASE_URL: postgresql://postgres:postgres@localhost:5432/postal_test?schema=public
+      JWT_ACCESS_SECRET: ci-access-secret
+      JWT_REFRESH_SECRET: ci-refresh-secret
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: npm
+          cache-dependency-path: backend/package-lock.json
+      - run: npm ci
+      - run: npx prisma generate
+      - name: TypeScript (source and tests)
+        run: npm run typecheck
+      - name: ESLint
+        run: npm run lint
+      - name: Build
+        run: npm run build
+      - name: Unit tests
+        run: npm test
+      - name: Apply the migrations to an empty PostGIS database
+        run: npx prisma migrate deploy
+      - name: The migrations and the Prisma schema agree (no drift)
+        run: npx prisma migrate diff --from-schema-datasource prisma/schema.prisma --to-schema-datamodel prisma/schema.prisma --exit-code
+      - name: Integration tests (real PostgreSQL + PostGIS)
+        run: npm run test:integration
+
+  admin:
+    name: Admin panel (typecheck, lint, tests, build)
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: frontend
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+      - run: npm ci
+      - run: npm run typecheck
+      - run: npm run lint
+      - run: npm test
+      - run: npm run build
+
+  postman-app:
+    name: Postman app (typecheck, lint, tests, config)
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: PostmanApp
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: npm
+          cache-dependency-path: PostmanApp/package-lock.json
+      - run: npm ci
+      - run: npm run typecheck
+      - run: npm run lint
+      - name: Tests
+        run: npm test -- --ci --json --outputFile=jest-result.json
+      - name: Failed tests as annotations
+        if: failure()
+        working-directory: .
+        run: node .github/scripts/jest-annotations.mjs PostmanApp/jest-result.json
+      - name: The Expo configuration resolves
+        run: npx expo config --type public > /dev/null
+
+  browser-tests:
+    name: Browser tests (admin panel + Postman app web build, real backend)
+    runs-on: ubuntu-latest
+    needs: [backend, admin, postman-app]
+    services:
+      postgres:
+        image: postgis/postgis:16-3.4
+        env:
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_DB: postal_e2e
+        ports: ["5432:5432"]
+        options: >-
+          --health-cmd "pg_isready -U postgres"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 12
+    env:
+      DATABASE_URL: postgresql://postgres:postgres@localhost:5432/postal_e2e?schema=public
+      CHROME_PATH: /usr/bin/google-chrome
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+      - name: Install
+        run: |
+          npm ci --prefix backend
+          npm ci --prefix frontend
+          npm ci --prefix PostmanApp
+          npm ci --prefix e2e
+      - name: Database, and the logins the tests use
+        working-directory: backend
+        run: |
+          npx prisma generate
+          npx prisma migrate deploy
+          npx tsx scripts/e2e-seed.ts ../e2e/.users.json
+      - name: Start the backend (no external geocoder, no routing engine - the tests need neither)
+        working-directory: backend
+        env:
+          JWT_ACCESS_SECRET: e2e-access
+          JWT_REFRESH_SECRET: e2e-refresh
+          GEOCODING_PROVIDER: none
+          OSRM_BASE_URL: ""
+          PUSH_ENABLED: "false"
+          AUTH_RATE_LIMIT: "1000"
+          CORS_ORIGIN: "*"
+          PORT: "4000"
+          UPLOAD_DIR: /tmp/e2e-uploads
+        run: |
+          nohup npx tsx src/server.ts > /tmp/backend.log 2>&1 &
+          for i in $(seq 1 60); do curl -sf http://localhost:4000/health && break; sleep 1; done
+      - name: Start the admin panel
+        working-directory: frontend
+        run: |
+          nohup npx vite --port 5173 > /tmp/admin.log 2>&1 &
+          for i in $(seq 1 60); do curl -sf http://localhost:5173/ > /dev/null && break; sleep 1; done
+      - name: Build and serve the Postman app (web)
+        working-directory: PostmanApp
+        env:
+          API_BASE_URL: http://localhost:4000/api/v1
+        run: |
+          npx expo export --platform web
+          nohup npx --yes serve dist -l 8081 -s > /tmp/app.log 2>&1 &
+          for i in $(seq 1 60); do curl -sf http://localhost:8081/ > /dev/null && break; sleep 1; done
+      - name: Admin panel tests
+        working-directory: e2e
+        run: node run.mjs admin
+      - name: Postman app tests
+        working-directory: e2e
+        run: node run.mjs postman
+      - name: Logs and screenshots on failure
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: browser-test-diagnostics
+          path: |
+            e2e/screenshots
+            /tmp/backend.log
+            /tmp/admin.log
+            /tmp/app.log

@@ -2,7 +2,7 @@ import { forwardRef, useEffect, useImperativeHandle, useRef } from "react";
 import maplibregl from "maplibre-gl";
 import MapboxDraw from "@mapbox/mapbox-gl-draw";
 import "@mapbox/mapbox-gl-draw/dist/mapbox-gl-draw.css";
-import { BeatRecord, VERIFICATION_COLOR, boundsOf } from "./beatTypes";
+import { BeatRecord, VERIFICATION_COLOR, boundsOf, territoryState } from "./beatTypes";
 import styles from "./beats.module.css";
 
 export interface OtherFeature {
@@ -64,7 +64,7 @@ function beatCollection(beats: BeatRecord[]): GeoJSON.FeatureCollection {
       .map((b) => ({
         type: "Feature",
         geometry: b.boundary as GeoJSON.Polygon,
-        properties: { id: b.id, beatNumber: b.beatNumber, verification: b.verificationStatus }
+        properties: { id: b.id, beatNumber: b.beatNumber, verification: territoryState(b), overlapping: (b.overlaps?.length ?? 0) > 0 }
       }))
   };
 }
@@ -198,6 +198,14 @@ export const BeatMap = forwardRef<BeatMapHandle, Props>(function BeatMap(props, 
         source: "beats",
         filter: ["!=", ["get", "verification"], "VERIFIED"],
         paint: { "line-color": STATUS_COLOR, "line-width": 1.5, "line-opacity": 0.95, "line-dasharray": [2, 2] }
+      });
+      // Territories that overlap another beat get a heavier violet dashed outline on top: an address inside the overlap cannot be assigned automatically.
+      map.addLayer({
+        id: "beats-line-overlap",
+        type: "line",
+        source: "beats",
+        filter: ["==", ["get", "overlapping"], true],
+        paint: { "line-color": "#7c3aed", "line-width": 3, "line-opacity": 0.9, "line-dasharray": [1, 1.5] }
       });
       map.addLayer({
         id: "beats-selected",

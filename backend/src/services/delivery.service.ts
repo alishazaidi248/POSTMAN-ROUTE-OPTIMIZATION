@@ -1,8 +1,8 @@
 import { ParcelPriority, Prisma } from "@prisma/client";
 import { prisma } from "../config/prisma";
 import { logger } from "../config/logger";
-import { getGeocodingService } from "./geocoding";
-import { GeocodeResult } from "./geocoding/GeocodingService";
+import { addressGeocodeData, geocodeAddress, manualGeocode } from "./geocoding";
+import { FAILED_RESULT, GeocodeResult } from "./geocoding/GeocodingService";
 import { AssignResult, assignDeliveryToBeat } from "./assignment.service";
 
 export interface NewDeliveryInput {
@@ -19,6 +19,8 @@ export interface NewDeliveryInput {
   };
   parcelType?: string | null;
   parcelCount?: number;
+  /** Real weight in kilograms, when known. Not derived from parcelCount. */
+  weightKg?: number | null;
   priority?: ParcelPriority;
   urgency?: string | null;
   serviceTimeMinutes?: number | null;
@@ -26,20 +28,15 @@ export interface NewDeliveryInput {
 }
 
 /** Geocoding outcome as stored on the address (a failure keeps the delivery, with no coordinates). */
-export type GeocodeOutcome = Pick<GeocodeResult, "status" | "latitude" | "longitude" | "confidence" | "source">;
+export type GeocodeOutcome = GeocodeResult;
 
-export const MANUAL_GEOCODE = (latitude: number, longitude: number): GeocodeOutcome => ({
-  status: "SUCCESS",
-  latitude,
-  longitude,
-  confidence: 1,
-  source: "manual"
-});
+export const MANUAL_GEOCODE = manualGeocode;
 
 /**
- * Writes Recipient + Address + Delivery (+ a GEOCODING_FAILED exception when the
- * address could not be located) in the caller's transaction. Nothing here talks
- * to the network — geocode first, then call this — so the transaction stays short.
+ * Writes Recipient + Address + Delivery in the caller's transaction. Nothing here
+ * talks to the network — geocode first, then call this — so the transaction stays
+ * short. An address that could not be located is NOT an exception yet: the beat
+ * list may still identify its beat, so assignDeliveryToBeat decides.
  */
 export async function createDeliveryRecords(
   tx: Prisma.TransactionClient,
@@ -62,12 +59,9 @@ export async function createDeliveryRecords(
       city: input.address.city,
       state: input.address.state,
       pincode: input.address.pincode,
+      ...addressGeocodeData(geocode, input.address, { manual }),
       latitude: located ? geocode.latitude : null,
-      longitude: located ? geocode.longitude : null,
-      geocodingStatus: manual ? "MANUAL" : geocode.status,
-      geocodingSource: geocode.source,
-      geocodingConfidence: geocode.confidence,
-      geocodedAt: new Date()
+      longitude: located ? geocode.longitude : null
     }
   });
 
@@ -78,6 +72,7 @@ export async function createDeliveryRecords(
       addressId: address.id,
       parcelType: input.parcelType ?? null,
       parcelCount: input.parcelCount ?? 1,
+      weightKg: input.weightKg ?? null,
       priority: input.priority ?? "NORMAL",
       urgency: input.urgency ?? null,
       serviceTimeMinutes: input.serviceTimeMinutes ?? null,
@@ -86,10 +81,6 @@ export async function createDeliveryRecords(
       status: "RECEIVED"
     }
   });
-
-  if (!located) {
-    await tx.assignmentException.create({ data: { deliveryId: delivery.id, reason: "GEOCODING_FAILED" } });
-  }
 
   return { deliveryId: delivery.id, addressId: address.id };
 }
@@ -104,22 +95,18 @@ export async function createDeliveryRecords(
 export async function createAndAssignDelivery(
   input: NewDeliveryInput,
   coordinates?: { latitude: number; longitude: number }
-): Promise<{ deliveryId: string; assignment: AssignResult | { status: "GEOCODING_FAILED" } | { status: "ASSIGNMENT_ERROR" } }> {
+): Promise<{ deliveryId: string; assignment: AssignResult | { status: "ASSIGNMENT_ERROR" } }> {
   const geocode: GeocodeOutcome = coordinates
     ? MANUAL_GEOCODE(coordinates.latitude, coordinates.longitude)
-    : await getGeocodingService()
-        .geocode(input.address)
-        .catch((err): GeocodeOutcome => {
-          logger.warn({ err }, "geocoding threw; recording as FAILED");
-          return { status: "FAILED", latitude: 0, longitude: 0, confidence: 0, source: "error" };
-        });
+    : await geocodeAddress(input.address, input.postOfficeId).catch((err): GeocodeOutcome => {
+        logger.warn({ err }, "geocoding threw; recording as FAILED");
+        return FAILED_RESULT("error");
+      });
 
   const { deliveryId } = await prisma.$transaction((tx) => createDeliveryRecords(tx, input, geocode, !!coordinates));
 
-  if (geocode.status !== "SUCCESS") return { deliveryId, assignment: { status: "GEOCODING_FAILED" } };
-
   try {
-    return { deliveryId, assignment: await assignDeliveryToBeat(deliveryId, geocode.latitude, geocode.longitude) };
+    return { deliveryId, assignment: await assignDeliveryToBeat(deliveryId) };
   } catch (err) {
     logger.error({ err, deliveryId }, "beat assignment failed after the delivery was saved");
     return { deliveryId, assignment: { status: "ASSIGNMENT_ERROR" } };

@@ -12,9 +12,12 @@ interface CheckedRow {
   rowNumber: number;
   beatNumber: string;
   name: string;
+  locality: string;
+  mainArea: string;
   postOfficeName: string;
   territoryState: "PRESENT" | "MISSING" | "INVALID";
   status: RowStatus;
+  action: "NEW_BEAT" | "ADD_LOCALITY" | "SKIPPED";
   messages: string[];
 }
 
@@ -37,6 +40,14 @@ interface Preview {
     duplicates: number;
     missingTerritory: number;
     invalidTerritory: number;
+    structured: boolean;
+    newBeats: number;
+    existingBeats: number;
+    localityRecords: number;
+    duplicateLocalityRows: number;
+    unknownPostOffices: number;
+    missingBeatNumbers: number;
+    beatsWithoutLocality: number;
   };
 }
 
@@ -58,7 +69,7 @@ export function UploadBeatListWizard({ onClose, onImported }: { onClose: () => v
   const [error, setError] = useState<string | null>(null);
   const [dragging, setDragging] = useState(false);
   const [reviewFilter, setReviewFilter] = useState<"ALL" | "ATTENTION" | "ERRORS">("ALL");
-  const [done, setDone] = useState<{ imported: number; skipped: number; ids: string[] } | null>(null);
+  const [done, setDone] = useState<{ imported: number; skipped: number; ids: string[]; localityRecords: number; rematch: { checked: number; changed: number } } | null>(null);
   const fileInput = useRef<HTMLInputElement>(null);
 
   async function upload(file: File) {
@@ -115,8 +126,8 @@ export function UploadBeatListWizard({ onClose, onImported }: { onClose: () => v
     setBusy(true);
     setError(null);
     try {
-      const res = await apiClient.post<{ imported: number; skipped: number; beatIds: string[] }>(`/beats/import/${preview.id}/confirm`);
-      setDone({ imported: res.data.imported, skipped: res.data.skipped, ids: res.data.beatIds });
+      const res = await apiClient.post<{ imported: number; skipped: number; beatIds: string[]; localityRecords: number; rematch: { checked: number; changed: number } }>(`/beats/import/${preview.id}/confirm`);
+      setDone({ imported: res.data.imported, skipped: res.data.skipped, ids: res.data.beatIds, localityRecords: res.data.localityRecords, rematch: res.data.rematch });
       toast.success(`${plural(res.data.imported, "beat")} imported successfully.`);
       onImported(res.data.beatIds);
     } catch (err) {
@@ -216,11 +227,20 @@ export function UploadBeatListWizard({ onClose, onImported }: { onClose: () => v
               {officeColumn ? `Post office detected (column “${officeColumn}”)` : `No post office column: every beat will be added to ${preview.destinationPostOffice}`}
             </Check>
             <Check ok={!!beatNumberColumn}>{beatNumberColumn ? "Required fields present" : "A required field is missing"}</Check>
-            <Check ok={s.ready + s.warnings > 0}>{plural(s.importable, "beat")} can be imported ({s.ready} ready{s.warnings ? `, ${s.warnings} with a warning` : ""})</Check>
+            <Check ok={s.ready + s.warnings > 0}>
+              {s.structured
+                ? `${plural(s.newBeats, "new beat")}${s.existingBeats ? ` and ${plural(s.existingBeats, "existing beat")}` : ""} with ${plural(s.localityRecords, "locality record")} can be imported`
+                : `${plural(s.importable, "beat")} can be imported`}{" "}
+              ({s.ready} ready{s.warnings ? `, ${s.warnings} with a warning` : ""})
+            </Check>
+            {s.structured && s.beatsWithoutLocality > 0 && <Check warn>{plural(s.beatsWithoutLocality, "beat")} {s.beatsWithoutLocality === 1 ? "has" : "have"} no locality, so addresses cannot be matched to {s.beatsWithoutLocality === 1 ? "it" : "them"} by name</Check>}
+            {s.duplicateLocalityRows > 0 && <Check warn>{plural(s.duplicateLocalityRows, "row")} repeat{s.duplicateLocalityRows === 1 ? "s" : ""} a locality already listed for the beat (reported, nothing added)</Check>}
+            {s.missingBeatNumbers > 0 && <Check bad>{plural(s.missingBeatNumbers, "row")} {s.missingBeatNumbers === 1 ? "has" : "have"} no beat number and will not be imported</Check>}
+            {s.unknownPostOffices > 0 && <Check bad>{plural(s.unknownPostOffices, "row")} name{s.unknownPostOffices === 1 ? "s" : ""} a post office that is not in the system</Check>}
             {s.duplicates > 0 && <Check warn>{plural(s.duplicates, "beat")} {s.duplicates === 1 ? "has" : "have"} a duplicate number and will not be imported</Check>}
             {s.missingTerritory > 0 && <Check warn>{plural(s.missingTerritory, "beat")} {s.missingTerritory === 1 ? "is" : "are"} missing a territory boundary (you can draw {s.missingTerritory === 1 ? "it" : "them"} later)</Check>}
             {s.invalidTerritory > 0 && <Check bad>{plural(s.invalidTerritory, "row")} ha{s.invalidTerritory === 1 ? "s" : "ve"} a territory that could not be read</Check>}
-            {s.errors - s.duplicates - s.invalidTerritory > 0 && <Check bad>{plural(s.errors - s.duplicates - s.invalidTerritory, "row")} cannot be imported (see Review)</Check>}
+            {s.errors - s.duplicates - s.invalidTerritory - s.missingBeatNumbers - s.unknownPostOffices > 0 && <Check bad>{plural(s.errors - s.duplicates - s.invalidTerritory - s.missingBeatNumbers - s.unknownPostOffices, "row")} cannot be imported (see Review)</Check>}
             {preview.fileProblems.map((p) => <Check key={p} bad>{p}</Check>)}
           </ul>
 
@@ -269,7 +289,7 @@ export function UploadBeatListWizard({ onClose, onImported }: { onClose: () => v
           <div className={styles.reviewScroll}>
             <table className={styles.beatTable} data-testid="review-table">
               <thead>
-                <tr><th>Row</th><th>Beat</th><th>Name</th><th>Post office</th><th>Result</th><th>Territory</th><th>Notes</th></tr>
+                <tr><th>Row</th><th>Beat</th><th>{s.structured ? "Locality" : "Name"}</th>{s.structured && <th>Main area</th>}<th>Post office</th><th>Result</th>{!s.structured && <th>Territory</th>}<th>Notes</th></tr>
               </thead>
               <tbody>
                 {preview.rows
@@ -278,10 +298,11 @@ export function UploadBeatListWizard({ onClose, onImported }: { onClose: () => v
                     <tr key={r.rowNumber} className={r.status === "ERROR" ? styles.rowError : r.status === "WARNING" ? styles.rowWarn : undefined}>
                       <td>{r.rowNumber}</td>
                       <td><strong>{r.beatNumber || "—"}</strong></td>
-                      <td>{r.name || "—"}</td>
+                      <td>{(s.structured ? r.locality : r.name) || "—"}</td>
+                      {s.structured && <td>{r.mainArea || "—"}</td>}
                       <td>{r.postOfficeName || "—"}</td>
-                      <td>{r.status === "READY" ? "Ready" : r.status === "WARNING" ? "Warning" : "Will not import"}</td>
-                      <td>{r.territoryState === "PRESENT" ? "Provided" : r.territoryState === "MISSING" ? "Missing" : "Not readable"}</td>
+                      <td>{r.status === "ERROR" ? "Will not import" : r.action === "SKIPPED" ? "Skipped" : r.status === "WARNING" ? "Warning" : "Ready"}</td>
+                      {!s.structured && <td>{r.territoryState === "PRESENT" ? "Provided" : r.territoryState === "MISSING" ? "Missing" : "Not readable"}</td>}
                       <td className={styles.rowNote}>{r.messages.join(" ")}</td>
                     </tr>
                   ))}
@@ -305,9 +326,11 @@ export function UploadBeatListWizard({ onClose, onImported }: { onClose: () => v
       {step === 3 && preview && s && !done && (
         <>
           <p style={{ fontSize: 16, margin: "0 0 4px" }}>You are about to add</p>
-          <div className={styles.bigNumber} data-testid="import-count">{plural(s.importable, "beat")}</div>
-          <p className={styles.muted} style={{ fontSize: 13 }}>to {preview.destinationPostOffice}.</p>
+          <div className={styles.bigNumber} data-testid="import-count">{plural(s.structured ? s.newBeats : s.importable, "beat")}</div>
+          <p className={styles.muted} style={{ fontSize: 13 }}>to {preview.destinationPostOffice}{s.structured ? `, with ${plural(s.localityRecords, "locality record")} for matching addresses to beats` : ""}.</p>
           <ul style={{ fontSize: 13, color: "var(--color-ink-700)", paddingLeft: 18 }}>
+            {s.existingBeats > 0 && <li>{plural(s.existingBeats, "beat")} already exist{s.existingBeats === 1 ? "s" : ""} and only receive their new localities.</li>}
+            {s.duplicateLocalityRows > 0 && <li>{plural(s.duplicateLocalityRows, "repeated row")} add nothing (they are listed in the error report).</li>}
             <li>Beats with a territory will be marked <strong>Pending verification</strong>. You verify each one on the map.</li>
             {s.missingTerritory > 0 && <li>{plural(s.missingTerritory, "beat")} without a territory will be marked <strong>Needs review</strong> until you draw it.</li>}
             {s.errors > 0 && <li>{plural(s.errors, "row")} with problems will <strong>not</strong> be imported.</li>}
@@ -327,7 +350,9 @@ export function UploadBeatListWizard({ onClose, onImported }: { onClose: () => v
         <>
           <p style={{ fontSize: 16, margin: "0 0 4px" }} data-testid="import-done">{plural(done.imported, "beat")} imported successfully.</p>
           <p className={styles.muted} style={{ fontSize: 13 }}>
-            {done.skipped > 0 ? `${plural(done.skipped, "row")} could not be imported. ` : ""}They are on the map now. Open each beat to check its territory and verify it.
+            {done.localityRecords > 0 ? `${plural(done.localityRecords, "locality record")} added to the beat directory. ` : ""}
+            {done.rematch.checked > 0 ? `${done.rematch.changed} of ${done.rematch.checked} waiting deliveries were matched to a beat. ` : ""}
+            {done.skipped > 0 ? `${plural(done.skipped, "row")} could not be imported. ` : ""}Open each beat to check its territory and verify it.
           </p>
           <div className={styles.actions}>
             <button className={`${styles.btn} ${styles.btnPrimary}`} onClick={onClose}>View on Map</button>

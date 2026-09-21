@@ -24,6 +24,7 @@ export const env = {
   uploadDir: process.env.UPLOAD_DIR ?? "./uploads",
   maxUploadSizeMb: Number(process.env.MAX_UPLOAD_SIZE_MB ?? 25),
   maxProfilePhotoMb: Number(process.env.MAX_PROFILE_PHOTO_MB ?? 2),
+  maxProofPhotoMb: Number(process.env.MAX_PROOF_PHOTO_MB ?? 5),
 
   geocodingProvider: process.env.GEOCODING_PROVIDER ?? "nominatim",
   nominatimBaseUrl: process.env.NOMINATIM_BASE_URL ?? "https://nominatim.openstreetmap.org",
@@ -57,6 +58,17 @@ export const env = {
   twoOptMaxMillis: Number(process.env.ROUTE_2OPT_MAX_MS ?? 1500),
   twoOptMaxPasses: Number(process.env.ROUTE_2OPT_MAX_PASSES ?? 500),
   defaultServiceTimeMinutes: Number(process.env.DEFAULT_SERVICE_TIME_MINUTES ?? 3),
+
+  // Push notifications through Expo's push service. A token is only ever registered by a phone that has one, so leaving
+  // this on with no phones does nothing. EXPO_ACCESS_TOKEN is optional (needed only if enhanced push security is enabled
+  // on the Expo project) and is a secret: it is read from the environment and never stored or logged.
+  pushEnabled: (process.env.PUSH_ENABLED ?? "true") !== "false",
+  expoAccessToken: process.env.EXPO_ACCESS_TOKEN ?? "",
+  // Assignments that arrive together (an import) become one notification: the wait before it is sent.
+  pushBatchMs: Number(process.env.PUSH_BATCH_MS ?? 20_000),
+
+  // Sign-in attempts per IP per 15 minutes (brute-force protection). Raise it only for automated browser tests.
+  authRateLimit: Number(process.env.AUTH_RATE_LIMIT ?? 20),
 
   isProduction: (process.env.NODE_ENV ?? "development") === "production"
 };
