@@ -36,3 +36,6 @@ e2e/node_modules/
 
 # Generated research output (scripts/algorithm-study.ts)
 backend/data/bhandup/algorithm-study.json
+
+# Jest result written by CI
+PostmanApp/jest-result.json

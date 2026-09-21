@@ -97,7 +97,12 @@ jobs:
       - run: npm ci
       - run: npm run typecheck
       - run: npm run lint
-      - run: npm test
+      - name: Tests
+        run: npm test -- --ci --json --outputFile=jest-result.json
+      - name: Failed tests as annotations
+        if: failure()
+        working-directory: .
+        run: node .github/scripts/jest-annotations.mjs PostmanApp/jest-result.json
       - name: The Expo configuration resolves
         run: npx expo config --type public > /dev/null
 
