@@ -1,81 +1,86 @@
-import { useMemo } from "react";
+import { useCallback, useMemo } from "react";
 import { useCurrentRoute } from "../../hooks/useRoute";
-import { useDeliveries } from "../../hooks/useDeliveries";
-import { findCurrentAndNext } from "../../services/routeService";
-import { OptimizationStop } from "../../types/route";
-import { validateAndLogCoordinates } from "../../utils/coordinates";
+import { useDeliveries, usePendingStatusOverrides } from "../../hooks/useDeliveries";
+import { SelectionSource, useRouteStore } from "../../store/routeStore";
+import { OptimizationStop, hasRoadGeometry } from "../../types/route";
+import {
+  StopView,
+  buildMarkerModels,
+  buildRouteLine,
+  buildStopViews,
+  countRemaining,
+  findNextStop
+} from "../../utils/routeView";
 
 /**
  * Platform-independent route/delivery data for the Map screen. Shared by
  * MapScreen.native.tsx (@maplibre/maplibre-react-native) and
  * MapScreen.web.tsx (maplibre-gl) so the two map renderers stay in sync
- * without duplicating the query/derivation logic.
+ * without duplicating the query/derivation logic — and so the map and the
+ * Deliveries tab are always built from the same StopViews (same numbering,
+ * same "next stop", same completed/pending state, same offline overrides).
  */
 export function useMapScreenData() {
   const routeQuery = useCurrentRoute();
   const deliveriesQuery = useDeliveries();
-
-  const statusByDeliveryId = useMemo(() => {
-    const map: Record<string, { status: string; name: string }> = {};
-    for (const d of deliveriesQuery.data?.rows ?? []) {
-      map[d.id] = { status: d.status, name: d.recipient.name };
-    }
-    return map;
-  }, [deliveriesQuery.data]);
+  const overrides = usePendingStatusOverrides();
+  const selectedDeliveryId = useRouteStore((s) => s.selectedDeliveryId);
+  const selectDeliveryInStore = useRouteStore((s) => s.selectDelivery);
 
   const route = routeQuery.data ?? null;
+  const rows = deliveriesQuery.data?.rows;
 
-  const completedIds = useMemo(
-    () => new Set((deliveriesQuery.data?.rows ?? []).filter((d) => d.status === "DELIVERED").map((d) => d.id)),
-    [deliveriesQuery.data]
+  const views: StopView[] = useMemo(() => buildStopViews(rows ?? [], route, overrides), [rows, route, overrides]);
+  const markers = useMemo(() => buildMarkerModels(views, selectedDeliveryId), [views, selectedDeliveryId]);
+  const routeLine = useMemo(() => buildRouteLine(route), [route]);
+
+  const next = useMemo(() => findNextStop(views), [views]);
+  const remaining = useMemo(() => countRemaining(views), [views]);
+  const doneCount = useMemo(() => views.filter((v) => v.state === "DONE").length, [views]);
+  const selectedView = useMemo(
+    () => views.find((v) => v.delivery.id === selectedDeliveryId) ?? null,
+    [views, selectedDeliveryId]
   );
 
-  const { current, next } = route
-    ? findCurrentAndNext(route.solution.stops, completedIds)
-    : { current: null, next: null };
+  // Remaining stops still on the road route, in order — for the summary card.
+  const pendingRouteStops: OptimizationStop[] = useMemo(
+    () => views.filter((v) => v.stop && (v.state === "NEXT" || v.state === "PENDING")).map((v) => v.stop as OptimizationStop),
+    [views]
+  );
 
   const recipientNameByDeliveryId = useMemo(
-    () => Object.fromEntries(Object.entries(statusByDeliveryId).map(([id, v]) => [id, v.name])),
-    [statusByDeliveryId]
+    () => Object.fromEntries(views.map((v) => [v.delivery.id, v.delivery.recipient.name])),
+    [views]
   );
 
-  // Before an optimized route exists (or while it's being (re)generated),
-  // still plot assigned deliveries that have geocoded coordinates so the map
-  // isn't blank — this is deliberately NOT presented as a route: no
-  // sequence numbers/polyline, just raw pin locations (spec §12 "assigned
-  // delivery locations" is independent of §14 route optimization).
-  const unroutedStops: OptimizationStop[] = useMemo(() => {
-    if (route) return [];
-    const candidates = (deliveriesQuery.data?.rows ?? []).filter((d) => d.status !== "DELIVERED");
-    // Coordinate validation (spec §"COORDINATE VALIDATION"): every address
-    // is checked for null/NaN/(0,0)/out-of-range/likely lat-lng-reversal
-    // before it's allowed near the map — bad ones are dropped (never
-    // silently "fixed" by swapping lat/lng) and logged in dev so a broken
-    // geocode is visible instead of just vanishing.
-    const valid = validateAndLogCoordinates(
-      candidates,
-      (d) => ({ latitude: d.address.latitude, longitude: d.address.longitude }),
-      (d) => `delivery ${d.trackingId} (${d.recipient.name})`
-    );
-    return valid.map((d, index) => ({
-      deliveryId: d.id,
-      sequence: index + 1,
-      latitude: d.address.latitude as number,
-      longitude: d.address.longitude as number,
-      estimatedArrival: ""
-    }));
-  }, [route, deliveriesQuery.data]);
+  const select = useCallback(
+    (deliveryId: string | null, source: SelectionSource = "map") => selectDeliveryInStore(deliveryId, source),
+    [selectDeliveryInStore]
+  );
 
   return {
     isLoading: routeQuery.isLoading || deliveriesQuery.isLoading,
-    isError: routeQuery.isError,
-    refetch: () => routeQuery.refetch(),
+    // A failed *route* fetch must not hide the deliveries that did load: the map
+    // still shows the pins, just without a route line.
+    isError: deliveriesQuery.isError && !deliveriesQuery.data,
+    routeError: routeQuery.isError,
+    isRefreshing: routeQuery.isFetching || deliveriesQuery.isFetching,
+    refetch: () => Promise.all([routeQuery.refetch(), deliveriesQuery.refetch()]),
     route,
-    statusByDeliveryId,
-    completedIds,
-    current,
+    roadGeometry: hasRoadGeometry(route),
+    routeIsStale: !!route?.stale,
+    views,
+    markers,
+    routeLine,
+    start: route?.solution.start ?? null,
     next,
-    recipientNameByDeliveryId,
-    unroutedStops
+    remaining,
+    doneCount,
+    total: views.length,
+    selectedView,
+    selectedDeliveryId,
+    select,
+    pendingRouteStops,
+    recipientNameByDeliveryId
   };
 }

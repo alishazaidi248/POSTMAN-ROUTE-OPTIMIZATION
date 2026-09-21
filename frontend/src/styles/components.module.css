@@ -16,12 +16,10 @@
 .statLabel {
   font-size: 12px;
   color: var(--color-ink-500);
-  text-transform: uppercase;
-  letter-spacing: 0.04em;
 }
 
 .statValue {
-  font-size: 26px;
+  font-size: 24px;
   font-weight: 700;
   margin-top: 4px;
 }
@@ -42,10 +40,11 @@
 .table th {
   text-align: left;
   padding: 8px 10px;
-  background: var(--color-red-50);
-  color: var(--color-ink-700);
+  background: #f8fafc;
+  color: var(--color-ink-500);
   border-bottom: 1px solid var(--color-border);
   font-weight: 600;
+  font-size: 12px;
   white-space: nowrap;
 }
 
@@ -55,7 +54,7 @@
 }
 
 .table tr:hover td {
-  background: #fafafa;
+  background: #f8fafc;
 }
 
 .badge {

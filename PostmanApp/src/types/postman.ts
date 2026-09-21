@@ -4,8 +4,8 @@ export interface Beat {
   id: string;
   beatNumber: string;
   name: string;
-  centerLatitude: number;
-  centerLongitude: number;
+  centerLatitude: number | null;
+  centerLongitude: number | null;
   status: "ACTIVE" | "INACTIVE";
 }
 
@@ -25,6 +25,7 @@ export interface Postman {
 export interface PostmanProfileResponse {
   postman: Postman;
   beat: Beat | null;
+  postOffice: { id: string; name: string; code: string } | null;
   lastKnownLocation: {
     latitude: number;
     longitude: number;

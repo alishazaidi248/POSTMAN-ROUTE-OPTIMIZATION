@@ -1,35 +1,43 @@
 import React from "react";
 import { GeoJSONSource, Layer } from "@maplibre/maplibre-react-native";
 import { colors } from "../../theme/colors";
-import { OptimizationStop } from "../../types/route";
+import { RouteLine } from "../../utils/routeView";
 
 interface Props {
-  stops: OptimizationStop[];
+  line: RouteLine;
 }
 
 /**
- * Straight-line connector between stops in sequence order. This is a visual
- * aid only, not the road-network path — the backend's optimizer currently
- * returns stop coordinates without a road polyline (see architecture
- * report §5); once it returns one (OSRM-backed), swap `coordinates` below
- * for the decoded polyline geometry.
+ * The route line. When the backend supplied road geometry it is drawn solid;
+ * a straight-line guide (routing engine unavailable) is drawn dashed so it is
+ * never mistaken for a road path. Stop numbers on the markers give the
+ * direction/order.
  */
-export function RoutePolyline({ stops }: Props) {
-  if (stops.length < 2) return null;
+export function RoutePolyline({ line }: Props) {
+  if (line.coordinates.length < 2) return null;
 
-  const sorted = [...stops].sort((a, b) => a.sequence - b.sequence);
-  const coordinates = sorted.map((s) => [s.longitude, s.latitude]);
+  const isRoad = line.source === "ROAD";
 
   return (
     <GeoJSONSource
       id="routeLine"
-      data={{ type: "Feature", properties: {}, geometry: { type: "LineString", coordinates } }}
+      data={{ type: "Feature", properties: {}, geometry: { type: "LineString", coordinates: line.coordinates } }}
     >
+      <Layer
+        id="routeLineCasing"
+        type="line"
+        layout={{ "line-join": "round", "line-cap": "round" }}
+        paint={{ "line-color": "#FFFFFF", "line-width": 8, "line-opacity": 0.9 }}
+      />
       <Layer
         id="routeLineLayer"
         type="line"
         layout={{ "line-join": "round", "line-cap": "round" }}
-        paint={{ "line-color": colors.mapCurrent, "line-width": 3, "line-dasharray": [1, 1.5] }}
+        paint={
+          isRoad
+            ? { "line-color": colors.mapCurrent, "line-width": 5 }
+            : { "line-color": colors.mapCurrent, "line-width": 3, "line-dasharray": [1, 1.5] }
+        }
       />
     </GeoJSONSource>
   );

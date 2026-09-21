@@ -9,7 +9,9 @@ const KEYS = {
   profile: "cache:profile",
   deliveries: "cache:deliveries",
   route: "cache:route",
-  mutationQueue: "offline:mutationQueue"
+  mutationQueue: "offline:mutationQueue",
+  // Which account the cached data and queued changes belong to.
+  owner: "cache:owner"
 } as const;
 
 async function readJson<T>(key: string): Promise<T | null> {
@@ -35,6 +37,9 @@ export const offlineStorage = {
 
   getCachedRoute: <T>() => readJson<T>(KEYS.route),
   setCachedRoute: (value: unknown) => writeJson(KEYS.route, value),
+
+  getOwner: () => readJson<string>(KEYS.owner),
+  setOwner: (userId: string) => writeJson(KEYS.owner, userId),
 
   getMutationQueue: <T>() => readJson<T[]>(KEYS.mutationQueue).then((v) => v ?? []),
   setMutationQueue: (value: unknown[]) => writeJson(KEYS.mutationQueue, value),

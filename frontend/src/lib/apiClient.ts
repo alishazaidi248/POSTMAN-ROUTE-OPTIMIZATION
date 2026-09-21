@@ -45,9 +45,14 @@ apiClient.interceptors.response.use(
         const newAccessToken = await refreshPromise;
         original.headers.Authorization = `Bearer ${newAccessToken}`;
         return apiClient(original);
-      } catch {
-        setTokens(null);
-        window.location.href = "/login";
+      } catch (refreshError: any) {
+        const status = refreshError?.response?.status;
+        if (status === 400 || status === 401 || status === 403) {
+          // The refresh token was really rejected: the session is over.
+          setTokens(null);
+          window.location.href = "/login";
+        }
+        // Server unreachable / restarting: keep the session and let the caller retry.
       }
     }
     return Promise.reject(error);

@@ -1,13 +1,13 @@
 import { Router } from "express";
 import { prisma } from "../config/prisma";
-import { requireAuth, requireRole, resolvePostOfficeScope, assertOwnsResource } from "../middleware/auth";
+import { requireAuth, requireRole, resolvePostOfficeScope, assertOwnsResource, adminOnly } from "../middleware/auth";
 import { asyncHandler } from "../utils/asyncHandler";
 import { toCsv } from "../utils/csv";
 import { getGeocodingService } from "../services/geocoding";
 import { assignDeliveryToBeat } from "../services/assignment.service";
 
 export const dataQualityRouter = Router();
-dataQualityRouter.use(requireAuth);
+dataQualityRouter.use(requireAuth, adminOnly);
 
 dataQualityRouter.get(
   "/summary",

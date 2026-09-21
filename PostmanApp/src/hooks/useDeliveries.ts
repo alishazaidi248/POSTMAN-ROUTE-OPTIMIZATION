@@ -1,24 +1,42 @@
-import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { useMemo } from "react";
+import { queryOptions, useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { SERVER_POLL_MS } from "../config/polling";
 import { deliveryApi } from "../api/deliveryApi";
 import { postmanApi } from "../api/postmanApi";
 import { offlineStorage } from "../storage/offlineStorage";
 import { useOfflineStore } from "../store/offlineStore";
-import { DeliveryStatus } from "../types/delivery";
+import { DeliveryListResponse, DeliveryStatus } from "../types/delivery";
 import { ApiError } from "../types/api";
 
-export function useDeliveries(status?: DeliveryStatus) {
-  const query = useQuery({
+/**
+ * The postman's deliveries: GET /me/deliveries, which the SERVER filters by the
+ * authenticated postman (never by an id sent from here). Re-read every minute and
+ * whenever the app comes back to the foreground, so admin changes arrive on their own.
+ */
+export const deliveriesQueryOptions = (status?: DeliveryStatus) =>
+  queryOptions({
     queryKey: ["deliveries", status ?? "ALL"],
     queryFn: async () => {
-      const data = await deliveryApi.listMine(status);
-      if (!status) await offlineStorage.setCachedDeliveries(data);
-      return data;
+      try {
+        const data = await deliveryApi.listMine(status);
+        if (!status) await offlineStorage.setCachedDeliveries(data);
+        return data;
+      } catch (err) {
+        // Offline on a cold start: show the last list this device saw.
+        if (!status && err instanceof ApiError && err.isNetworkError) {
+          const cached = await offlineStorage.getCachedDeliveries<DeliveryListResponse>();
+          if (cached) return cached;
+        }
+        throw err;
+      }
     },
-    staleTime: 60_000,
+    staleTime: 30_000,
+    refetchInterval: SERVER_POLL_MS,
     placeholderData: (prev) => prev
   });
 
-  return query;
+export function useDeliveries(status?: DeliveryStatus) {
+  return useQuery(deliveriesQueryOptions(status));
 }
 
 export function useDelivery(id: string | undefined) {
@@ -30,12 +48,16 @@ export function useDelivery(id: string | undefined) {
   });
 }
 
-export function useDeliveryStats() {
-  return useQuery({
+export const statsQueryOptions = () =>
+  queryOptions({
     queryKey: ["deliveryStats"],
     queryFn: () => postmanApi.getStats(),
-    staleTime: 60_000
+    staleTime: 30_000,
+    refetchInterval: SERVER_POLL_MS
   });
+
+export function useDeliveryStats() {
+  return useQuery(statsQueryOptions());
 }
 
 interface UpdateStatusInput {
@@ -76,10 +98,30 @@ export function useUpdateDeliveryStatus() {
         throw err;
       }
     },
-    onSuccess: (_result, variables) => {
+    onSuccess: (result, variables) => {
       queryClient.invalidateQueries({ queryKey: ["delivery", variables.deliveryId] });
       queryClient.invalidateQueries({ queryKey: ["deliveries"] });
       queryClient.invalidateQueries({ queryKey: ["deliveryStats"] });
+      // The server refreshes the route lazily when the set of active
+      // deliveries changes, so a fresh read is all that is needed. A queued
+      // (offline) update has not reached the server yet — nothing to refresh.
+      if (!result.queued) queryClient.invalidateQueries({ queryKey: ["route"] });
     }
   });
+}
+
+/**
+ * The status each delivery WILL have once the offline queue syncs (the last
+ * queued change wins; the queue is FIFO). Lets cards and map markers show what
+ * the postman just did while offline instead of looking like nothing happened.
+ */
+export function pendingStatusMap(queue: { deliveryId: string; status: DeliveryStatus }[]): Record<string, DeliveryStatus> {
+  const map: Record<string, DeliveryStatus> = {};
+  for (const mutation of queue) map[mutation.deliveryId] = mutation.status;
+  return map;
+}
+
+export function usePendingStatusOverrides(): Record<string, DeliveryStatus> {
+  const queue = useOfflineStore((s) => s.queue);
+  return useMemo(() => pendingStatusMap(queue), [queue]);
 }

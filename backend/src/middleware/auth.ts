@@ -90,3 +90,21 @@ export function assertOwnsResource(req: Request, resourcePostOfficeId: string): 
     throw AppError.notFound("Resource not found");
   }
 }
+
+/** Back-office roles. Every data-management router is locked to these: a POSTMAN
+ * token may only use /me/*, /auth/*, /notifications and the two delivery calls
+ * that re-check ownership (GET /deliveries/:id, POST /deliveries/:id/status). */
+export const adminOnly = requireRole("ADMIN", "SUPER_ADMIN");
+
+/**
+ * Two records that are about to be linked (a postman to a beat, a delivery to a
+ * postman, ...) must belong to the SAME post office. assertOwnsResource only
+ * compares each record to the caller, which a SUPER_ADMIN passes for any office,
+ * so cross-office links would otherwise slip through for them.
+ */
+export function assertSameOffice(...postOfficeIds: (string | null | undefined)[]): void {
+  const ids = postOfficeIds.filter((id): id is string => !!id);
+  if (new Set(ids).size > 1) {
+    throw AppError.badRequest("These records belong to different post offices and cannot be linked");
+  }
+}

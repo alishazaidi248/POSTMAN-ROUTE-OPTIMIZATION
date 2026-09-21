@@ -35,7 +35,13 @@ const createUserSchema = z.object({
       email: z.string().email(),
       password: z.string().min(8, "Password must be at least 8 characters"),
       role: z.nativeEnum(UserRole),
-      postOfficeId: z.string().uuid().optional()
+      postOfficeId: z.string().uuid().optional(),
+      // Required for a POSTMAN login: the postman record the account belongs to.
+      postmanId: z.string().uuid().optional()
+    })
+    .refine((data) => data.role !== "POSTMAN" || !!data.postmanId, {
+      message: "postmanId is required for a POSTMAN account",
+      path: ["postmanId"]
     })
     .refine((data) => data.role === "SUPER_ADMIN" || !!data.postOfficeId, {
       message: "postOfficeId is required for ADMIN and POSTMAN accounts",
@@ -50,6 +56,14 @@ usersRouter.post(
     const existing = await prisma.user.findUnique({ where: { email: req.body.email } });
     if (existing) throw AppError.conflict("A user with this email already exists");
 
+    if (req.body.role === "POSTMAN") {
+      const postman = await prisma.postman.findUnique({ where: { id: req.body.postmanId }, include: { user: { select: { id: true } } } });
+      if (!postman || postman.postOfficeId !== req.body.postOfficeId) {
+        throw AppError.badRequest("That postman does not exist in the given post office");
+      }
+      if (postman.user) throw AppError.conflict("This postman already has a login account");
+    }
+
     const passwordHash = await hashPassword(req.body.password);
     const created = await prisma.user.create({
       data: {
@@ -57,7 +71,8 @@ usersRouter.post(
         email: req.body.email,
         passwordHash,
         role: req.body.role,
-        postOfficeId: req.body.role === "SUPER_ADMIN" ? null : req.body.postOfficeId
+        postOfficeId: req.body.role === "SUPER_ADMIN" ? null : req.body.postOfficeId,
+        postmanId: req.body.role === "POSTMAN" ? req.body.postmanId : undefined
       },
       include: { postOffice: { select: { id: true, name: true, code: true } } }
     });

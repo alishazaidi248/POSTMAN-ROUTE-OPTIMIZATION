@@ -1,11 +1,11 @@
 import { Router } from "express";
 import { Prisma } from "@prisma/client";
 import { prisma } from "../config/prisma";
-import { requireAuth, resolvePostOfficeScope } from "../middleware/auth";
+import { requireAuth, resolvePostOfficeScope, adminOnly } from "../middleware/auth";
 import { asyncHandler } from "../utils/asyncHandler";
 
 export const mapsRouter = Router();
-mapsRouter.use(requireAuth);
+mapsRouter.use(requireAuth, adminOnly);
 
 mapsRouter.get(
   "/beats",
@@ -13,7 +13,7 @@ mapsRouter.get(
     const postOfficeId = resolvePostOfficeScope(req);
     const beats = await prisma.$queryRaw<any[]>(Prisma.sql`
       SELECT b.id, b.beat_number AS "beatNumber", b.name, b.status, b."postOfficeId",
-             po.name AS "postOfficeName",
+             po.name AS "postOfficeName", b."verificationStatus",
              ST_AsGeoJSON(b.boundary)::json AS geometry
       FROM "Beat" b
       JOIN "PostOffice" po ON po.id = b."postOfficeId"
@@ -32,7 +32,8 @@ mapsRouter.get(
           name: b.name,
           status: b.status,
           postOfficeId: b.postOfficeId,
-          postOfficeName: b.postOfficeName
+          postOfficeName: b.postOfficeName,
+          verificationStatus: b.verificationStatus
         }
       }))
     });

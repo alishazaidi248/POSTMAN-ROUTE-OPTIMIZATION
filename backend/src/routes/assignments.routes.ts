@@ -1,13 +1,13 @@
 import { Router } from "express";
 import { z } from "zod";
 import { prisma } from "../config/prisma";
-import { requireAuth, requireRole, resolvePostOfficeScope, assertOwnsResource } from "../middleware/auth";
+import { requireAuth, requireRole, resolvePostOfficeScope, assertOwnsResource, adminOnly } from "../middleware/auth";
 import { validate } from "../middleware/validate";
 import { asyncHandler } from "../utils/asyncHandler";
 import { overrideAssignment } from "../services/assignment.service";
 
 export const assignmentsRouter = Router();
-assignmentsRouter.use(requireAuth);
+assignmentsRouter.use(requireAuth, adminOnly);
 
 assignmentsRouter.get(
   "/exceptions",

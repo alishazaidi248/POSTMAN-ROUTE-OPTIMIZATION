@@ -2,168 +2,314 @@ import { Router } from "express";
 import { z } from "zod";
 import { Prisma } from "@prisma/client";
 import { prisma } from "../config/prisma";
-import { requireAuth, requireRole, resolvePostOfficeScope, assertCanWriteToPostOffice, assertOwnsResource } from "../middleware/auth";
+import { requireAuth, adminOnly, resolvePostOfficeScope, assertOwnsResource } from "../middleware/auth";
 import { validate } from "../middleware/validate";
 import { asyncHandler } from "../utils/asyncHandler";
 import { AppError } from "../utils/AppError";
 import { recordAudit } from "../services/audit.service";
-import { setPostmanBeatAssignment } from "../services/assignment.service";
+import { assignPostmanToBeatTx, rematchOfficeDeliveries, setBeatPostman } from "../services/assignment.service";
+import { assertValidBoundary, geoJsonPolygon } from "../services/beats/territory";
 
+/**
+ * Beats are stored ONLY in PostgreSQL/PostGIS. The polygon is a PostGIS
+ * geometry(Polygon, 4326); every read rebuilds the GeoJSON from that column, so
+ * nothing about a beat lives in the browser. All endpoints are back-office only.
+ */
 export const beatsRouter = Router();
-beatsRouter.use(requireAuth);
+beatsRouter.use(requireAuth, adminOnly);
 
-const geoJsonPolygon = z.object({
-  type: z.literal("Polygon"),
-  coordinates: z.array(z.array(z.tuple([z.number(), z.number()])))
-});
+// ── reads (the database, always) ───────────────────────────────────────────
+
+const beatSelect = Prisma.sql`
+  SELECT b.id, b."postOfficeId", po.name AS "postOfficeName", b.beat_number AS "beatNumber", b.name, b.status,
+         b."centerLatitude", b."centerLongitude", b.metadata, b."createdAt", b."updatedAt",
+         b."verificationStatus", b."verifiedAt",
+         (SELECT u.name FROM "User" u WHERE u.id = b."verifiedById") AS "verifiedByName",
+         (b.boundary IS NOT NULL) AS "hasTerritory",
+         ST_AsGeoJSON(b.boundary)::json AS boundary,
+         (SELECT COUNT(*)::int FROM "Delivery" d WHERE d."beatId" = b.id) AS "deliveryCount",
+         (SELECT pba."postmanId" FROM "PostmanBeatAssignment" pba
+            WHERE pba."beatId" = b.id AND pba."isActive" = true LIMIT 1) AS "assignedPostmanId",
+         (SELECT p.name FROM "PostmanBeatAssignment" pba
+            JOIN "Postman" p ON p.id = pba."postmanId"
+            WHERE pba."beatId" = b.id AND pba."isActive" = true LIMIT 1) AS "assignedPostmanName"
+  FROM "Beat" b
+  JOIN "PostOffice" po ON po.id = b."postOfficeId"
+`;
+
+async function readBeat(db: Prisma.TransactionClient | typeof prisma, id: string) {
+  const rows = await db.$queryRaw<any[]>(Prisma.sql`${beatSelect} WHERE b.id = ${id}`);
+  if (rows.length === 0) throw AppError.notFound("Beat not found");
+  // boundaryGeoJson kept as an alias for older callers.
+  return { ...rows[0], boundaryGeoJson: rows[0].boundary };
+}
+
+/** Other ACTIVE beats of the same office whose polygon overlaps this one (a delivery inside both would need manual resolution). */
+async function overlappingBeats(db: Prisma.TransactionClient | typeof prisma, beatId: string) {
+  return db.$queryRaw<{ id: string; beatNumber: string }[]>(Prisma.sql`
+    SELECT o.id, o.beat_number AS "beatNumber"
+    FROM "Beat" b JOIN "Beat" o ON o."postOfficeId" = b."postOfficeId" AND o.id <> b.id AND o.status = 'ACTIVE'
+    WHERE b.id = ${beatId} AND b.boundary IS NOT NULL AND o.boundary IS NOT NULL
+      AND ST_Area(ST_Intersection(b.boundary, o.boundary)::geography) > 1
+  `);
+}
 
 beatsRouter.get(
   "/",
   asyncHandler(async (req, res) => {
     const postOfficeId = resolvePostOfficeScope(req);
-    const beats = await prisma.$queryRaw(Prisma.sql`
-      SELECT b.id, b."postOfficeId", po.name AS "postOfficeName", b.beat_number AS "beatNumber", b.name, b.status,
-             b."centerLatitude", b."centerLongitude", b.metadata,
-             ST_AsGeoJSON(b.boundary)::json AS boundary,
-             (SELECT COUNT(*)::int FROM "Delivery" d WHERE d."beatId" = b.id) AS "deliveryCount",
-             (SELECT p.name FROM "PostmanBeatAssignment" pba
-                JOIN "Postman" p ON p.id = pba."postmanId"
-                WHERE pba."beatId" = b.id AND pba."isActive" = true
-                LIMIT 1) AS "assignedPostmanName"
-      FROM "Beat" b
-      JOIN "PostOffice" po ON po.id = b."postOfficeId"
+    const beats = await prisma.$queryRaw<any[]>(Prisma.sql`
+      ${beatSelect}
       WHERE (${postOfficeId}::text IS NULL OR b."postOfficeId" = ${postOfficeId})
       ORDER BY po.name ASC, b.beat_number ASC
     `);
-    res.json(beats);
+    res.json(beats.map((b) => ({ ...b, boundaryGeoJson: b.boundary })));
   })
 );
 
 beatsRouter.get(
   "/:id",
   asyncHandler(async (req, res) => {
-    const rows = await prisma.$queryRaw<any[]>(Prisma.sql`
-      SELECT b.id, b."postOfficeId", po.name AS "postOfficeName", b.beat_number AS "beatNumber", b.name, b.status,
-             b."centerLatitude", b."centerLongitude", b.metadata, b."createdAt", b."updatedAt",
-             ST_AsGeoJSON(b.boundary)::json AS "boundaryGeoJson",
-             (SELECT COUNT(*)::int FROM "Delivery" d WHERE d."beatId" = b.id) AS "deliveryCount",
-             (SELECT p.name FROM "PostmanBeatAssignment" pba
-                JOIN "Postman" p ON p.id = pba."postmanId"
-                WHERE pba."beatId" = b.id AND pba."isActive" = true
-                LIMIT 1) AS "assignedPostmanName"
-      FROM "Beat" b
-      JOIN "PostOffice" po ON po.id = b."postOfficeId"
-      WHERE b.id = ${req.params.id}
-    `);
-    if (rows.length === 0) throw AppError.notFound("Beat not found");
-    assertOwnsResource(req, rows[0].postOfficeId);
-    res.json(rows[0]);
+    const beat = await readBeat(prisma, req.params.id);
+    assertOwnsResource(req, beat.postOfficeId);
+    res.json(beat);
   })
 );
 
+// ── create ─────────────────────────────────────────────────────────────────
+
 const beatSchema = z.object({
   body: z.object({
-    postOfficeId: z.string().uuid(),
-    beatNumber: z.string().min(1),
-    name: z.string().min(1),
-    centerLatitude: z.number(),
-    centerLongitude: z.number(),
+    // Omit for an ADMIN: their own post office is used. A SUPER_ADMIN must say which.
+    postOfficeId: z.string().uuid().optional(),
+    beatNumber: z.string().trim().min(1).max(30),
+    name: z.string().trim().min(1).max(120),
+    // Optional: computed by PostGIS (a point guaranteed to be inside the polygon) when omitted.
+    centerLatitude: z.number().min(-90).max(90).optional(),
+    centerLongitude: z.number().min(-180).max(180).optional(),
     boundary: geoJsonPolygon,
-    metadata: z.record(z.any()).optional()
+    metadata: z.record(z.any()).optional(),
+    // Give the new beat its postman in the same transaction.
+    postmanId: z.string().uuid().nullable().optional()
   })
 });
 
 beatsRouter.post(
   "/",
-  requireRole("ADMIN", "SUPER_ADMIN"),
   validate(beatSchema),
   asyncHandler(async (req, res) => {
-    const { postOfficeId, beatNumber, name, centerLatitude, centerLongitude, boundary, metadata } = req.body;
-    assertCanWriteToPostOffice(req, postOfficeId);
-    const geoJsonStr = JSON.stringify(boundary);
+    const { beatNumber, name, boundary, metadata, postmanId } = req.body;
 
-    const rows = await prisma.$queryRaw<any[]>(Prisma.sql`
-      INSERT INTO "Beat" (id, "postOfficeId", beat_number, name, boundary, "centerLatitude", "centerLongitude", status, metadata, "createdAt", "updatedAt")
-      VALUES (gen_random_uuid(), ${postOfficeId}, ${beatNumber}, ${name}, ST_SetSRID(ST_GeomFromGeoJSON(${geoJsonStr}), 4326),
-              ${centerLatitude}, ${centerLongitude}, 'ACTIVE', ${metadata ? JSON.stringify(metadata) : null}::jsonb, now(), now())
-      RETURNING id, "postOfficeId", beat_number AS "beatNumber", name, "centerLatitude", "centerLongitude", status
-    `);
+    const postOfficeId = req.user!.role === "SUPER_ADMIN" ? req.body.postOfficeId : (req.body.postOfficeId ?? req.user!.postOfficeId);
+    if (!postOfficeId) throw AppError.badRequest("postOfficeId is required for a Super Admin");
+    // An ADMIN naming another office is refused; a SUPER_ADMIN may target any.
+    if (req.user!.role !== "SUPER_ADMIN" && postOfficeId !== req.user!.postOfficeId) {
+      throw AppError.forbidden("Cannot create resources for another post office");
+    }
 
-    await recordAudit({ req, action: "BEAT_CREATED", entityType: "Beat", entityId: rows[0].id, newValue: rows[0] });
-    res.status(201).json(rows[0]);
+    const id = await prisma.$transaction(
+      async (tx) => {
+        const office = await tx.postOffice.findUnique({ where: { id: postOfficeId }, select: { id: true } });
+        if (!office) throw AppError.notFound("Post office not found");
+
+        const duplicate = await tx.beat.findUnique({ where: { postOfficeId_beatNumber: { postOfficeId, beatNumber } }, select: { id: true } });
+        if (duplicate) throw AppError.conflict(`Beat ${beatNumber} already exists in this post office`);
+
+        const computed = await assertValidBoundary(tx, boundary);
+        const centerLatitude = req.body.centerLatitude ?? computed.centerLatitude;
+        const centerLongitude = req.body.centerLongitude ?? computed.centerLongitude;
+
+        const rows = await tx.$queryRaw<{ id: string }[]>(Prisma.sql`
+          INSERT INTO "Beat" (id, "postOfficeId", beat_number, name, boundary, "centerLatitude", "centerLongitude", status, metadata,
+                              "verificationStatus", "verifiedAt", "verifiedById", "createdAt", "updatedAt")
+          VALUES (gen_random_uuid(), ${postOfficeId}, ${beatNumber}, ${name}, ST_SetSRID(ST_GeomFromGeoJSON(${JSON.stringify(boundary)}), 4326),
+                  ${centerLatitude}, ${centerLongitude}, 'ACTIVE', ${metadata ? JSON.stringify(metadata) : null}::jsonb,
+                  'VERIFIED', now(), ${req.user!.sub}, now(), now())
+          RETURNING id
+        `);
+        const beatId = rows[0].id;
+
+        if (postmanId) await assignPostmanToBeatTx(tx, postmanId, beatId, req.user!.sub);
+        return beatId;
+      },
+      { timeout: 30_000 }
+    );
+
+    // A new polygon may now contain addresses that had no beat.
+    const rematch = await rematchOfficeDeliveries(postOfficeId);
+
+    // The record the client shows is read back from PostgreSQL, not echoed.
+    const created = await readBeat(prisma, id);
+    const overlaps = await overlappingBeats(prisma, id);
+    await recordAudit({ req, action: "BEAT_CREATED", entityType: "Beat", entityId: id, newValue: { ...created, boundary: undefined, boundaryGeoJson: undefined } });
+    res.status(201).json({ ...created, overlaps, rematch });
   })
 );
+
+// ── update ─────────────────────────────────────────────────────────────────
+
+const beatUpdateSchema = z.object({
+  body: z
+    .object({
+      beatNumber: z.string().trim().min(1).max(30).optional(),
+      name: z.string().trim().min(1).max(120).optional(),
+      centerLatitude: z.number().min(-90).max(90).optional(),
+      centerLongitude: z.number().min(-180).max(180).optional(),
+      boundary: geoJsonPolygon.optional(),
+      // With a new boundary: mark the beat verified in the same action (the administrator has just
+      // looked at the territory). Without it a changed territory awaits verification.
+      verified: z.boolean().optional(),
+      metadata: z.record(z.any()).optional()
+    })
+    .refine((b) => Object.keys(b).length > 0, { message: "Nothing to update" })
+});
 
 beatsRouter.put(
   "/:id",
-  requireRole("ADMIN", "SUPER_ADMIN"),
+  validate(beatUpdateSchema),
   asyncHandler(async (req, res) => {
-    const { beatNumber, name, centerLatitude, centerLongitude, boundary, metadata } = req.body as {
-      beatNumber?: string; name?: string; centerLatitude?: number; centerLongitude?: number; boundary?: unknown; metadata?: Record<string, unknown>;
-    };
-
-    const before = await prisma.beat.findUniqueOrThrow({ where: { id: req.params.id } });
+    const { boundary, verified, ...fields } = req.body as z.infer<typeof beatUpdateSchema>["body"];
+    const before = await readBeat(prisma, req.params.id);
     assertOwnsResource(req, before.postOfficeId);
 
-    if (boundary) {
-      await prisma.$executeRaw(Prisma.sql`
-        UPDATE "Beat" SET boundary = ST_SetSRID(ST_GeomFromGeoJSON(${JSON.stringify(boundary)}), 4326), "updatedAt" = now()
-        WHERE id = ${req.params.id}
-      `);
+    if (fields.beatNumber && fields.beatNumber !== before.beatNumber) {
+      const clash = await prisma.beat.findUnique({
+        where: { postOfficeId_beatNumber: { postOfficeId: before.postOfficeId, beatNumber: fields.beatNumber } },
+        select: { id: true }
+      });
+      if (clash) throw AppError.conflict(`Beat ${fields.beatNumber} already exists in this post office`);
     }
 
-    const updated = await prisma.beat.update({
-      where: { id: req.params.id },
-      data: {
-        beatNumber,
-        name,
-        centerLatitude,
-        centerLongitude,
-        metadata: metadata as any
+    // Boundary and attributes change together or not at all.
+    await prisma.$transaction(async (tx) => {
+      if (boundary) {
+        const computed = await assertValidBoundary(tx, boundary);
+        await tx.$executeRaw(Prisma.sql`
+          UPDATE "Beat" SET boundary = ST_SetSRID(ST_GeomFromGeoJSON(${JSON.stringify(boundary)}), 4326), "updatedAt" = now(),
+            "verificationStatus" = ${verified ? "VERIFIED" : "PENDING_VERIFICATION"}::"BeatVerificationStatus",
+            "verifiedAt" = ${verified ? new Date() : null},
+            "verifiedById" = ${verified ? req.user!.sub : null}
+          WHERE id = ${req.params.id}
+        `);
+        if (fields.centerLatitude === undefined) fields.centerLatitude = computed.centerLatitude;
+        if (fields.centerLongitude === undefined) fields.centerLongitude = computed.centerLongitude;
       }
+      await tx.beat.update({
+        where: { id: req.params.id },
+        data: {
+          beatNumber: fields.beatNumber,
+          name: fields.name,
+          centerLatitude: fields.centerLatitude,
+          centerLongitude: fields.centerLongitude,
+          metadata: fields.metadata as Prisma.InputJsonValue | undefined
+        }
+      });
     });
 
-    await recordAudit({ req, action: "BEAT_UPDATED", entityType: "Beat", entityId: updated.id, oldValue: before, newValue: updated });
-    res.json(updated);
+    // Parcels whose address now falls in a different (or no) polygon follow it.
+    const rematch = boundary ? await rematchOfficeDeliveries(before.postOfficeId) : undefined;
+
+    const updated = await readBeat(prisma, req.params.id);
+    await recordAudit({
+      req,
+      action: boundary ? "BEAT_TERRITORY_UPDATED" : "BEAT_UPDATED",
+      entityType: "Beat",
+      entityId: req.params.id,
+      oldValue: { ...before, boundary: undefined, boundaryGeoJson: undefined },
+      newValue: { ...updated, boundary: undefined, boundaryGeoJson: undefined }
+    });
+    res.json({ ...updated, overlaps: boundary ? await overlappingBeats(prisma, req.params.id) : undefined, rematch });
   })
 );
 
+// ── verification ───────────────────────────────────────────────────────────
+
+/**
+ * An administrator confirms that this beat's territory is right. Stored in PostgreSQL (who, when),
+ * so it survives refresh, logout and restart. Only a beat that HAS a territory can be verified;
+ * from then on its territory takes part in matching deliveries to the beat.
+ */
+beatsRouter.post(
+  "/:id/verify",
+  asyncHandler(async (req, res) => {
+    const before = await readBeat(prisma, req.params.id);
+    assertOwnsResource(req, before.postOfficeId);
+    if (!before.hasTerritory) {
+      throw AppError.badRequest("This beat has no territory yet. Draw its territory on the map, then verify it.");
+    }
+    if (before.verificationStatus !== "VERIFIED") {
+      await prisma.beat.update({
+        where: { id: req.params.id },
+        data: { verificationStatus: "VERIFIED", verifiedAt: new Date(), verifiedById: req.user!.sub }
+      });
+    }
+    // Verified territories are the ones deliveries are matched against.
+    const rematch = await rematchOfficeDeliveries(before.postOfficeId);
+    const verified = await readBeat(prisma, req.params.id);
+    if (before.verificationStatus !== "VERIFIED") {
+      await recordAudit({
+        req,
+        action: "BEAT_VERIFIED",
+        entityType: "Beat",
+        entityId: req.params.id,
+        oldValue: { verificationStatus: before.verificationStatus },
+        newValue: { verificationStatus: "VERIFIED", beatNumber: verified.beatNumber }
+      });
+    }
+    res.json({ ...verified, overlaps: await overlappingBeats(prisma, req.params.id), rematch });
+  })
+);
+
+// ── status ─────────────────────────────────────────────────────────────────
+
 beatsRouter.post(
   "/:id/deactivate",
-  requireRole("ADMIN", "SUPER_ADMIN"),
   asyncHandler(async (req, res) => {
     const existing = await prisma.beat.findUniqueOrThrow({ where: { id: req.params.id } });
     assertOwnsResource(req, existing.postOfficeId);
-    const updated = await prisma.beat.update({ where: { id: req.params.id }, data: { status: "INACTIVE" } });
-    await recordAudit({ req, action: "BEAT_DEACTIVATED", entityType: "Beat", entityId: updated.id });
-    res.json(updated);
+    await prisma.beat.update({ where: { id: req.params.id }, data: { status: "INACTIVE" } });
+    await recordAudit({ req, action: "BEAT_DEACTIVATED", entityType: "Beat", entityId: req.params.id });
+    res.json(await readBeat(prisma, req.params.id));
   })
 );
 
 beatsRouter.post(
   "/:id/activate",
-  requireRole("ADMIN", "SUPER_ADMIN"),
   asyncHandler(async (req, res) => {
     const existing = await prisma.beat.findUniqueOrThrow({ where: { id: req.params.id } });
     assertOwnsResource(req, existing.postOfficeId);
-    const updated = await prisma.beat.update({ where: { id: req.params.id }, data: { status: "ACTIVE" } });
-    await recordAudit({ req, action: "BEAT_UPDATED", entityType: "Beat", entityId: updated.id, newValue: { status: "ACTIVE" } });
-    res.json(updated);
+    await prisma.beat.update({ where: { id: req.params.id }, data: { status: "ACTIVE" } });
+    await rematchOfficeDeliveries(existing.postOfficeId);
+    await recordAudit({ req, action: "BEAT_UPDATED", entityType: "Beat", entityId: req.params.id, newValue: { status: "ACTIVE" } });
+    res.json(await readBeat(prisma, req.params.id));
   })
 );
 
+// ── postman assignment ─────────────────────────────────────────────────────
+
 beatsRouter.post(
   "/:id/assign-postman",
-  requireRole("ADMIN", "SUPER_ADMIN"),
-  validate(z.object({ body: z.object({ postmanId: z.string().uuid() }) })),
+  // postmanId: null clears the beat's postman.
+  validate(z.object({ body: z.object({ postmanId: z.string().uuid().nullable() }) })),
   asyncHandler(async (req, res) => {
     const beat = await prisma.beat.findUniqueOrThrow({ where: { id: req.params.id } });
     assertOwnsResource(req, beat.postOfficeId);
-    const postman = await prisma.postman.findUniqueOrThrow({ where: { id: req.body.postmanId } });
-    assertOwnsResource(req, postman.postOfficeId);
-    const updated = await setPostmanBeatAssignment(req.body.postmanId, req.params.id);
-    await recordAudit({ req, action: "BEAT_UPDATED", entityType: "Beat", entityId: req.params.id, newValue: updated });
-    res.status(201).json(updated);
+    if (req.body.postmanId) {
+      const postman = await prisma.postman.findUniqueOrThrow({ where: { id: req.body.postmanId } });
+      assertOwnsResource(req, postman.postOfficeId);
+    }
+
+    // One transaction: assignment rows, both postmen's denormalised beat, and the beat's parcels.
+    await setBeatPostman(req.params.id, req.body.postmanId, req.user!.sub);
+
+    await recordAudit({
+      req,
+      action: "BEAT_POSTMAN_ASSIGNED",
+      entityType: "Beat",
+      entityId: req.params.id,
+      newValue: { assignedPostmanId: req.body.postmanId }
+    });
+    res.status(201).json(await readBeat(prisma, req.params.id));
   })
 );
 

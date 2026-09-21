@@ -1,13 +1,13 @@
 import { Router } from "express";
 import { z } from "zod";
 import { prisma } from "../config/prisma";
-import { requireAuth, requireRole } from "../middleware/auth";
+import { requireAuth, requireRole, adminOnly, assertOwnsResource } from "../middleware/auth";
 import { validate } from "../middleware/validate";
 import { asyncHandler } from "../utils/asyncHandler";
 import { recordAudit } from "../services/audit.service";
 
 export const postOfficesRouter = Router();
-postOfficesRouter.use(requireAuth);
+postOfficesRouter.use(requireAuth, adminOnly);
 
 postOfficesRouter.get(
   "/",
@@ -47,6 +47,7 @@ postOfficesRouter.get(
   "/:id",
   asyncHandler(async (req, res) => {
     const postOffice = await prisma.postOffice.findUniqueOrThrow({ where: { id: req.params.id } });
+    assertOwnsResource(req, postOffice.id);
     res.json(postOffice);
   })
 );

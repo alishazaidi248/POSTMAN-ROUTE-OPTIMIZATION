@@ -1,6 +1,6 @@
 import { Router } from "express";
 import { prisma } from "../config/prisma";
-import { requireAuth, resolvePostOfficeScope } from "../middleware/auth";
+import { requireAuth, resolvePostOfficeScope, adminOnly } from "../middleware/auth";
 import { asyncHandler } from "../utils/asyncHandler";
 
 /**
@@ -11,7 +11,7 @@ import { asyncHandler } from "../utils/asyncHandler";
  * honest "no analysis has been run yet" state instead of fabricated charts.
  */
 export const researchRouter = Router();
-researchRouter.use(requireAuth);
+researchRouter.use(requireAuth, adminOnly);
 
 researchRouter.get(
   "/density",

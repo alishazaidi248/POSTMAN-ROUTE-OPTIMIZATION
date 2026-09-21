@@ -7,7 +7,7 @@ import { publishDeliveryEvent, DeliveryEventType } from "./events.service";
  * Explicit allow-list of state transitions (spec §23). Anything not listed
  * here is rejected — no arbitrary status writes.
  */
-const ALLOWED_TRANSITIONS: Record<DeliveryStatus, DeliveryStatus[]> = {
+export const ALLOWED_TRANSITIONS: Record<DeliveryStatus, DeliveryStatus[]> = {
   RECEIVED: ["SORTED", "CANCELLED"],
   SORTED: ["ASSIGNED", "CANCELLED"],
   ASSIGNED: ["OUT_FOR_DELIVERY", "CANCELLED", "RESCHEDULED"],

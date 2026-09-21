@@ -1,130 +1,196 @@
+/* Application shell: header on top, a FIXED sidebar, and a content area that scrolls by itself. */
+
 .shell {
-  display: grid;
-  grid-template-columns: 220px 1fr;
-  height: 100vh;
-}
-
-.sidebar {
-  background: var(--color-red-900);
-  color: #fff;
-  padding: var(--space-4) 0;
-  display: flex;
-  flex-direction: column;
-  position: sticky;
-  top: 0;
-  height: 100vh;
-  overflow-y: auto;
-}
-
-.brand {
-  padding: 0 var(--space-4) var(--space-4);
-  border-bottom: 1px solid rgba(255, 255, 255, 0.15);
-  margin-bottom: var(--space-3);
-}
-
-.brandTitle {
-  font-size: 15px;
-  font-weight: 700;
-  letter-spacing: 0.02em;
-}
-
-.brandSubtitle {
-  font-size: 11px;
-  opacity: 0.75;
-  margin-top: 2px;
-}
-
-.nav {
-  display: flex;
-  flex-direction: column;
-  gap: 2px;
-}
-
-.navLink {
-  padding: 8px 16px;
-  color: rgba(255, 255, 255, 0.85);
-  text-decoration: none;
-  font-size: 13px;
-  border-left: 3px solid transparent;
-}
-
-.navLink:hover {
-  background: rgba(255, 255, 255, 0.08);
-}
-
-.navLinkActive {
-  background: rgba(255, 255, 255, 0.14);
-  border-left-color: #fff;
-  color: #fff;
-  font-weight: 600;
-}
-
-.main {
-  display: flex;
-  flex-direction: column;
-  min-width: 0;
   height: 100vh;
   overflow: hidden;
 }
 
-.topbar {
+.header {
+  position: fixed;
+  inset: 0 0 auto 0;
+  height: var(--header-h);
+  z-index: 50;
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding: 0 var(--space-5);
-  height: 52px;
+  gap: var(--space-4);
+  padding: 0 var(--space-4);
   background: var(--color-surface);
   border-bottom: 1px solid var(--color-border);
 }
 
-.titleGroup {
+.headerLeft {
   display: flex;
   align-items: center;
   gap: var(--space-3);
+  min-width: 0;
 }
 
-.pageTitle {
-  font-size: 16px;
-  font-weight: 600;
-}
-
-.backButton {
-  background: none;
-  border: 1px solid var(--color-border);
+.iconButton {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  height: 32px;
+  border: 0;
   border-radius: var(--radius-sm);
-  width: 28px;
-  height: 28px;
-  font-size: 15px;
-  line-height: 1;
+  background: transparent;
+  color: var(--color-ink-700);
   cursor: pointer;
+}
+.iconButton:hover { background: var(--color-ink-100); }
+
+.brand {
   display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  font-weight: 700;
+  font-size: 14px;
+  color: var(--color-ink-900);
+  white-space: nowrap;
+}
+
+.brandMark {
+  width: 24px;
+  height: 24px;
+  border-radius: 6px;
+  background: var(--color-primary);
+  color: #fff;
+  display: inline-flex;
   align-items: center;
   justify-content: center;
 }
 
-.backButton:hover {
-  background: rgba(0, 0, 0, 0.05);
-}
-
-.content {
-  padding: var(--space-5);
-  flex: 1;
-  overflow-y: auto;
-}
-
-.userChip {
-  font-size: 12px;
+.crumbs {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
   color: var(--color-ink-500);
+  font-size: 13px;
+  min-width: 0;
+}
+.crumbs strong { color: var(--color-ink-900); font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+
+.userArea {
   display: flex;
   align-items: center;
   gap: var(--space-3);
+  min-width: 0;
 }
 
+.userText { text-align: right; line-height: 1.2; min-width: 0; }
+.userName { font-size: 13px; font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 260px; }
+.userRole { font-size: 11px; color: var(--color-ink-500); white-space: nowrap; }
+
 .logoutButton {
-  background: none;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
   border: 1px solid var(--color-border);
+  background: var(--color-surface);
   border-radius: var(--radius-sm);
-  padding: 4px 10px;
-  cursor: pointer;
+  padding: 5px 10px;
   font-size: 12px;
+  color: var(--color-ink-700);
+  cursor: pointer;
+}
+.logoutButton:hover { background: var(--color-ink-100); }
+
+/* sidebar: fixed to the window, scrolls independently of the page */
+.sidebar {
+  position: fixed;
+  top: var(--header-h);
+  bottom: 0;
+  left: 0;
+  width: var(--sidebar-w);
+  z-index: 40;
+  overflow-y: auto;
+  padding: var(--space-3) var(--space-2) var(--space-4);
+  background: var(--color-surface);
+  border-right: 1px solid var(--color-border);
+  transition: width 0.15s ease, transform 0.18s ease;
+}
+
+.sidebarRail { width: var(--sidebar-w-rail); }
+
+.group { margin-bottom: var(--space-3); }
+
+.groupLabel {
+  padding: var(--space-2) 10px 4px;
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--color-ink-300);
+  white-space: nowrap;
+}
+.sidebarRail .groupLabel { visibility: hidden; height: 8px; padding: 0; }
+
+.navLink {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  height: 34px;
+  padding: 0 10px;
+  margin: 1px 0;
+  border-radius: var(--radius-sm);
+  color: var(--color-ink-700);
+  text-decoration: none;
+  font-size: 13px;
+  white-space: nowrap;
+}
+.navLink:hover { background: var(--color-ink-100); }
+.navLinkActive,
+.navLinkActive:hover {
+  background: var(--color-primary-soft);
+  color: var(--color-primary);
+  font-weight: 600;
+}
+.navIcon { flex: 0 0 18px; display: inline-flex; }
+.sidebarRail .navLabel { display: none; }
+.sidebarRail .navLink { justify-content: center; padding: 0; }
+
+.scrim { display: none; }
+
+/* content */
+.main {
+  position: absolute;
+  top: var(--header-h);
+  right: 0;
+  bottom: 0;
+  left: var(--sidebar-w);
+  overflow-y: auto;
+  overflow-x: hidden;
+  transition: left 0.15s ease;
+}
+.mainRail { left: var(--sidebar-w-rail); }
+
+.content {
+  padding: var(--space-5);
+  min-width: 0;
+}
+
+@media (max-width: 760px) {
+  .sidebar,
+  .sidebarRail {
+    width: 260px;
+    transform: translateX(-100%);
+    box-shadow: var(--shadow-pop);
+  }
+  .sidebarOpen { transform: translateX(0); }
+  .sidebarRail .groupLabel { visibility: visible; height: auto; padding: var(--space-2) 10px 4px; }
+  .sidebarRail .navLabel { display: inline; }
+  .sidebarRail .navLink { justify-content: flex-start; padding: 0 10px; }
+  .main,
+  .mainRail { left: 0; }
+  .content { padding: var(--space-3); }
+  .scrim {
+    display: block;
+    position: fixed;
+    inset: var(--header-h) 0 0 0;
+    background: rgba(17, 24, 39, 0.35);
+    z-index: 39;
+  }
+  .userText { display: none; }
+  .crumbRoot { display: none; }
 }

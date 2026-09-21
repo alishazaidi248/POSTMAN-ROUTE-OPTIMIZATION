@@ -15,12 +15,11 @@ const route: ActiveRouteResponse = {
     stops: [],
     totalDistanceMeters: 500,
     estimatedDurationMinutes: 10,
-    algorithm: "MOCK_SEQUENTIAL",
     generatedAt: "2026-09-20T00:00:00.000Z"
   }
 };
 
-describe("RouteSummaryCard — road route availability disclosure", () => {
+describe("RouteSummaryCard â€” road route availability disclosure", () => {
   it("shows a 'road route unavailable' warning when hasRoadGeometry is false, and never claims an optimal route", () => {
     render(
       <RouteSummaryCard

@@ -35,6 +35,12 @@ authRouter.post(
       throw AppError.unauthorized("Invalid email or password");
     }
 
+    // A POSTMAN login is only useful (and only allowed) when it is linked to a
+    // Postman record: that link is how the server later decides whose deliveries to return.
+    if (user.role === "POSTMAN" && !user.postmanId) {
+      throw AppError.forbidden("This account is not linked to a Postman profile. Contact your post office admin.");
+    }
+
     const accessToken = signAccessToken({
       sub: user.id,
       role: user.role,
@@ -93,8 +99,9 @@ authRouter.get(
   asyncHandler(async (req, res) => {
     const user = await prisma.user.findUniqueOrThrow({
       where: { id: req.user!.sub },
-      select: { id: true, name: true, email: true, role: true, postOfficeId: true, status: true, postmanId: true }
+      select: { id: true, name: true, email: true, role: true, postOfficeId: true, status: true, postmanId: true, postOffice: { select: { name: true } } }
     });
-    res.json(user);
+    const { postOffice, ...rest } = user;
+    res.json({ ...rest, postOfficeName: postOffice?.name ?? null });
   })
 );

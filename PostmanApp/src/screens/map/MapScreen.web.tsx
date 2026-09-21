@@ -1,93 +1,67 @@
 import React from "react";
-import { StyleSheet, Text, View } from "react-native";
+import { Pressable, StyleSheet, Text, View } from "react-native";
 import { useNavigation, CompositeNavigationProp } from "@react-navigation/native";
 import { NativeStackNavigationProp } from "@react-navigation/native-stack";
 import { MapStackParamList, MainTabParamList } from "../../navigation/types";
 import { BottomTabNavigationProp } from "@react-navigation/bottom-tabs";
 import { useLocation } from "../../hooks/useLocation";
+import { useReoptimizeRoute } from "../../hooks/useRoute";
+import { useOfflineSync } from "../../hooks/useOfflineSync";
+import { useRefreshStaleOnFocus } from "../../hooks/useRefreshStaleOnFocus";
 import { LoadingState } from "../../components/loading/LoadingState";
 import { ErrorState } from "../../components/error/ErrorState";
 import { EmptyState } from "../../components/common/EmptyState";
+import { OfflineBanner } from "../../components/common/OfflineBanner";
+import { ConflictBanner } from "../../components/common/ConflictBanner";
 import { WebMapView } from "../../components/map/WebMapView.web";
+import { NextStopBanner } from "../../components/map/NextStopBanner";
+import { SelectedDeliverySheet } from "../../components/map/SelectedDeliverySheet";
 import { RouteSummaryCard } from "../../components/route/RouteSummaryCard";
 import { useMapScreenData } from "./useMapScreenData";
-import { validateAndLogCoordinates } from "../../utils/coordinates";
 import { computeBoundsForPoints, toCornerBounds } from "../../utils/mapBounds";
+import { startLabel } from "../../utils/routeView";
+import { notify } from "../../utils/alerts";
 import { env } from "../../config/env";
 import { colors } from "../../theme/colors";
-import { spacing } from "../../theme/spacing";
+import { radius, spacing } from "../../theme/spacing";
 import { typography } from "../../theme/typography";
-import { PrimaryButton } from "../../components/common/PrimaryButton";
 
 type Nav = CompositeNavigationProp<
   NativeStackNavigationProp<MapStackParamList, "MapHome">,
   BottomTabNavigationProp<MainTabParamList>
 >;
 
-// Last-resort fallback only (Bhandup West, matches backend seed data) — used
-// solely if bounds can't be computed at all (should be unreachable, since
-// the empty-state check below already covers "no plottable stops").
+const REFRESH_ON_FOCUS = [["deliveries"], ["route"]] as const;
+
+// Last-resort camera centre only if bounds can't be computed at all (the
+// empty-state check below already covers "nothing plottable"). Matches the
+// backend seed data's post office; the real view always fits the actual stops.
 const DEFAULT_CENTER: [number, number] = [72.9345, 19.1436];
 
 // Web map — a separate implementation (maplibre-gl, browser JS library) from
 // the native iOS/Android screen (@maplibre/maplibre-react-native), which has
 // no web support. See MapScreen.native.tsx and
-// src/components/map/WebMapView.web.tsx.
+// src/components/map/WebMapView.web.tsx. Both consume useMapScreenData.
 export function MapScreen() {
   const navigation = useNavigation<Nav>();
-  const {
-    isLoading,
-    isError,
-    refetch,
-    route,
-    statusByDeliveryId,
-    completedIds,
-    current,
-    next,
-    recipientNameByDeliveryId,
-    unroutedStops
-  } = useMapScreenData();
+  useRefreshStaleOnFocus(REFRESH_ON_FOCUS);
+  const data = useMapScreenData();
   const { permission, fix, requestPermission } = useLocation("ACTIVE_ROUTE");
+  const { isOnline, queueLength, conflicts, clearConflict } = useOfflineSync();
+  const reoptimize = useReoptimizeRoute();
   const [mapStyleFailed, setMapStyleFailed] = React.useState(false);
 
-  if (isLoading) {
+  const { route, markers, views, next, selectedView } = data;
+
+  if (data.isLoading) {
     return <LoadingState message="Loading route..." />;
   }
 
-  if (isError) {
-    return <ErrorState message="Unable to load your route. Try again." onRetry={refetch} />;
+  if (data.isError) {
+    return <ErrorState message="Unable to load your route. Try again." onRetry={data.refetch} />;
   }
 
-  if (permission !== "GRANTED") {
-    return (
-      <View style={styles.permissionContainer}>
-        <Text style={styles.permissionTitle}>Location access needed</Text>
-        <Text style={styles.permissionBody}>
-          {permission === "GPS_DISABLED"
-            ? "Turn on your browser's location services to see your position on the map."
-            : permission === "PERMANENTLY_DENIED"
-            ? "Location was denied. Enable it for this site in your browser settings."
-            : "Allow location access to see your position and navigate your route."}
-        </Text>
-        {permission !== "PERMANENTLY_DENIED" ? (
-          <PrimaryButton label="Allow Location" onPress={requestPermission} />
-        ) : null}
-      </View>
-    );
-  }
-
-  const stops = route ? route.solution.stops : unroutedStops;
-  // Defensive re-validation at render time (in addition to
-  // useMapScreenData's own filtering of unroutedStops) — route.solution.stops
-  // comes from the backend optimizer and isn't pre-filtered the same way, so
-  // a bad geocode there shouldn't be plotted or allowed to skew the bounds.
-  const mapStops = validateAndLogCoordinates(
-    stops,
-    (s) => ({ latitude: s.latitude, longitude: s.longitude }),
-    (s) => `route stop ${s.deliveryId}`
-  );
-
-  if (mapStops.length === 0) {
+  if (markers.length === 0) {
     return (
       <EmptyState
         title="No deliveries to show on the map"
@@ -95,11 +69,6 @@ export function MapScreen() {
       />
     );
   }
-
-  const boundsPoints: [number, number][] = mapStops.map((s) => [s.longitude, s.latitude]);
-  if (fix) boundsPoints.push([fix.longitude, fix.latitude]);
-  const bounds = computeBoundsForPoints(boundsPoints);
-  const center: [number, number] = fix ? [fix.longitude, fix.latitude] : DEFAULT_CENTER;
 
   if (mapStyleFailed) {
     return (
@@ -111,39 +80,97 @@ export function MapScreen() {
     );
   }
 
+  const boundsPoints: [number, number][] = markers.map((m) => [m.longitude, m.latitude]);
+  if (data.start) boundsPoints.push([data.start.longitude, data.start.latitude]);
+  const bounds = computeBoundsForPoints(boundsPoints);
+  const fitKey = `${route?.routeId ?? "no-route"}|${markers.map((m) => m.deliveryId).join(",")}`;
+
+  const recalculate = () =>
+    reoptimize.mutate(
+      { trigger: "MANUAL", start: fix ? { latitude: fix.latitude, longitude: fix.longitude } : undefined },
+      { onError: (err) => notify("Couldn't recalculate the route", err instanceof Error ? err.message : "Please try again.") }
+    );
+
+  const allDone = views.length > 0 && data.remaining === 0;
+
   return (
     <View style={styles.container}>
+      <OfflineBanner isOnline={isOnline} queueLength={queueLength} />
+      <ConflictBanner conflicts={conflicts} nameByDeliveryId={data.recipientNameByDeliveryId} onDismiss={clearConflict} />
+
       <View style={styles.mapContainer}>
         <WebMapView
           styleUrl={env.mapStyleUrl}
-          center={center}
+          center={fix ? [fix.longitude, fix.latitude] : DEFAULT_CENTER}
           bounds={bounds ? toCornerBounds(bounds) : null}
-          stops={mapStops}
-          showRouteLine={!!route}
-          statusByDeliveryId={statusByDeliveryId}
-          currentDeliveryId={current?.deliveryId ?? null}
-          onSelectDelivery={(deliveryId) =>
-            navigation.navigate("DeliveriesTab", { screen: "DeliveryDetails", params: { deliveryId } })
+          fitKey={fitKey}
+          markers={markers}
+          routeLine={data.routeLine}
+          start={
+            data.start
+              ? { latitude: data.start.latitude, longitude: data.start.longitude, label: startLabel(data.start.source) }
+              : null
           }
+          userFix={fix ? { latitude: fix.latitude, longitude: fix.longitude } : null}
+          selectedDeliveryId={data.selectedDeliveryId}
+          onSelectDelivery={(id) => data.select(id, "map")}
           onStyleError={() => setMapStyleFailed(true)}
         />
+
+        <View style={styles.overlay} pointerEvents="box-none">
+          <NextStopBanner
+            next={next}
+            total={data.total}
+            allDone={allDone}
+            recalculating={reoptimize.isPending}
+            onRecalculate={recalculate}
+            onFocusNext={() => next && data.select(next.delivery.id, "map")}
+          />
+          {permission !== "GRANTED" && permission !== "PERMANENTLY_DENIED" ? (
+            <Pressable onPress={requestPermission} accessibilityRole="button" accessibilityLabel="Allow Location" style={styles.chip}>
+              <Text style={styles.chipText}>Allow location to see where you are on the map</Text>
+            </Pressable>
+          ) : null}
+          {data.routeError && !route ? (
+            <Pressable onPress={data.refetch} accessibilityRole="button" accessibilityLabel="Retry route" style={styles.chipWarn}>
+              <Text style={styles.chipText}>Couldn&rsquo;t load the route — showing delivery locations only. Tap to retry.</Text>
+            </Pressable>
+          ) : null}
+          {data.routeIsStale ? (
+            <View style={styles.chipWarn}>
+              <Text style={styles.chipText}>Route couldn&rsquo;t be refreshed — showing the last one.</Text>
+            </View>
+          ) : null}
+        </View>
       </View>
 
-      <View style={styles.summaryWrap}>
-        {route ? (
+      <View style={styles.bottom}>
+        {selectedView ? (
+          <SelectedDeliverySheet
+            view={selectedView}
+            onClose={() => data.select(null)}
+            onOpenDetails={() =>
+              navigation.navigate("DeliveriesTab", {
+                screen: "DeliveryDetails",
+                params: { deliveryId: selectedView.delivery.id }
+              })
+            }
+          />
+        ) : route ? (
           <RouteSummaryCard
+            compact
             route={route}
-            completed={completedIds.size}
-            total={stops.length}
-            currentStop={current}
-            nextStop={next}
-            recipientNameByDeliveryId={recipientNameByDeliveryId}
-            hasRoadGeometry={false}
+            completed={data.doneCount}
+            total={data.total}
+            currentStop={data.pendingRouteStops[0] ?? null}
+            nextStop={data.pendingRouteStops[1] ?? null}
+            recipientNameByDeliveryId={data.recipientNameByDeliveryId}
+            hasRoadGeometry={data.roadGeometry}
           />
         ) : (
           <View style={styles.noRouteBanner}>
             <Text style={styles.noRouteText}>
-              No optimized route yet — showing {stops.length} assigned {stops.length === 1 ? "delivery" : "deliveries"}.
+              No optimized route yet — showing {markers.length} delivery {markers.length === 1 ? "location" : "locations"}.
             </Text>
           </View>
         )}
@@ -155,10 +182,11 @@ export function MapScreen() {
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: colors.background },
   mapContainer: { flex: 1 },
-  summaryWrap: { padding: spacing.md },
-  permissionContainer: { flex: 1, alignItems: "center", justifyContent: "center", padding: spacing.xl, gap: spacing.md },
-  permissionTitle: { ...typography.sectionTitle, color: colors.textPrimary },
-  permissionBody: { ...typography.body, color: colors.textSecondary, textAlign: "center" },
+  overlay: { position: "absolute", top: spacing.sm, left: spacing.sm, right: 56, gap: spacing.xs },
+  bottom: { padding: spacing.md, gap: spacing.sm },
+  chip: { backgroundColor: colors.surface, borderRadius: radius.md, borderWidth: 1, borderColor: colors.border, padding: spacing.sm },
+  chipWarn: { backgroundColor: colors.warningBg, borderRadius: radius.md, padding: spacing.sm },
+  chipText: { ...typography.caption, color: colors.textPrimary },
   noRouteBanner: { backgroundColor: colors.surface, borderRadius: 12, borderWidth: 1, borderColor: colors.border, padding: spacing.md },
   noRouteText: { ...typography.body, color: colors.textSecondary, textAlign: "center" }
 });

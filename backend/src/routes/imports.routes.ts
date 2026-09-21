@@ -3,17 +3,19 @@ import multer from "multer";
 import path from "path";
 import { z } from "zod";
 import { prisma } from "../config/prisma";
-import { requireAuth, requireRole, resolvePostOfficeScope, assertOwnsResource } from "../middleware/auth";
+import { requireAuth, requireRole, resolvePostOfficeScope, assertOwnsResource, adminOnly } from "../middleware/auth";
 import { asyncHandler } from "../utils/asyncHandler";
 import { AppError } from "../utils/AppError";
 import { env } from "../config/env";
 import { detectFileType, safeStoredFilename, cleanupTempFile } from "../services/imports/fileSecurity";
 import { listXlsxSheets } from "../services/imports/parsers";
-import { createImportWithPreview, getImportPreview, confirmImport, cancelImport } from "../services/imports/import.service";
+import { createImportWithPreview, getImportPreview, confirmImport, cancelImport, remapImport } from "../services/imports/import.service";
+import { SYSTEM_FIELDS } from "../services/imports/columnMapping";
+import { validate } from "../middleware/validate";
 import { recordAudit } from "../services/audit.service";
 
 export const importsRouter = Router();
-importsRouter.use(requireAuth);
+importsRouter.use(requireAuth, adminOnly);
 
 const upload = multer({
   dest: path.join(env.uploadDir, "tmp"),
@@ -115,13 +117,23 @@ importsRouter.post(
 importsRouter.put(
   "/:id/mapping",
   requireRole("ADMIN", "SUPER_ADMIN"),
+  validate(
+    z.object({
+      body: z.object({
+        columnMapping: z
+          .record(z.enum(SYSTEM_FIELDS), z.string().nullable())
+          .refine((m) => !!m.recipientName && !!m.addressLine1 && !!m.city && !!m.state && !!m.pincode && !!m.phone, {
+            message: "recipientName, phone, addressLine1, city, state and pincode must each be mapped to a column"
+          })
+      })
+    })
+  ),
   asyncHandler(async (req, res) => {
     const existing = await prisma.deliveryImport.findUniqueOrThrow({ where: { id: req.params.id } });
     assertOwnsResource(req, existing.postOfficeId);
-    const updated = await prisma.deliveryImport.update({
-      where: { id: req.params.id },
-      data: { columnMapping: req.body.columnMapping }
-    });
+    // Re-validates every stored row with the new mapping, so the preview the admin
+    // confirms is exactly what will be written.
+    const updated = await remapImport(req.params.id, req.body.columnMapping);
     res.json(updated);
   })
 );

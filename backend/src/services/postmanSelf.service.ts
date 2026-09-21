@@ -16,8 +16,12 @@ export async function resolveSelfPostman(req: Request) {
 
   const user = await prisma.user.findUniqueOrThrow({
     where: { id: req.user.sub },
-    select: { postmanId: true }
+    select: { postmanId: true, status: true }
   });
+
+  // The access token stays valid for its lifetime; a disabled account must not
+  // keep reading data until it expires.
+  if (user.status !== "ACTIVE") throw AppError.unauthorized("This account is disabled");
 
   if (!user.postmanId) {
     throw AppError.forbidden("This account is not linked to a Postman profile");

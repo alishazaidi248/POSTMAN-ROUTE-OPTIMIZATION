@@ -39,8 +39,8 @@ never trusted from the client.
 
 | Endpoint | Method | Role | Notes | Existed before? |
 |---|---|---|---|---|
-| `/me/route` | GET | POSTMAN | Latest completed `OptimizationRequest`+`OptimizationResult` scoped to the caller's postman. Returns `{route: null}` if none. | No |
-| `/me/route/reoptimize` | POST | POSTMAN | Body `{trigger}`. Re-plans remaining deliveries via the existing `OptimizationService` interface (currently `MockOptimizationService`). | No (wraps the existing `POST /optimization/requests` `REOPTIMIZE` path, scoped to self instead of admin-supplied ids) |
+| `/me/route` | GET | POSTMAN | The caller's optimized route (the server's one pipeline - DBSCAN, Nearest Neighbor, 2-opt, ALNS - over an OSRM road matrix, with road geometry). Served from the latest stored `OptimizationResult` while the active delivery set is unchanged, otherwise refreshed first. Query: `startLat`+`startLng`, `refresh=true` (any `algorithm` is ignored). Returns `{route: null}` when nothing is left to deliver. | Yes (extended; response fields are additive) |
+| `/me/route/reoptimize` | POST | POSTMAN | Body `{trigger, start?}`. Forces a full re-optimization of the remaining deliveries. No longer requires an assigned beat. | Yes (extended) |
 | `/optimization/requests` | POST/GET | ADMIN/SUPER_ADMIN | Unchanged; admin-triggered planning still goes through here. | Yes |
 
 ## LOCATION — added

@@ -18,8 +18,16 @@ import { AdminAccountsPage } from "../pages/AdminAccountsPage";
 import { AssignmentExceptionsPage } from "../pages/AssignmentExceptionsPage";
 
 function RequireAuth({ children }: { children: JSX.Element }) {
-  const { user, loading } = useAuth();
+  const { user, loading, bootError, retry } = useAuth();
   if (loading) return null;
+  if (!user && bootError) {
+    return (
+      <div style={{ padding: 48, textAlign: "center" }}>
+        <p>{bootError}</p>
+        <button onClick={retry}>Try again</button>
+      </div>
+    );
+  }
   if (!user) return <Navigate to="/login" replace />;
   return children;
 }

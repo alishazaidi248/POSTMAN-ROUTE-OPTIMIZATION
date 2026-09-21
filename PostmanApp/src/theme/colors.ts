@@ -1,35 +1,36 @@
-// Government/public-service inspired palette: red/white primary, neutral
-// grays, and clear semantic colors for delivery status. Kept flat (no dark
-// mode toggle) since this is a single-purpose field-worker tool used
-// outdoors in daylight — contrast and legibility matter more than theming.
+// A calm, professional logistics palette: white surfaces, cool neutral greys, ONE brand colour (postal red)
+// for the primary action and the active state, and clear semantic colours for delivery status. Kept flat (no
+// dark-mode toggle): a field tool used outdoors in daylight needs contrast and legibility more than theming.
 export const colors = {
-  primary: "#B3131C",
-  primaryDark: "#7E0D14",
+  primary: "#B3202A",
+  primaryDark: "#8E1821",
+  primarySoft: "#FBEEEE",
   onPrimary: "#FFFFFF",
 
-  background: "#F7F7F8",
+  background: "#F5F6F8",
   surface: "#FFFFFF",
-  border: "#E2E2E5",
+  border: "#E5E7EB",
+  divider: "#EEF0F3",
 
-  textPrimary: "#1A1A1E",
-  textSecondary: "#5B5B63",
-  textDisabled: "#9A9AA1",
+  textPrimary: "#111827",
+  textSecondary: "#4B5563",
+  textDisabled: "#9CA3AF",
 
-  success: "#1B7A3D",
-  successBg: "#E6F4EA",
-  warning: "#B5720B",
-  warningBg: "#FBF0DC",
-  danger: "#B3131C",
-  dangerBg: "#FBE7E8",
-  info: "#1B5FB3",
-  infoBg: "#E7EFFB",
-  neutral: "#5B5B63",
-  neutralBg: "#EEEEF0",
+  success: "#1E7A55",
+  successBg: "#E7F4EE",
+  warning: "#94620A",
+  warningBg: "#FDF3DC",
+  danger: "#B42318",
+  dangerBg: "#FDECEA",
+  info: "#1D5F8F",
+  infoBg: "#E8F1F8",
+  neutral: "#4B5563",
+  neutralBg: "#EEF0F3",
 
   mapPending: "#B5720B",
-  mapCompleted: "#1B7A3D",
-  mapFailed: "#B3131C",
-  mapCurrent: "#1B5FB3",
+  mapCompleted: "#1E7A55",
+  mapFailed: "#B42318",
+  mapCurrent: "#1D5FB3",
   mapSelf: "#111827"
 } as const;
 

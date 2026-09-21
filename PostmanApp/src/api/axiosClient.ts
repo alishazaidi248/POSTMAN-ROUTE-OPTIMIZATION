@@ -73,7 +73,14 @@ axiosClient.interceptors.response.use(
       onUnauthorized?.();
     }
 
-    const body = error.response.data as { message?: string; details?: unknown } | undefined;
-    return Promise.reject(new ApiError(body?.message ?? "Something went wrong. Please try again.", status, body?.details));
+    // The backend's errorHandler answers { error: { message, details } }; a
+    // few older handlers answer { message } — accept both so the postman sees
+    // the real reason (e.g. "Invalid delivery status transition") rather than
+    // a generic fallback.
+    const body = error.response.data as
+      | { message?: string; details?: unknown; error?: { message?: string; details?: unknown } }
+      | undefined;
+    const message = body?.error?.message ?? body?.message ?? "Something went wrong. Please try again.";
+    return Promise.reject(new ApiError(message, status, body?.error?.details ?? body?.details));
   }
 );
