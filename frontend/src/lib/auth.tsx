@@ -9,6 +9,8 @@ export interface CurrentUser {
   role: "SUPER_ADMIN" | "ADMIN" | "POSTMAN";
   postOfficeId: string | null;
   postOfficeName?: string | null;
+  /** The account still has a temporary password: the panel is closed until a new one is chosen. */
+  mustChangePassword?: boolean;
 }
 
 interface AuthContextValue {
@@ -19,6 +21,7 @@ interface AuthContextValue {
   bootError: string | null;
   retry: () => void;
   login: (email: string, password: string) => Promise<void>;
+  changePassword: (currentPassword: string, newPassword: string) => Promise<void>;
   logout: () => Promise<void>;
 }
 
@@ -84,6 +87,14 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     setUser(me.data);
   }
 
+  async function changePassword(currentPassword: string, newPassword: string) {
+    const res = await apiClient.post("/auth/change-password", { currentPassword, newPassword });
+    // The old tokens are ended by the server; these are the account's new, unrestricted ones.
+    setTokens({ accessToken: res.data.accessToken, refreshToken: res.data.refreshToken });
+    queryClient.clear();
+    setUser((u) => (u ? { ...u, mustChangePassword: false } : u));
+  }
+
   async function logout() {
     const refreshToken = localStorage.getItem("refreshToken");
     try {
@@ -96,7 +107,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }
 
   return (
-    <AuthContext.Provider value={{ user, loading, bootError, retry: () => void bootstrap(), login, logout }}>
+    <AuthContext.Provider value={{ user, loading, bootError, retry: () => void bootstrap(), login, changePassword, logout }}>
       {children}
     </AuthContext.Provider>
   );

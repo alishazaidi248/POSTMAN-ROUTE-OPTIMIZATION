@@ -1,0 +1,12 @@
+{
+  "name": "postal-e2e",
+  "private": true,
+  "type": "module",
+  "description": "Browser tests of the admin panel and the Postman app (web build) against a running backend",
+  "scripts": {
+    "test": "node run.mjs"
+  },
+  "devDependencies": {
+    "puppeteer-core": "^23.0.0"
+  }
+}
