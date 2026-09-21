@@ -1,7 +1,7 @@
 openapi: 3.0.3
 info:
   title: Postal Delivery Operations & Optimization System API
-  version: 0.1.0
+  version: 0.2.0
   description: >
     Admin API for postal delivery operations across multiple post offices,
     beats, postmen and deliveries. See /api/v1/* routers in source for the
@@ -87,3 +87,58 @@ paths:
       summary: GeoJSON FeatureCollection of delivery points for the map
       responses:
         "200": { description: OK }
+  /auth/change-password:
+    post:
+      summary: Choose a new password (required while the account has a temporary one)
+      description: >
+        Checks the current password and the password rules (10+ characters, a letter and a number, not the email name, not
+        a well-known password), ends every other session and returns new, unrestricted tokens. While
+        `mustChangePassword` is true every other endpoint answers 403 with `details.code = PASSWORD_CHANGE_REQUIRED`.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [currentPassword, newPassword]
+              properties:
+                currentPassword: { type: string }
+                newPassword: { type: string }
+      responses:
+        "200": { description: New accessToken and refreshToken }
+        "400": { description: The new password breaks the rules (message says which) }
+        "401": { description: The current password is not correct }
+  /assignments/exceptions:
+    get:
+      summary: Open assignment exceptions with the suggested beat, confidence, reason and location quality
+  /assignments/exceptions/{id}/resolve:
+    post:
+      summary: Assign a beat (and its postman) to the delivery of an exception; recorded as a MANUAL assignment
+  /beats/territory-report:
+    get:
+      summary: Verified / needs-verification / missing / overlapping territories of the office, and each overlapping pair
+  /beats/{id}/verify:
+    post:
+      summary: Verify a beat's territory (409 with requiresAcknowledgement when it overlaps another beat, unless acknowledgeOverlap is sent)
+  /beats/import:
+    post:
+      summary: Upload a beat list (CSV / XLSX, one row per beat or per beat and locality); nothing is imported until confirmed
+  /deliveries/{id}/proof:
+    post:
+      summary: Add the proof-of-delivery photo (multipart field `photo`; only while OUT_FOR_DELIVERY; only the delivery's postman or the office's administrators)
+    get:
+      summary: Read the proof photo (private, never cached; the delivery's postman and the office's administrators only)
+  /deliveries/{id}/status:
+    post:
+      summary: Change the status through the state machine; DELIVERED is refused without a proof photo when the post office requires one
+  /post-offices/{id}/proof-mode:
+    put:
+      summary: What the post office requires as proof of delivery (NONE or PHOTO)
+  /me/push-token:
+    post:
+      summary: Register this phone's Expo push token for the signed-in postman
+    delete:
+      summary: Stop pushes to this phone
+  /postmen/{id}/message:
+    post:
+      summary: Send a message to a postman (stored in their Notifications and pushed to their phone)

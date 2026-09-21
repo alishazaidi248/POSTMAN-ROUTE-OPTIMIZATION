@@ -1,0 +1,9 @@
+{
+  "measuredAt": "2026-09-21",
+  "note": "Results of running each suite on the code this guide describes (npm test / test:integration / vitest / jest / node e2e/run.mjs).",
+  "backendUnit": { "tests": 407, "files": 24 },
+  "backendIntegration": { "tests": 41, "files": 4 },
+  "admin": { "tests": 9 },
+  "app": { "tests": 235, "suites": 30 },
+  "e2e": { "checks": 45 }
+}

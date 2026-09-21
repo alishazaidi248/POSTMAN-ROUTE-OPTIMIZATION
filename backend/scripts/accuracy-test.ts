@@ -210,7 +210,7 @@ async function routeRun(routing: RoutingService, points: Pt[], seed: number) {
   const [full, fullMs] = timed(() => optimizeWithAlns({ durations: matrix.durations, stops, params, maxPasses: 500, maxMillis: 20_000, alns: { maxIterations: 2500, maxMillis: 20_000, noImprovementLimit: 600, preserveClusters: true } }));
   const orders: (number[] | null)[] = [ident, null, nn, nn2, full.initialOrder, full.twoOptOrder, full.order];
   const ms = [0, randMs / 30, nnMs, nnMs + nn2Ms, null, full.optimizationMs, fullMs] as (number | null)[];
-  const costs = orders.map((o, i) => (o ? cost(o) : mean(randCosts)));
+  const costs = orders.map((o) => (o ? cost(o) : mean(randCosts)));
   let optimum: number | null = null, exactMs = 0;
   if (n <= 10) { const [ex, t] = timed(() => exactOptimum(matrix.durations, stops)); optimum = ex.cost; exactMs = t; }
   // Larger rounds have no exact optimum. Reference = the best route found by the six algorithms above AND by 5 long,
@@ -239,7 +239,6 @@ async function routeRun(routing: RoutingService, points: Pt[], seed: number) {
 
 /** Where the delivery points come from (stated in the report): the stored geocode when it is street/area level, else a placed point near the beat's OSM anchor. */
 async function routeTests(system: Awaited<ReturnType<typeof systemResults>>) {
-  const anchors = JSON.parse(fs.readFileSync(path.join(DATA, "locality-anchors.json"), "utf8")) as Record<string, { lat: number; lng: number }>;
   const beatRows = await prisma.beat.findMany({ select: { beatNumber: true, metadata: true } });
   const beatAnchor = new Map<number, { lat: number; lng: number }[]>();
   for (const b of beatRows) {
