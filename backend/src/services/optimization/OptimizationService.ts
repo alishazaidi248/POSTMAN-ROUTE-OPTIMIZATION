@@ -53,7 +53,7 @@ export interface OptimizationProblem {
 
 export interface UnroutableDelivery {
   deliveryId: string;
-  reason: "MISSING_COORDINATES" | "INVALID_COORDINATES" | "NOT_ROUTABLE_STATUS" | "NOT_FOUND";
+  reason: "MISSING_COORDINATES" | "INVALID_COORDINATES" | "IMPRECISE_LOCATION" | "NOT_ROUTABLE_STATUS" | "NOT_FOUND";
 }
 
 export interface RouteGeometry {
@@ -121,6 +121,12 @@ export interface RouteMetrics {
   totalCost: number;
   loadWeight: number;
   priorityWeight: number;
+  /**
+   * What the "load" in the cost is made of. WEIGHT_KG: every stop has a real weight (Delivery.weightKg).
+   * PARTIAL_WEIGHT_KG: some do; the others are given the median known weight. NONE: no stop has a weight, so the load
+   * term is switched off (loadWeight is reported as 0) - a parcel COUNT is never treated as a weight.
+   */
+  loadBasis: "WEIGHT_KG" | "PARTIAL_WEIGHT_KG" | "NONE";
 
   /** Cost of the stops in input (database) order: what no optimization would give. */
   inputOrderCost: number;

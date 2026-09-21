@@ -44,6 +44,7 @@ const delivery = (id: string, lat: number, lng: number, over: Record<string, unk
   latitude: lat,
   longitude: lng,
   parcelCount: 1,
+  weightKg: 1,
   priority: "NORMAL",
   serviceTimeMinutes: 3 as number | null,
   ...over
@@ -137,8 +138,8 @@ describe("planRouteFromInputs — DBSCAN + Nearest Neighbor + 2-opt", () => {
   });
 
   it("uses the weighted cost function: a heavy parcel still leaves the bag first within its cluster", async () => {
-    const north = delivery("north", 19.1536, 72.9345, { parcelCount: 1 });
-    const south = delivery("south", 19.1336, 72.9345, { parcelCount: 12 });
+    const north = delivery("north", 19.1536, 72.9345, { weightKg: 1 });
+    const south = delivery("south", 19.1336, 72.9345, { weightKg: 12 });
     const sol = await planRouteFromInputs(
       { postmanId: "p", beatId: "b", start: START, deliveries: [north, south], dbscanEpsSeconds: 3000, dbscanMinPoints: 2 },
       fakeOsrm()
@@ -160,6 +161,7 @@ describe("RoadRouteOptimizationService — one strategy, no client control", () 
         id: d.id,
         status: "ASSIGNED",
         parcelCount: 1,
+        weightKg: 1,
         priority: "NORMAL",
         serviceTimeMinutes: null,
         address: { latitude: d.latitude, longitude: d.longitude }
