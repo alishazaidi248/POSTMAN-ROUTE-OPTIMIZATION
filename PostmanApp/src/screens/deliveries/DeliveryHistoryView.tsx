@@ -4,6 +4,10 @@ import { useNavigation } from "@react-navigation/native";
 import { NativeStackNavigationProp } from "@react-navigation/native-stack";
 import { DeliveriesStackParamList } from "../../navigation/types";
 import { useDeliveryHistory } from "../../hooks/useDeliveryHistory";
+import { useOfflineStore } from "../../store/offlineStore";
+import { useQueryClient } from "@tanstack/react-query";
+import { HistorySyncSection } from "../../components/delivery/HistorySyncSection";
+import { buildSyncItems } from "../../utils/syncStatus";
 import { ChipRow } from "../../components/common/ChipRow";
 import { EmptyState } from "../../components/common/EmptyState";
 import { PrimaryButton } from "../../components/common/PrimaryButton";
@@ -13,7 +17,7 @@ import { HistoryRow } from "../../components/delivery/HistoryRow";
 import { colors } from "../../theme/colors";
 import { spacing } from "../../theme/spacing";
 import { typography } from "../../theme/typography";
-import { HistoryOutcome } from "../../types/delivery";
+import { DeliveryListResponse, HistoryOutcome } from "../../types/delivery";
 import { daySummary, groupByDay } from "../../utils/history";
 
 type Nav = NativeStackNavigationProp<DeliveriesStackParamList, "DeliveriesList">;
@@ -34,6 +38,13 @@ export function DeliveryHistoryView() {
   const [period, setPeriod] = useState<Period>("30");
   const [outcome, setOutcome] = useState<HistoryOutcome>("ALL");
   const history = useDeliveryHistory(period === "ALL" ? null : Number(period), outcome);
+  const queryClient = useQueryClient();
+  const isOnline = useOfflineStore((s) => s.isOnline);
+  const queue = useOfflineStore((s) => s.queue);
+  const conflicts = useOfflineStore((s) => s.conflicts);
+  const syncItems = useMemo(() => buildSyncItems(queue, conflicts), [queue, conflicts]);
+  // The recipient's name for a change that is still on the phone: from the list of today's deliveries the phone already has.
+  const nameOf = (id: string) => queryClient.getQueryData<DeliveryListResponse>(["deliveries", "ALL"])?.rows.find((d) => d.id === id)?.recipient.name;
 
   const sections = useMemo(() => groupByDay(history.rows), [history.rows]);
   const { delivered, returned } = history.summary;
@@ -72,6 +83,9 @@ export function DeliveryHistoryView() {
         style={styles.list}
         contentContainerStyle={styles.listContent}
         stickySectionHeadersEnabled={false}
+        ListHeaderComponent={
+          <HistorySyncSection items={syncItems} isOnline={isOnline} fromCache={history.fromCache} nameOf={nameOf} onOpenSync={() => navigation.getParent()?.navigate("AccountTab", { screen: "OfflineSync" })} />
+        }
         refreshing={history.isRefetching && !history.isFetchingNextPage}
         onRefresh={() => void history.refetch()}
         onEndReachedThreshold={0.4}

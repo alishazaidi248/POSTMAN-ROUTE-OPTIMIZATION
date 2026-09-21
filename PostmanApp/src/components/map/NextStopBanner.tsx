@@ -1,7 +1,7 @@
 import React from "react";
 import { ActivityIndicator, Pressable, StyleSheet, Text, View } from "react-native";
 import { StopView, legLabel } from "../../utils/routeView";
-import { formatAddress, formatTime } from "../../utils/formatting";
+import { formatAddressShort, formatTime } from "../../utils/formatting";
 import { openNavigation } from "../../utils/navigation";
 import { notify } from "../../utils/alerts";
 import { colors } from "../../theme/colors";
@@ -54,7 +54,7 @@ export function NextStopBanner({ next, total, allDone, recalculating, onRecalcul
           {name}
         </Text>
         <Text style={styles.address} numberOfLines={1}>
-          {formatAddress(next.delivery.address)}
+          {formatAddressShort(next.delivery.address)}
         </Text>
         <Text style={styles.meta}>{[leg, next.eta ? `ETA ${formatTime(next.eta)}` : null].filter(Boolean).join(" · ")}</Text>
       </Pressable>

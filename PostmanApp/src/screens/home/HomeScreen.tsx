@@ -19,7 +19,7 @@ import { StatusBadge } from "../../components/status/StatusBadge";
 import { colors } from "../../theme/colors";
 import { radius, spacing } from "../../theme/spacing";
 import { typography } from "../../theme/typography";
-import { formatAddress, formatDate, formatDurationMinutes, formatTime } from "../../utils/formatting";
+import { formatAddressShort, formatDate, formatDurationMinutes, formatTime } from "../../utils/formatting";
 import { formatDistance } from "../../utils/distance";
 import { legLabel } from "../../utils/routeView";
 
@@ -121,7 +121,7 @@ export function HomeScreen() {
             <StatusBadge status={next.status} />
           </View>
           <Text style={styles.recipient}>{next.delivery.recipient.name}</Text>
-          <Text style={styles.address}>{formatAddress(next.delivery.address)}</Text>
+          <Text style={styles.address}>{formatAddressShort(next.delivery.address)}</Text>
           <View style={styles.metaRow}>
             {legLabel(next) ? (
               <View style={styles.meta}>

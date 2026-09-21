@@ -60,11 +60,39 @@ export async function processQueue(queryClient: QueryClient): Promise<SyncSummar
 
 type ApplyResult = "synced" | "conflict" | "network-failure";
 
+/** A photo that still cannot be sent after this many tries is reported instead of being retried for ever. */
+export const MAX_PROOF_ATTEMPTS = 8;
+
 async function applyMutation(mutation: DeliveryStatusMutation): Promise<ApplyResult> {
   try {
-    await deliveryApi.updateStatus(mutation.deliveryId, mutation.status, mutation.reason);
+    // The photo goes first: the server refuses DELIVERED for a post office that requires one, and a status change that
+    // arrived before its photo would be refused.
+    if (mutation.proofUri) {
+      await deliveryApi.uploadProof(mutation.deliveryId, {
+        uri: mutation.proofUri,
+        latitude: mutation.latitude,
+        longitude: mutation.longitude,
+        capturedAt: mutation.proofCapturedAt
+      });
+    }
+    const location =
+      mutation.latitude !== undefined && mutation.longitude !== undefined
+        ? { latitude: mutation.latitude, longitude: mutation.longitude, accuracyMeters: mutation.accuracyMeters }
+        : undefined;
+    if (location) await deliveryApi.updateStatus(mutation.deliveryId, mutation.status, mutation.reason, location);
+    else await deliveryApi.updateStatus(mutation.deliveryId, mutation.status, mutation.reason);
     return "synced";
   } catch (err) {
+    if (mutation.proofUri && mutation.attempts + 1 >= MAX_PROOF_ATTEMPTS && (!(err instanceof ApiError) || err.isNetworkError)) {
+      useOfflineStore.getState().addConflict({
+        deliveryId: mutation.deliveryId,
+        attemptedStatus: mutation.status,
+        serverStatus: "OUT_FOR_DELIVERY",
+        detectedAt: new Date().toISOString(),
+        reason: "The delivery photo could not be sent. Open the delivery and take it again."
+      });
+      return "conflict";
+    }
     if (err instanceof ApiError) {
       if (err.isNetworkError) return "network-failure";
 
@@ -73,11 +101,13 @@ async function applyMutation(mutation: DeliveryStatusMutation): Promise<ApplyRes
         // record has moved since this mutation was queued offline.
         try {
           const serverDelivery = await deliveryApi.getById(mutation.deliveryId);
+          const photoMissing = (err.details as { proofRequired?: boolean } | undefined)?.proofRequired === true;
           useOfflineStore.getState().addConflict({
             deliveryId: mutation.deliveryId,
             attemptedStatus: mutation.status,
             serverStatus: serverDelivery.status,
-            detectedAt: new Date().toISOString()
+            detectedAt: new Date().toISOString(),
+            ...(photoMissing ? { reason: "This post office requires a photo of the delivery, and none reached the server. Open the delivery and take it again." } : {})
           });
         } catch {
           // Even the refresh failed; still resolve as a conflict rather than

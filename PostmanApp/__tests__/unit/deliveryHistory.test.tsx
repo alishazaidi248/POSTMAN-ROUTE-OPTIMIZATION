@@ -1,5 +1,6 @@
 import React from "react";
-import { fireEvent, render, screen } from "@testing-library/react-native";
+import { fireEvent, render as baseRender, screen } from "@testing-library/react-native";
+import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { DeliveryHistoryView } from "../../src/screens/deliveries/DeliveryHistoryView";
 import { daySummary, dayLabel, groupByDay, isPastFinished, periodStart, startOfToday } from "../../src/utils/history";
 import { FinishedDelivery } from "../../src/types/delivery";
@@ -7,7 +8,11 @@ import { makeDelivery } from "../_support/fixtures";
 
 // jest.mock calls are hoisted above the imports by babel-jest; variables they read are prefixed `mock`.
 const mockNavigate = jest.fn();
-jest.mock("@react-navigation/native", () => ({ useNavigation: () => ({ navigate: mockNavigate }) }));
+jest.mock("@react-navigation/native", () => ({ useNavigation: () => ({ navigate: mockNavigate, getParent: () => ({ navigate: mockNavigate }) }) }));
+jest.mock("../../src/storage/offlineStorage", () => ({ offlineStorage: { getMutationQueue: jest.fn().mockResolvedValue([]), setMutationQueue: jest.fn() } }));
+
+// the view reads the offline queue and the phone's cached lists, so it needs a query client
+const render = (ui: React.ReactElement) => baseRender(<QueryClientProvider client={new QueryClient()}>{ui}</QueryClientProvider>);
 
 const mockHistory = { current: null as unknown };
 const mockUseHistory = jest.fn((..._args: unknown[]) => mockHistory.current);

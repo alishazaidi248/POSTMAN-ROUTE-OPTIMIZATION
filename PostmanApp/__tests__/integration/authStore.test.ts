@@ -68,7 +68,7 @@ describe("authStore.login — identity comes from GET /auth/me", () => {
     });
     (authApi.me as jest.Mock).mockResolvedValueOnce(POSTMAN_USER);
 
-    await useAuthStore.getState().login({ email: POSTMAN_USER.email, password: "ChangeMe123!" });
+    await useAuthStore.getState().login({ email: POSTMAN_USER.email, password: "a-Test-password-1" });
 
     expect(authApi.me).toHaveBeenCalledTimes(1);
     expect(useAuthStore.getState().status).toBe("signedIn");
@@ -81,7 +81,7 @@ describe("authStore.login — identity comes from GET /auth/me", () => {
     (authApi.login as jest.Mock).mockResolvedValueOnce({ ...LOGIN, user: POSTMAN_USER });
     (authApi.me as jest.Mock).mockResolvedValueOnce({ ...POSTMAN_USER, role: "ADMIN", postmanId: null });
 
-    await expect(useAuthStore.getState().login({ email: "admin@postal.local", password: "ChangeMe123!" })).rejects.toThrow(
+    await expect(useAuthStore.getState().login({ email: "admin@postal.local", password: "a-Test-password-1" })).rejects.toThrow(
       /Postman/
     );
     expect(useAuthStore.getState().status).toBe("signedOut");

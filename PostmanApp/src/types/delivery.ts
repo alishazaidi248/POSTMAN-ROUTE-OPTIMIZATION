@@ -89,6 +89,8 @@ export interface Delivery {
   createdAt: string;
   updatedAt: string;
   statusHistory?: DeliveryStatusHistoryEntry[];
+  /** Metadata of the proof photo, when one was taken (the photo itself is private to the server). */
+  proof?: { capturedAt: string; contentType: string } | null;
 }
 
 export interface DeliveryListResponse {
@@ -122,4 +124,6 @@ export interface DeliveryHistoryResponse {
   /** How the whole period splits, regardless of the outcome filter (drives the chip counts). */
   summary: { delivered: number; returned: number };
   rows: FinishedDelivery[];
+  /** True when this page is the copy saved on the phone (no connection), not what the server says now. */
+  fromCache?: boolean;
 }

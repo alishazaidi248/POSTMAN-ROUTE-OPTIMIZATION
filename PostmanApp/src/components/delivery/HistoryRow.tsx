@@ -4,7 +4,7 @@ import { colors } from "../../theme/colors";
 import { radius, spacing } from "../../theme/spacing";
 import { typography } from "../../theme/typography";
 import { FinishedDelivery } from "../../types/delivery";
-import { formatAddress, formatTime } from "../../utils/formatting";
+import { formatAddressShort, formatTime } from "../../utils/formatting";
 import { StatusBadge } from "../status/StatusBadge";
 
 interface Props {
@@ -14,7 +14,7 @@ interface Props {
 
 /** One finished delivery: who it was for, where, how it ended and at what time. Tap for the full details and history. */
 export function HistoryRow({ delivery, onPress }: Props) {
-  const address = formatAddress(delivery.address);
+  const address = formatAddressShort(delivery.address);
   return (
     <Pressable
       onPress={onPress}

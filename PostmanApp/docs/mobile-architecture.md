@@ -21,7 +21,7 @@
                             |
                     Dynamic Re-routing (via /me/route/reoptimize)
                             |
-                    Backend Optimization (server-side, mock today)
+                    Backend Optimization (server-side: DBSCAN + NN + 2-opt + ALNS)
 ```
 
 The admin panel and this app are two independent REST clients of the same
@@ -205,27 +205,21 @@ normal jitter or a poor fix doesn't falsely trigger anything.
 
 ## Notifications
 
-No push-notification infrastructure exists on the backend today (no device
-token registration endpoint, no server-side push job). Server-driven push
-(new assignment, admin message, route re-optimization) is **not**
-production-ready — `src/services/notificationService.ts` only wraps local,
-on-device notifications and documents exactly what backend work
-(`POST /api/v1/me/notifications/push-token` + a push-sending job) would be
-needed to make it real. Do not present this as a working feature.
+The backend stores every message (`Notification`, listed by `GET /notifications`, the source of truth) and pushes it through Expo
+to the tokens phones register with `POST /me/push-token` (`DELETE` on sign-out). Events: a new assignment (batched when many
+arrive together), an urgent delivery, a reassignment, a route change, a message from the office. The app registers after
+sign-in (`usePushRegistration`) and refreshes its lists when a push arrives while it is open.
+
+What cannot be verified without a real device: end-to-end delivery of a push to a phone (it needs a development / production
+build with the project's push credentials and Expo's servers). Registration, what is sent, and the handling of a token Expo
+reports dead are covered by backend tests against a fake of Expo's API.
 
 ## Known limitations (honest, not exhaustive)
 
-- Optimization is a mock (see above) — route quality and "optimized"
-  language should be read accordingly.
-- No road-network polyline from the backend yet; the map draws a straight
-  line between stops.
-- No dedicated Route/RouteStop/version REST surface; version is
-  approximated from `OptimizationResult` count.
-- Automatic reoptimize-on-GPS-deviation is implemented as detection logic
-  only; it is not yet wired to fire the network call from the Map screen.
-- No conflict-resolution UI beyond re-fetching server state; conflicts are
-  tracked in `useOfflineStore.conflicts` but not yet rendered.
-- Push notifications are local-only; see Notifications above.
-- Proof-of-delivery (signature/photo/OTP) has no backend support and is
-  intentionally not implemented — see spec §10, which explicitly forbids
-  fabricating this feature.
+- Push delivery to a device is not verifiable in a simulator or on the web (see Notifications).
+- Proof of delivery is a photo only (the post office's setting; the server enforces it). OTP needs an SMS provider and signature
+  capture has no requirement: neither is implemented.
+- The native map screen (iOS / Android) has not been run on a device in this environment; the web build is exercised end to end
+  by the browser tests in `e2e/`.
+- Delivery time windows are not modelled (no data, and the ALNS insertion cost cannot represent them).
+- History is readable offline only for the first page of each period / outcome that was opened while online.

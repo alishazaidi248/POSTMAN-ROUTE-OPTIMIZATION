@@ -9,6 +9,8 @@ const KEYS = {
   profile: "cache:profile",
   deliveries: "cache:deliveries",
   route: "cache:route",
+  // The last first page of the postman's history per period + outcome, for reading it with no signal.
+  history: "cache:history",
   mutationQueue: "offline:mutationQueue",
   // Which account the cached data and queued changes belong to.
   owner: "cache:owner"
@@ -37,6 +39,14 @@ export const offlineStorage = {
 
   getCachedRoute: <T>() => readJson<T>(KEYS.route),
   setCachedRoute: (value: unknown) => writeJson(KEYS.route, value),
+
+  getCachedHistory: async <T>(key: string): Promise<T | null> => (await readJson<Record<string, T>>(KEYS.history))?.[key] ?? null,
+  setCachedHistory: async (key: string, value: unknown): Promise<void> => {
+    const all = (await readJson<Record<string, unknown>>(KEYS.history)) ?? {};
+    // a handful of period/outcome combinations exist; the cap only stops a runaway
+    const keys = Object.keys(all).filter((k) => k !== key).slice(-11);
+    await writeJson(KEYS.history, { ...Object.fromEntries(keys.map((k) => [k, all[k]])), [key]: value });
+  },
 
   getOwner: () => readJson<string>(KEYS.owner),
   setOwner: (userId: string) => writeJson(KEYS.owner, userId),

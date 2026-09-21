@@ -8,8 +8,13 @@ export interface DeliveryStatusMutation {
   deliveryId: string;
   status: DeliveryStatus;
   reason?: string;
+  /** The postman's GPS fix when they acted; the server uses it only to learn where the address is. */
   latitude?: number;
   longitude?: number;
+  accuracyMeters?: number;
+  /** A proof photo saved on the device (file path) that must reach the server BEFORE this status change. */
+  proofUri?: string;
+  proofCapturedAt?: string;
   queuedAt: string;
   attempts: number;
   lastError?: string;
@@ -20,6 +25,8 @@ export type SyncConflict = {
   attemptedStatus: DeliveryStatus;
   serverStatus: DeliveryStatus;
   detectedAt: string;
+  /** Why the change was not applied when it is not a plain state clash (e.g. the photo could not be sent). */
+  reason?: string;
 };
 
 interface OfflineState {

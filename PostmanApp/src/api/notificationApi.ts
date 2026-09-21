@@ -19,9 +19,12 @@ export const notificationApi = {
   },
   async markAllRead(): Promise<void> {
     await axiosClient.post("/notifications/read-all");
+  },
+  /** The server files the token under the signed-in login; the phone never says whose it is. */
+  async registerPushToken(token: string, platform: "ios" | "android" | "web"): Promise<void> {
+    await axiosClient.post("/me/push-token", { token, platform });
+  },
+  async unregisterPushToken(token: string): Promise<void> {
+    await axiosClient.delete("/me/push-token", { data: { token } });
   }
-  // NOTE: there is no backend endpoint yet to register an Expo push token
-  // against a Postman/User record. Until that exists, push notifications
-  // stay local-only (see services/notificationService.ts and
-  // docs/mobile-architecture.md "Notifications" section).
 };

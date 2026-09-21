@@ -97,7 +97,7 @@ client and apply the schema change against a running Postgres instance:
 cd ../PostmaAppAdminPanel/backend
 npm run prisma:generate
 npm run prisma:migrate   # or: npx prisma db push, for a dev database
-npm run prisma:seed      # creates ramesh.kadam@postal.local / ChangeMe123! (POSTMAN role)
+npm run prisma:seed      # creates ramesh.kadam@postal.local (POSTMAN role); prints a one-time temporary password
 ```
 
 ## 7. Map configuration
@@ -376,3 +376,26 @@ browser console even though the backend itself is reachable — see
   requires the foreground permission to be granted first, then a second
   prompt for "Allow all the time" — see `src/services/locationService.ts`
   and the `Settings` screen's manual permission link.
+
+## 12. Since the last revision: proof, first sign-in, history, notifications
+
+- **First sign-in.** An account created or reset by an administrator has a temporary password. `RootNavigator` shows
+  `ChangePasswordScreen` *instead of the app* while `user.mustChangePassword` is true; the server refuses every other endpoint to
+  that login until the password is changed (`403 PASSWORD_CHANGE_REQUIRED`). The password rules are the server's: the screen
+  shows what it says.
+- **Proof of delivery.** Whether a photo is required is the post office's setting (`postOffice.proofMode` in `GET /me/profile`).
+  When it is `PHOTO`, *Mark Delivered* first opens the camera (`expo-image-picker`; camera only, no gallery), copies the photo into
+  the app's own folder (`services/proofService.ts`) and then sends it (`POST /deliveries/:id/proof`) before the status change.
+  Offline, the photo and the change are queued **together** (`DeliveryStatusMutation.proofUri`) and replayed photo-first. The
+  server enforces the requirement; a photo that cannot be sent after 8 tries, or one the server says is missing, appears as a
+  conflict with a reason - never silently dropped. OTP and signature are not implemented.
+- **The GPS fix** of a completed delivery (only when fresh - within 2 minutes - and with its stated accuracy) is sent with the
+  status so the backend can learn where the address is; the address's own coordinates are never used for that.
+- **History offline.** The first page of History per period and outcome is saved on the phone and shown when there is no signal,
+  marked "Showing the copy saved on this phone". The top of History lists every change not on the server yet - *Waiting to sync*
+  or *Conflict* with the reason (`utils/syncStatus.ts`, `HistorySyncSection`).
+- **Addresses** are shown once, never repeated: `21 Farid Nagar / Bhandup West / Mumbai` (`utils/formatting.ts`).
+- **Push notifications** (a new assignment - batched when many arrive together -, an urgent delivery, a reassignment, a route
+  change, a message from the office). The backend stores every message (the Notifications screen is the source of truth) and
+  pushes it through Expo to the token this phone registers after sign-in (`POST /me/push-token`). Push needs a real device and a
+  development / production build with the project's push credentials; it **cannot be verified in a simulator or on the web**.

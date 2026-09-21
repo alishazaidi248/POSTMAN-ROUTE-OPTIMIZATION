@@ -56,7 +56,9 @@ never trusted from the client.
 | `/notifications` | GET | authenticated | Own + broadcast notifications. |
 | `/notifications/:id/read` | POST | authenticated | |
 | `/notifications/read-all` | POST | authenticated | |
-| *(none)* `POST /me/notifications/push-token` | — | — | **Does not exist.** Required before server-driven push (new assignment, route re-optimization, admin message) can work. Not implemented in this change set — see `src/services/notificationService.ts` and `docs/mobile-architecture.md`. |
+| `/me/push-token` | POST / DELETE | POSTMAN | `{token, platform}` registers the phone's Expo push token under the signed-in login (DELETE `{token}` on sign-out). The server stores every message as a Notification and pushes it through Expo (new assignment - batched -, urgent delivery, reassignment, route change, message from the office). | Yes (new) |
+| `/auth/change-password` | POST | any | `{currentPassword, newPassword}`. Required while the account has a temporary password (every other endpoint answers 403 `PASSWORD_CHANGE_REQUIRED`); ends the other sessions and returns new tokens. | Yes (new) |
+| `/deliveries/:id/proof` | POST / GET | POSTMAN (own), ADMIN | POST multipart field `photo` (JPEG / PNG / WebP, size-limited, only while OUT_FOR_DELIVERY); GET streams the private photo. `/deliveries/:id/status` refuses DELIVERED without it when the post office requires a photo (400, `details.proofRequired`). Send `location` `{latitude, longitude, accuracyMeters}` with DELIVERED for address learning. | Yes (new) |
 
 ## SYNC
 

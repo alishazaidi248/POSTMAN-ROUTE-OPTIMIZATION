@@ -14,7 +14,7 @@ import { DeliveryActionBar } from "../../components/delivery/DeliveryActionBar";
 import { colors } from "../../theme/colors";
 import { radius, spacing } from "../../theme/spacing";
 import { typography } from "../../theme/typography";
-import { formatAddress, formatTime } from "../../utils/formatting";
+import { formatAddressLines, formatTime } from "../../utils/formatting";
 import { isCallablePhoneNumber } from "../../utils/validation";
 import { statusLabel } from "../../utils/status";
 import { buildStopViews, legLabel } from "../../utils/routeView";
@@ -106,7 +106,10 @@ export function DeliveryDetailsScreen() {
 
       <View style={styles.card}>
         <Text style={styles.eyebrow}>Address</Text>
-        <Text style={styles.body}>{formatAddress(delivery.address)}</Text>
+        {formatAddressLines(delivery.address).map((line) => (
+          <Text key={line} style={styles.body}>{line}</Text>
+        ))}
+        <Text style={styles.caption}>Pincode {delivery.address.pincode}</Text>
         {view && view.latitude !== null ? null : <Text style={styles.caption}>This address has no map location yet, so directions are not available.</Text>}
       </View>
 
