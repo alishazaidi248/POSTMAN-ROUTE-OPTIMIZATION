@@ -2,6 +2,7 @@ import { DeliveryStatus } from "@prisma/client";
 import { prisma } from "../config/prisma";
 import { AppError } from "../utils/AppError";
 import { publishDeliveryEvent, DeliveryEventType } from "./events.service";
+import { assertProofPresent } from "./deliveryProof.service";
 
 /**
  * Explicit allow-list of state transitions (spec §23). Anything not listed
@@ -51,6 +52,9 @@ export async function transitionDeliveryStatus(params: {
       `Invalid delivery status transition: ${delivery.status} -> ${params.toStatus}`
     );
   }
+
+  // A post office that requires proof of delivery never completes a delivery without it, whoever asks.
+  if (params.toStatus === "DELIVERED") await assertProofPresent(params.deliveryId);
 
   const updated = await prisma.delivery.update({
     where: { id: params.deliveryId },

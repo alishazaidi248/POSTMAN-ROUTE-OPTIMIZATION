@@ -43,6 +43,25 @@ postOfficesRouter.post(
   })
 );
 
+/**
+ * What a post office requires as proof of delivery: NONE (a status change is enough) or PHOTO (the postman photographs
+ * the delivery; the server refuses DELIVERED without it). An administrator of the office or a super administrator.
+ */
+postOfficesRouter.put(
+  "/:id/proof-mode",
+  requireRole("ADMIN", "SUPER_ADMIN"),
+  validate(z.object({ body: z.object({ proofMode: z.enum(["NONE", "PHOTO"]) }) })),
+  asyncHandler(async (req, res) => {
+    const before = await prisma.postOffice.findUniqueOrThrow({ where: { id: req.params.id } });
+    assertOwnsResource(req, before.id);
+    const updated = await prisma.postOffice.update({ where: { id: before.id }, data: { proofMode: req.body.proofMode } });
+    if (before.proofMode !== updated.proofMode) {
+      await recordAudit({ req, action: "PROOF_MODE_CHANGED", entityType: "PostOffice", entityId: before.id, oldValue: { proofMode: before.proofMode }, newValue: { proofMode: updated.proofMode } });
+    }
+    res.json(updated);
+  })
+);
+
 postOfficesRouter.get(
   "/:id",
   asyncHandler(async (req, res) => {

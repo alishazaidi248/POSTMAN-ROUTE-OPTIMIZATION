@@ -12,6 +12,8 @@ export interface NormalizedRow {
   parcelType?: string;
   priority?: string;
   serviceTime?: number;
+  /** Real weight in kilograms; empty when the file has none. */
+  weightKg?: number;
 }
 
 const PHONE_RE = /^[6-9]\d{9}$/;
@@ -62,6 +64,15 @@ export function normalizeAndValidateRow(
     errors.push(`Invalid pincode: ${pincode}`);
   }
 
+  // A weight is a positive number of kilograms (a parcel count is not a weight, and is not accepted here).
+  const weightText = get("weightKg").replace(/,/g, ".");
+  let weightKg: number | undefined;
+  if (weightText) {
+    const w = Number(weightText.replace(/\s*kgs?\.?$/i, ""));
+    if (!Number.isFinite(w) || w <= 0 || w > 1000) errors.push(`Invalid weight: ${weightText} (kilograms, above 0 and at most 1000)`);
+    else weightKg = Math.round(w * 1000) / 1000;
+  }
+
   const normalized: Partial<NormalizedRow> = {
     recipientName,
     phone,
@@ -75,7 +86,8 @@ export function normalizeAndValidateRow(
     trackingId,
     parcelType: get("parcelType") || undefined,
     priority: get("priority") || undefined,
-    serviceTime: get("serviceTime") ? Number(get("serviceTime")) || undefined : undefined
+    serviceTime: get("serviceTime") ? Number(get("serviceTime")) || undefined : undefined,
+    weightKg
   };
 
   if (errors.length === 0) return { status: "VALID", errors, normalized };

@@ -21,7 +21,18 @@ const STATUS_TONE: Record<string, keyof typeof styles> = {
   MAINTENANCE: "badgeDanger",
   INFO: "badgeInfo",
   WARNING: "badgeWarning",
-  CRITICAL: "badgeDanger"
+  CRITICAL: "badgeDanger",
+  High: "badgeSuccess",
+  Medium: "badgeWarning",
+  Low: "badgeDanger",
+  Ambiguous: "badgeWarning",
+  VERIFIED: "badgeSuccess",
+  PENDING_VERIFICATION: "badgeWarning",
+  WEAK_LOCATION: "badgeWarning",
+  AMBIGUOUS_MATCH: "badgeWarning",
+  LOW_CONFIDENCE_MATCH: "badgeWarning",
+  NO_BEAT_MATCH: "badgeDanger",
+  GEOCODING_FAILED: "badgeDanger"
 };
 
 export function Badge({ value }: { value: string }) {

@@ -2,6 +2,7 @@ import { logger } from "../config/logger";
 import { prisma } from "../config/prisma";
 import { DeliveryEvent, DeliveryEventType, deliveryEventBus } from "./events.service";
 import { recalculateRouteForPostmanId } from "./routePlanner.service";
+import { notifyRouteChanged } from "./postmanNotifications.service";
 
 /**
  * Statuses that take a delivery off a postman's route and may warrant a fresh
@@ -36,6 +37,8 @@ export async function handleDeliveryEvent(event: DeliveryEvent): Promise<void> {
 
     if (!postmanId) return;
     await recalculateRouteForPostmanId(postmanId, event.type);
+    // A delivery leaving the round changes the remaining order: tell the postman whose route it is.
+    await notifyRouteChanged(postmanId, event.type);
     logger.info({ postmanId, trigger: event.type }, "route re-optimized after delivery event");
   } catch (err) {
     logger.error({ err, event }, "route re-optimization after delivery event failed");

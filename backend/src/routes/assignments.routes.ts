@@ -5,6 +5,8 @@ import { requireAuth, requireRole, resolvePostOfficeScope, assertOwnsResource, a
 import { validate } from "../middleware/validate";
 import { asyncHandler } from "../utils/asyncHandler";
 import { overrideAssignment } from "../services/assignment.service";
+import { DEFAULT_THRESHOLDS } from "../services/addressing/beatMatcher";
+import { QUALITY_LABEL } from "../services/addressing/assignmentDecision";
 
 export const assignmentsRouter = Router();
 assignmentsRouter.use(requireAuth, adminOnly);
@@ -18,10 +20,23 @@ assignmentsRouter.get(
         resolvedAt: null,
         delivery: postOfficeId ? { postOfficeId } : undefined
       },
-      include: { delivery: { include: { recipient: true, address: true } } },
+      include: {
+        delivery: { include: { recipient: true, address: true } },
+        suggestedBeat: { select: { id: true, beatNumber: true, name: true } }
+      },
       orderBy: { createdAt: "desc" }
     });
-    res.json(exceptions);
+    // The words the administrator reads are decided here, once, from the same thresholds the matcher used.
+    const levelOf = (c: number) => (c >= DEFAULT_THRESHOLDS.high ? "High" : c >= DEFAULT_THRESHOLDS.medium ? "Medium" : "Low");
+    // A high score shared by two beats is not a high confidence in either: the address is ambiguous, and it is labelled so.
+    const isAmbiguous = (e: { evidence: unknown }) => (e.evidence as { nameLevel?: string } | null)?.nameLevel === "AMBIGUOUS";
+    res.json(
+      exceptions.map((e) => ({
+        ...e,
+        confidenceLevel: e.confidence == null ? null : isAmbiguous(e) ? "Ambiguous" : levelOf(e.confidence),
+        locationQualityLabel: e.locationQuality ? QUALITY_LABEL[e.locationQuality] : null
+      }))
+    );
   })
 );
 
@@ -69,7 +84,7 @@ assignmentsRouter.post(
       assertOwnsResource(req, postman.postOfficeId);
     }
 
-    await overrideAssignment({
+    const delivery = await overrideAssignment({
       deliveryId: exception.deliveryId,
       beatId: req.body.beatId,
       postmanId: req.body.postmanId,
@@ -77,10 +92,11 @@ assignmentsRouter.post(
       userId: req.user!.sub
     });
 
-    const updated = await prisma.assignmentException.update({
-      where: { id: req.params.id },
-      data: { resolvedAt: new Date(), lastAction: "MANUALLY_ASSIGNED" }
-    });
+    // Still waiting for a postman: the (refreshed) "no postman" exception stays open, otherwise this one is done.
+    const stillOpen = exception.reason === "NO_POSTMAN_ASSIGNED" && !delivery.assignedPostmanId;
+    const updated = stillOpen
+      ? exception
+      : await prisma.assignmentException.update({ where: { id: req.params.id }, data: { resolvedAt: new Date(), lastAction: "MANUALLY_ASSIGNED" } });
 
     res.json(updated);
   })

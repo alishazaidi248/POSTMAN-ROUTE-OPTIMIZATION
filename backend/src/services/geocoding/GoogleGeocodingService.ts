@@ -1,7 +1,8 @@
 import axios from "axios";
 import { prisma } from "../../config/prisma";
 import { logger } from "../../config/logger";
-import { GeocodeQuery, GeocodeResult, GeocodingService, cacheKey } from "./GeocodingService";
+import { FAILED_RESULT, GeocodeQuery, GeocodeResult, GeocodingService, cacheKey } from "./GeocodingService";
+import { QueryTier, googleComponents, googlePrecision, precisionFromSource } from "./precision";
 import { env } from "../../config/env";
 
 const inMemoryCache = new Map<string, GeocodeResult>();
@@ -29,7 +30,7 @@ export class GoogleGeocodingService implements GeocodingService {
   async geocode(query: GeocodeQuery): Promise<GeocodeResult> {
     if (!env.googleGeocodingApiKey) {
       logger.error("GOOGLE_GEOCODING_API_KEY is not set — cannot geocode with GEOCODING_PROVIDER=google");
-      return { latitude: 0, longitude: 0, confidence: 0, source: "google", status: "FAILED" };
+      return FAILED_RESULT("google");
     }
 
     const key = cacheKey(query);
@@ -44,7 +45,7 @@ export class GoogleGeocodingService implements GeocodingService {
         addressLine1: query.addressLine1,
         geocodingStatus: "SUCCESS"
       },
-      select: { latitude: true, longitude: true, geocodingConfidence: true, geocodingSource: true }
+      select: { latitude: true, longitude: true, geocodingConfidence: true, geocodingSource: true, geocodingPrecision: true }
     });
     if (dbCached?.latitude && dbCached?.longitude) {
       const result: GeocodeResult = {
@@ -52,7 +53,9 @@ export class GoogleGeocodingService implements GeocodingService {
         longitude: dbCached.longitude,
         confidence: dbCached.geocodingConfidence ?? 0.5,
         source: dbCached.geocodingSource ?? "google-cache",
-        status: "SUCCESS"
+        status: "SUCCESS",
+        precision: dbCached.geocodingPrecision ?? precisionFromSource(dbCached.geocodingSource, "SUCCESS"),
+        provider: "google"
       };
       inMemoryCache.set(key, result);
       return result;
@@ -71,10 +74,10 @@ export class GoogleGeocodingService implements GeocodingService {
     // with less specific candidates if the full address has no match, so a
     // chawl-level line that Google can't pinpoint still resolves to an
     // area/pincode-level point instead of failing outright.
-    const candidates: { queryString: string; confidence: number; source: string }[] = [
-      { queryString: dedupeJoin([query.addressLine1, query.addressLine2, query.area, query.city, query.state, query.pincode]), confidence: 1, source: "google" },
-      { queryString: dedupeJoin([query.area, query.city, query.state, query.pincode]), confidence: 0.4, source: "google-area" },
-      { queryString: dedupeJoin([query.city, query.state, query.pincode]), confidence: 0.25, source: "google-pincode" }
+    const candidates: { queryString: string; confidence: number; source: string; tier: QueryTier }[] = [
+      { queryString: dedupeJoin([query.addressLine1, query.addressLine2, query.area, query.city, query.state, query.pincode]), confidence: 1, source: "google", tier: "full" as QueryTier },
+      { queryString: dedupeJoin([query.area, query.city, query.state, query.pincode]), confidence: 0.4, source: "google-area", tier: "area" as QueryTier },
+      { queryString: dedupeJoin([query.city, query.state, query.pincode]), confidence: 0.25, source: "google-pincode", tier: "pincode" as QueryTier }
     ].filter((c, i, arr) => c.queryString && arr.findIndex((o) => o.queryString === c.queryString) === i);
 
     for (const candidate of candidates) {
@@ -113,7 +116,10 @@ export class GoogleGeocodingService implements GeocodingService {
           confidence: Math.min(candidate.confidence, baseConfidence),
           source: candidate.source,
           status: "SUCCESS",
-          raw: match
+          precision: googlePrecision(match, candidate.tier),
+          components: googleComponents(match),
+          provider: "google",
+          raw: { types: match.types, location_type: locationType, formatted_address: match.formatted_address, partial_match: match.partial_match, place_id: match.place_id, tier: candidate.tier }
         };
         inMemoryCache.set(key, result);
         return result;
@@ -122,6 +128,6 @@ export class GoogleGeocodingService implements GeocodingService {
       }
     }
 
-    return { latitude: 0, longitude: 0, confidence: 0, source: "google", status: "FAILED" };
+    return FAILED_RESULT("google");
   }
 }

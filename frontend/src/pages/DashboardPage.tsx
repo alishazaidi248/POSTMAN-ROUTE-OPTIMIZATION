@@ -2,6 +2,7 @@ import { useQuery } from "@tanstack/react-query";
 import { apiClient } from "../lib/apiClient";
 import { StatCard } from "../components/StatCard";
 import { Badge } from "../components/Badge";
+import { ProofModeCard } from "../components/ProofModeCard";
 import styles from "../styles/components.module.css";
 
 interface DashboardSummary {
@@ -40,6 +41,7 @@ export function DashboardPage() {
       </div>
 
       <div className={styles.cardGrid} style={{ gridTemplateColumns: "1fr 1fr" }}>
+        <ProofModeCard />
         <div className={styles.card}>
           <h3 className={styles.sectionTitle}>Assignment Exceptions</h3>
           <p>

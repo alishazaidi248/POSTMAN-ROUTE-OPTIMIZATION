@@ -1,7 +1,8 @@
 import axios from "axios";
 import { prisma } from "../../config/prisma";
 import { logger } from "../../config/logger";
-import { GeocodeQuery, GeocodeResult, GeocodingService, cacheKey } from "./GeocodingService";
+import { FAILED_RESULT, GeocodeQuery, GeocodeResult, GeocodingService, cacheKey } from "./GeocodingService";
+import { QueryTier, nominatimComponents, nominatimPrecision, precisionFromSource } from "./precision";
 import { env } from "../../config/env";
 
 const inMemoryCache = new Map<string, GeocodeResult>();
@@ -31,7 +32,7 @@ export class NominatimGeocodingService implements GeocodingService {
         addressLine1: query.addressLine1,
         geocodingStatus: "SUCCESS"
       },
-      select: { latitude: true, longitude: true, geocodingConfidence: true, geocodingSource: true }
+      select: { latitude: true, longitude: true, geocodingConfidence: true, geocodingSource: true, geocodingPrecision: true }
     });
     if (dbCached?.latitude && dbCached?.longitude) {
       const result: GeocodeResult = {
@@ -39,7 +40,9 @@ export class NominatimGeocodingService implements GeocodingService {
         longitude: dbCached.longitude,
         confidence: dbCached.geocodingConfidence ?? 0.5,
         source: dbCached.geocodingSource ?? "nominatim-cache",
-        status: "SUCCESS"
+        status: "SUCCESS",
+        precision: dbCached.geocodingPrecision ?? precisionFromSource(dbCached.geocodingSource, "SUCCESS"),
+        provider: "nominatim"
       };
       inMemoryCache.set(key, result);
       return result;
@@ -61,10 +64,10 @@ export class NominatimGeocodingService implements GeocodingService {
     // an area-level point (and can be beat-matched) instead of sitting in
     // FAILED forever. Each fallback tier is tagged with a lower confidence so
     // downstream code/UI can tell a rooftop match from an area-level one.
-    const candidates: { queryString: string; confidence: number; source: string }[] = [
-      { queryString: dedupeJoin([query.addressLine1, query.addressLine2, query.area, query.city, query.state, query.pincode]), confidence: 1, source: "nominatim" },
-      { queryString: dedupeJoin([query.area, query.city, query.state, query.pincode]), confidence: 0.4, source: "nominatim-area" },
-      { queryString: dedupeJoin([query.city, query.state, query.pincode]), confidence: 0.25, source: "nominatim-pincode" }
+    const candidates: { queryString: string; confidence: number; source: string; tier: QueryTier }[] = [
+      { queryString: dedupeJoin([query.addressLine1, query.addressLine2, query.area, query.city, query.state, query.pincode]), confidence: 1, source: "nominatim", tier: "full" as QueryTier },
+      { queryString: dedupeJoin([query.area, query.city, query.state, query.pincode]), confidence: 0.4, source: "nominatim-area", tier: "area" as QueryTier },
+      { queryString: dedupeJoin([query.city, query.state, query.pincode]), confidence: 0.25, source: "nominatim-pincode", tier: "pincode" as QueryTier }
     ].filter((c, i, arr) => c.queryString && arr.findIndex((o) => o.queryString === c.queryString) === i);
 
     candidateLoop: for (const candidate of candidates) {
@@ -73,7 +76,7 @@ export class NominatimGeocodingService implements GeocodingService {
         try {
           await throttle();
           const { data } = await axios.get(`${env.nominatimBaseUrl}/search`, {
-            params: { q: candidate.queryString, format: "json", limit: 1, countrycodes: "in" },
+            params: { q: candidate.queryString, format: "json", limit: 1, countrycodes: "in", addressdetails: 1 },
             headers: { "User-Agent": env.nominatimUserAgent },
             timeout: 8000
           });
@@ -90,7 +93,10 @@ export class NominatimGeocodingService implements GeocodingService {
             confidence: Math.min(candidate.confidence, parseFloat(match.importance ?? "0.4") + (1 - candidate.confidence)),
             source: candidate.source,
             status: "SUCCESS",
-            raw: match
+            precision: nominatimPrecision(match, candidate.tier),
+            components: nominatimComponents(match),
+            provider: "nominatim",
+            raw: { class: match.class, type: match.type, addresstype: match.addresstype, display_name: match.display_name, importance: match.importance, osm_type: match.osm_type, osm_id: match.osm_id, tier: candidate.tier }
           };
           inMemoryCache.set(key, result);
           return result;
@@ -122,6 +128,6 @@ export class NominatimGeocodingService implements GeocodingService {
       }
     }
 
-    return { latitude: 0, longitude: 0, confidence: 0, source: "nominatim", status: "FAILED" };
+    return FAILED_RESULT("nominatim");
   }
 }

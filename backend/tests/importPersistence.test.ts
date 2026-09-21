@@ -13,7 +13,7 @@ const records = vi.hoisted(() => ({ createDeliveryRecords: vi.fn() }));
 
 vi.mock("../src/config/prisma", () => ({ prisma: prismaMock }));
 vi.mock("../src/config/logger", () => ({ logger: { info: vi.fn(), warn: vi.fn(), error: vi.fn(), debug: vi.fn() } }));
-vi.mock("../src/services/geocoding", () => ({ getGeocodingService: () => geocoder }));
+vi.mock("../src/services/geocoding", () => ({ geocodeAddress: (...args: unknown[]) => geocoder.geocode(...args) }));
 vi.mock("../src/services/assignment.service", () => assign);
 vi.mock("../src/services/delivery.service", () => records);
 
@@ -29,7 +29,7 @@ const row = (n: number, trackingId: string) => ({
 });
 
 const importRecord = { id: "imp1", postOfficeId: "poA", status: "PROCESSING", successfulRows: 0, geocodingFailedRows: 0, assignmentFailedRows: 0 };
-const ok = { status: "SUCCESS", latitude: 19.15, longitude: 72.95, confidence: 1, source: "test" };
+const ok = { status: "SUCCESS", latitude: 19.15, longitude: 72.95, confidence: 1, source: "test", precision: "HOUSE" };
 
 beforeEach(() => {
   vi.clearAllMocks();
@@ -95,16 +95,16 @@ describe("confirmImport — everything is written to PostgreSQL, row by row", ()
     expect(result.errorSummary).toMatch(/1 row/);
   });
 
-  it("a geocoding failure still SAVES the delivery (with a GEOCODING_FAILED exception) and skips beat matching", async () => {
+  it("a geocoding failure still SAVES the delivery and still runs beat matching (the beat list needs no coordinates)", async () => {
     prismaMock.deliveryImportRow.findMany.mockResolvedValue([row(1, "T1")]);
-    geocoder.geocode.mockResolvedValue({ status: "FAILED", latitude: 0, longitude: 0, confidence: 0, source: "nominatim" });
+    geocoder.geocode.mockResolvedValue({ status: "FAILED", latitude: 0, longitude: 0, confidence: 0, source: "nominatim", precision: "NONE" });
 
     const result = await confirmImport("imp1", "admin-1");
 
     expect(records.createDeliveryRecords).toHaveBeenCalledTimes(1);
     expect(records.createDeliveryRecords.mock.calls[0][2].status).toBe("FAILED");
-    expect(assign.assignDeliveryToBeat).not.toHaveBeenCalled();
-    expect(result).toMatchObject({ successfulRows: 1, geocodingFailedRows: 1 });
+    expect(assign.assignDeliveryToBeat).toHaveBeenCalledWith("del-T1");
+    expect(result).toMatchObject({ successfulRows: 1, geocodingFailedRows: 1, assignmentFailedRows: 0 });
   });
 
   it("a geocoder that THROWS is treated as a failed geocode, not a crashed import", async () => {
