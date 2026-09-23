@@ -5,6 +5,7 @@ import { requireAuth, requireRole, resolvePostOfficeScope, assertOwnsResource, a
 import { validate } from "../middleware/validate";
 import { asyncHandler } from "../utils/asyncHandler";
 import { overrideAssignment } from "../services/assignment.service";
+import { retryGeocodeAllExceptions } from "../services/geocoding";
 import { DEFAULT_THRESHOLDS } from "../services/addressing/beatMatcher";
 import { QUALITY_LABEL } from "../services/addressing/assignmentDecision";
 
@@ -37,6 +38,18 @@ assignmentsRouter.get(
         locationQualityLabel: e.locationQuality ? QUALITY_LABEL[e.locationQuality] : null
       }))
     );
+  })
+);
+
+/** Retries geocoding for every open exception a location fix could plausibly resolve, bounded and scoped exactly
+ * like the exception list above (GET /exceptions) - an office-scoped admin only retries their own office's work. */
+assignmentsRouter.post(
+  "/exceptions/retry-geocode-all",
+  requireRole("ADMIN", "SUPER_ADMIN"),
+  asyncHandler(async (req, res) => {
+    const postOfficeId = resolvePostOfficeScope(req);
+    const summary = await retryGeocodeAllExceptions(postOfficeId);
+    res.json(summary);
   })
 );
 

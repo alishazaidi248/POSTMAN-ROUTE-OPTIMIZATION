@@ -1,6 +1,8 @@
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from "vitest";
 import { prisma } from "../../src/config/prisma";
 import { assignDeliveryToBeat, overrideAssignment } from "../../src/services/assignment.service";
+import { retryAddressGeocode, retryGeocodeAllExceptions } from "../../src/services/geocoding";
+import { learnableKey } from "../../src/services/addressing/locationLearning";
 import { geocode, makeAdmin, makeBeat, makeDelivery, makeOffice, makePostman, openExceptions, resetDatabase, square } from "./db";
 
 /**
@@ -126,6 +128,26 @@ describe("territory is the spatial fallback, and only a VERIFIED territory count
     expect((await openExceptions(deliveryId))[0].reason).toBe("MULTIPLE_BEAT_MATCH");
     expect((await state(deliveryId)).beatId).toBeNull();
   });
+
+  it("two territories match, but only ONE candidate postman already has a nearby delivery: auto-assigns to him instead of opening an exception", async () => {
+    const beat31 = await makeBeat(officeId, { number: "31", name: "Beat 31 - Overlapping", territory: square(19.16, 72.9505, 400), verified: true });
+    await makePostman(officeId, "31", beat31); // beat 30 already has EMP-30 from beforeEach
+
+    // EMP-30 already has a delivery ~15m from the new one (well under the 300m threshold); EMP-31 has none nearby.
+    const { deliveryId: existingId } = await makeDelivery(officeId, { addressLine1: "Other Lane 3" }, geocode("HOUSE", 19.1601, 72.9503));
+    await prisma.delivery.update({ where: { id: existingId }, data: { assignedPostmanId: (await prisma.postman.findFirstOrThrow({ where: { employeeId: "EMP-30" } })).id, status: "ASSIGNED", beatId: beat["30"] } });
+
+    const { deliveryId } = await makeDelivery(officeId, { addressLine1: "Other Lane 4" }, geocode("HOUSE", 19.16, 72.9502));
+    const r = await assignDeliveryToBeat(deliveryId);
+    expect(r).toMatchObject({ status: "ASSIGNED", beatId: beat["30"], method: "TERRITORY" });
+    expect(await openExceptions(deliveryId)).toHaveLength(0);
+    const d = await state(deliveryId);
+    expect(d.assignedPostman?.employeeId).toBe("EMP-30");
+    expect(d.assignmentConfidence).toBe(75); // below the single-territory match's 80: a secondary heuristic, not ground truth
+    expect(JSON.stringify(d.assignmentEvidence)).toMatch(/already has a delivery/);
+    const history = await prisma.deliveryAssignmentHistory.findFirst({ where: { deliveryId }, orderBy: { createdAt: "desc" } });
+    expect(history).toMatchObject({ beatId: beat["30"], reason: "AUTO_TERRITORY" }); // the normal automatic write path, not a parallel one
+  });
 });
 
 describe("manual decisions and lifecycle", () => {
@@ -168,5 +190,72 @@ describe("manual decisions and lifecycle", () => {
     await prisma.address.updateMany({ where: { deliveries: { some: { id: deliveryId } } }, data: { addressLine1: "4 Kokan Nagar" } });
     expect(await assignDeliveryToBeat(deliveryId)).toMatchObject({ status: "ASSIGNED" });
     expect(await openExceptions(deliveryId)).toHaveLength(0);
+  });
+});
+
+describe("Retry Geocode All", () => {
+  /** Seeds a learned location (two agreeing samples -> HOUSE precision) so a retry resolves deterministically,
+   * without calling a real geocoding provider over the network - the same seam GEOCODING_PROVIDER=none / the
+   * "learned location" path already gives the rest of the system. */
+  async function seedLearnedLocation(addressLine1: string, area: string, lat: number, lng: number) {
+    const key = learnableKey([addressLine1, null, area, "Mumbai", "Maharashtra"])!;
+    const loc = await prisma.addressLocation.create({
+      data: { postOfficeId: officeId, normalizedKey: key, latitude: lat, longitude: lng, sampleCount: 2, confidence: 0.9, lastDeliveredAt: new Date() }
+    });
+    for (let i = 0; i < 2; i++) {
+      await prisma.addressLocationSample.create({
+        data: { addressLocationId: loc.id, deliveryId: (await makeDelivery(officeId, { addressLine1: `filler ${i}` }, geocode("NONE"))).deliveryId, latitude: lat, longitude: lng, accepted: true, capturedAt: new Date() }
+      });
+    }
+  }
+
+  it("retryAddressGeocode re-geocodes the SAME address row (no duplicate) and re-matches the beat", async () => {
+    await seedLearnedLocation("12 Falcon Heights", "Falcon Heights", FARID.lat, FARID.lng);
+    const { deliveryId, addressId } = await makeDelivery(officeId, { addressLine1: "12 Falcon Heights", area: "Falcon Heights" }, geocode("NONE"));
+    await assignDeliveryToBeat(deliveryId);
+    expect((await openExceptions(deliveryId))[0].reason).toBe("GEOCODING_FAILED"); // no name match, not located yet
+
+    const before = await prisma.address.count();
+    const { address, assignResult } = await retryAddressGeocode(addressId);
+    expect(await prisma.address.count()).toBe(before); // same row, not a new one
+    expect(address.id).toBe(addressId);
+    expect(address.geocodingStatus).toBe("SUCCESS");
+    expect(address.geocodingPrecision).toBe("HOUSE");
+    expect(assignResult).toMatchObject({ status: "ASSIGNED", method: "TERRITORY", beatId: beat["20"] });
+    expect(await openExceptions(deliveryId)).toHaveLength(0);
+  });
+
+  it("retryGeocodeAllExceptions resolves what it can, leaves the rest open with refreshed evidence, and reports accurate counts", async () => {
+    // "good": a learned location waits for it - resolves. "stillAmbiguous": Village Road matches two beats by name;
+    // even a precise (HOUSE) retried location lands in neither's (unverified) territory, so geocoding SUCCEEDS but
+    // the exception correctly stays open - "succeeded, still needs review", not a network failure. Neither case
+    // touches a real geocoding provider: both go through the learned-location seam other tests already use.
+    // One exception (NO_POSTMAN_ASSIGNED) is not geocode-retryable at all and must not be touched.
+    await seedLearnedLocation("12 Falcon Heights", "Falcon Heights", FARID.lat, FARID.lng);
+    await seedLearnedLocation("9 Village Road", "Village Road", 19.3, 73.1); // precise, but nowhere near any territory
+    const good = await makeDelivery(officeId, { addressLine1: "12 Falcon Heights", area: "Falcon Heights" }, geocode("NONE"));
+    const stillAmbiguous = await makeDelivery(officeId, { addressLine1: "9 Village Road", area: "Village Road" }, geocode("NONE"));
+    await assignDeliveryToBeat(good.deliveryId);
+    await assignDeliveryToBeat(stillAmbiguous.deliveryId);
+    expect((await openExceptions(stillAmbiguous.deliveryId))[0].reason).toBe("AMBIGUOUS_MATCH");
+
+    await prisma.postmanBeatAssignment.updateMany({ where: { beatId: beat["17"] }, data: { isActive: false } });
+    const { deliveryId: noPostmanId } = await makeDelivery(officeId, { addressLine1: "3 Kokan Nagar", area: "Kokan Nagar" }, geocode("NONE"));
+    await assignDeliveryToBeat(noPostmanId);
+    expect((await openExceptions(noPostmanId))[0].reason).toBe("NO_POSTMAN_ASSIGNED");
+
+    const summary = await retryGeocodeAllExceptions(officeId);
+    expect(summary.processed).toBe(2); // NO_POSTMAN_ASSIGNED correctly excluded
+    expect(summary.resolved).toBe(1);
+    expect(summary.stillUnresolved).toBe(1);
+    expect(summary.failed).toBe(0);
+
+    expect(await openExceptions(good.deliveryId)).toHaveLength(0);
+    const stillOpen = await openExceptions(stillAmbiguous.deliveryId);
+    expect(stillOpen).toHaveLength(1); // refreshed in place, not duplicated
+    expect(stillOpen[0].reason).toBe("AMBIGUOUS_MATCH");
+    expect(stillOpen[0].locationQuality).toBe("HOUSE"); // the retry did improve the geocode - just not enough to settle it
+    // untouched: still the same open exception, not retried
+    expect((await openExceptions(noPostmanId))[0].reason).toBe("NO_POSTMAN_ASSIGNED");
   });
 });

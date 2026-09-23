@@ -38,14 +38,16 @@ import {
 export const beatImportRouter = Router();
 beatImportRouter.use(requireAuth, adminOnly);
 
-const MAX_ROWS = 2000;
+// A real beat list is a locality directory (one row per beat and locality), which runs to several thousand
+// rows for a single post office - e.g. Bhandup West's 26 beats list ~4,000 rows across ~120 localities each.
+const MAX_ROWS = 8000;
 
 const upload = multer({
   dest: path.join(env.uploadDir, "tmp"),
   limits: { fileSize: env.maxUploadSizeMb * 1024 * 1024 },
   fileFilter: (_req, file, cb) => {
     const ext = path.extname(file.originalname).toLowerCase();
-    if (ext !== ".csv" && ext !== ".xlsx") return cb(new Error("UNSUPPORTED"));
+    if (ext !== ".csv" && ext !== ".xlsx" && ext !== ".pdf") return cb(new Error("UNSUPPORTED"));
     cb(null, true);
   }
 });
@@ -55,7 +57,7 @@ const uploadOne: RequestHandler = (req: Request, res: Response, next: NextFuncti
   upload.single("file")(req, res, (err: unknown) => {
     if (!err) return next();
     if (err instanceof Error && err.message === "UNSUPPORTED") {
-      return next(AppError.badRequest("Only Excel (.xlsx) and CSV (.csv) beat lists can be uploaded."));
+      return next(AppError.badRequest("Only Excel (.xlsx), CSV (.csv) or a text-based PDF (.pdf) beat list can be uploaded."));
     }
     if (err instanceof multer.MulterError && err.code === "LIMIT_FILE_SIZE") {
       return next(AppError.badRequest(`This file is too large (the limit is ${env.maxUploadSizeMb} MB).`));

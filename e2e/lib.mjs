@@ -30,7 +30,7 @@ export function chromePath() {
 }
 
 export const launch = () =>
-  puppeteer.launch({ executablePath: chromePath(), headless: "new", args: ["--no-sandbox", "--use-gl=swiftshader", "--enable-webgl", "--ignore-gpu-blocklist"] });
+  puppeteer.launch({ executablePath: chromePath(), headless: "new", args: ["--no-sandbox", "--use-gl=angle", "--use-angle=swiftshader", "--enable-unsafe-swiftshader", "--enable-webgl", "--ignore-gpu-blocklist"] });
 
 export async function api(method, route, token, body) {
   const res = await fetch(API + route, { method, headers: { "Content-Type": "application/json", ...(token ? { Authorization: `Bearer ${token}` } : {}) }, body: body ? JSON.stringify(body) : undefined });
@@ -51,6 +51,11 @@ export function reporter(title) {
     check(name, ok, detail) {
       results.push({ name, ok: !!ok });
       console.log(`  ${ok ? "PASS" : "FAIL"}  ${name}${ok || detail === undefined ? "" : `\n        -> ${String(detail).slice(0, 300)}`}`);
+      // In GitHub Actions a failed check becomes an annotation on the run's summary page (no log download needed)
+      if (!ok && process.env.GITHUB_ACTIONS) {
+        const message = String(detail ?? "").slice(0, 700).replace(/%/g, "%25").replace(/\r?\n/g, "%0A");
+        console.log(`::error title=${title.replace(/[:,]/g, " ")}::${name.replace(/[:,]/g, " ")} -> ${message}`);
+      }
     },
     results
   };

@@ -4,7 +4,8 @@ import { AppError } from "../utils/AppError";
 import { recordAudit } from "./audit.service";
 import { loadDirectory } from "./addressing/beatDirectory.service";
 import { matchBeatByName } from "./addressing/beatMatcher";
-import { Decision, ExceptionKind, Explanation, decideAssignment, isUsable } from "./addressing/assignmentDecision";
+import { Decision, ExceptionKind, Explanation, NearbyPostmanCandidate, decideAssignment, isStrong, isUsable } from "./addressing/assignmentDecision";
+import { distanceMeters } from "./addressing/locationLearning";
 import { AssignmentChange, announceAssignmentChanges } from "./postmanNotifications.service";
 
 /**
@@ -80,6 +81,78 @@ async function resolveExceptions(db: Db, deliveryId: string, reasons: ExceptionR
   });
 }
 
+// ── bulk geocode retry ("Retry Geocode All") ──────────────────────────────
+
+/** Exception reasons a re-geocode could plausibly fix - a beat/postman problem (NO_POSTMAN_ASSIGNED, INACTIVE_POSTMAN,
+ * OUTSIDE_POST_OFFICE) is not a location problem and is deliberately excluded, matching the single-row "Retry Geocode"
+ * button's own exclusion of NO_POSTMAN_ASSIGNED. */
+const GEOCODE_RETRYABLE_REASONS: ExceptionReason[] = [
+  "GEOCODING_FAILED",
+  "NO_BEAT_MATCH",
+  "AMBIGUOUS_MATCH",
+  "LOW_CONFIDENCE_MATCH",
+  "WEAK_LOCATION",
+  "MULTIPLE_BEAT_MATCH",
+  "INVALID_ADDRESS",
+  "INVALID_COORDINATES"
+];
+
+/** Whether an open exception is worth re-geocoding: its reason must be one a location fix could resolve, AND the
+ * address must not already have a confident house-level geocode (retrying the same point again would not help - e.g.
+ * a MULTIPLE_BEAT_MATCH where the location is already precise is a genuine overlap, not a geocoding problem). */
+export function needsGeocodeRetry(
+  exception: { reason: ExceptionReason },
+  address: { geocodingStatus: string; geocodingPrecision: GeocodingPrecision | null }
+): boolean {
+  if (!GEOCODE_RETRYABLE_REASONS.includes(exception.reason)) return false;
+  if (address.geocodingStatus === "SUCCESS" && address.geocodingPrecision === "HOUSE") return false;
+  return true;
+}
+
+export interface RetryGeocodeAllResult {
+  exceptionId: string;
+  deliveryId: string;
+  outcome: "SUCCEEDED_RESOLVED" | "SUCCEEDED_STILL_UNRESOLVED" | "FAILED";
+}
+
+export interface RetryGeocodeAllSummary {
+  processed: number;
+  succeeded: number;
+  failed: number;
+  resolved: number;
+  stillUnresolved: number;
+  results: RetryGeocodeAllResult[];
+}
+
+/** The open, scope-filtered exceptions that qualify for "Retry Geocode All" - the filtering only; the actual
+ * retry driver lives in services/geocoding (it needs retryAddressGeocode, which lives there too, and that module
+ * already depends on this one for assignDeliveryToBeat, so the bulk driver sits there to avoid a circular import). */
+export async function retryableExceptions(postOfficeId?: string) {
+  const candidates = await prisma.assignmentException.findMany({
+    where: {
+      resolvedAt: null,
+      reason: { in: GEOCODE_RETRYABLE_REASONS },
+      delivery: postOfficeId ? { postOfficeId } : undefined
+    },
+    include: { delivery: { include: { address: true } } },
+    take: 500
+  });
+  return candidates.filter((c) => needsGeocodeRetry(c, c.delivery.address));
+}
+
+/** Runs `items` through `worker`, at most `limit` at a time - bulk work without firing everything simultaneously,
+ * and without a new dependency for something this small. */
+export async function runPool<T>(items: T[], limit: number, worker: (item: T) => Promise<void>): Promise<void> {
+  let cursor = 0;
+  async function pump() {
+    while (cursor < items.length) {
+      const item = items[cursor++];
+      await worker(item);
+    }
+  }
+  await Promise.all(Array.from({ length: Math.min(limit, items.length) }, pump));
+}
+
 // ── postman <-> beat ───────────────────────────────────────────────────────
 
 async function activePostmanOfBeat(db: Db, beatId: string) {
@@ -88,6 +161,27 @@ async function activePostmanOfBeat(db: Db, beatId: string) {
     select: { postmanId: true }
   });
   return row?.postmanId ?? null;
+}
+
+/** A postman's currently-held, not-yet-finished deliveries: what "he already works near here" is measured against. */
+const NEARBY_LOOKUP_STATUSES: DeliveryStatus[] = [...AUTO_ASSIGNABLE_STATUSES, "OUT_FOR_DELIVERY"];
+
+/** The distance from `point` to this postman's nearest currently-active delivery (excluding `excludeDeliveryId`
+ * itself), or null when they have none with a usable location. Used only to break a MULTIPLE_BEAT_MATCH tie -
+ * never a citywide search, always scoped to one specific candidate postman by the caller. */
+async function nearestActiveDeliveryDistanceM(db: Db, postmanId: string, point: { latitude: number; longitude: number }, excludeDeliveryId: string): Promise<number | null> {
+  const rows = await db.delivery.findMany({
+    where: { assignedPostmanId: postmanId, status: { in: NEARBY_LOOKUP_STATUSES }, id: { not: excludeDeliveryId } },
+    select: { address: { select: { latitude: true, longitude: true } } },
+    take: 200
+  });
+  let min: number | null = null;
+  for (const r of rows) {
+    if (r.address.latitude == null || r.address.longitude == null) continue;
+    const d = distanceMeters(point, { latitude: r.address.latitude, longitude: r.address.longitude });
+    if (min == null || d < min) min = d;
+  }
+  return min;
 }
 
 /**
@@ -291,7 +385,22 @@ export async function assignDeliveryToBeat(deliveryId: string): Promise<AssignRe
   // Territories are only consulted for a location precise enough to be believed.
   const territories = located && isUsable(precision) ? await findContainingBeats(delivery.postOfficeId, a.latitude!, a.longitude!) : [];
 
-  const decision = decideAssignment({ name, location: { located, precision }, territories });
+  // A MULTIPLE_BEAT_MATCH tie-break needs to know, for each matched beat, who covers it and whether that postman
+  // already has a nearby delivery - a DB/geo lookup the pure decision function cannot do itself, so it is done here
+  // and passed in. Only computed when it could actually matter (more than one territory, and a strong enough
+  // location that decideAssignment would even reach that branch).
+  let territoryPostmen: NearbyPostmanCandidate[] | undefined;
+  if (territories.length > 1 && located && isStrong(precision)) {
+    territoryPostmen = [];
+    for (const t of territories) {
+      const postmanId = await activePostmanOfBeat(prisma, t.beatId);
+      if (!postmanId) continue;
+      const nearestDeliveryDistanceM = await nearestActiveDeliveryDistanceM(prisma, postmanId, { latitude: a.latitude!, longitude: a.longitude! }, deliveryId);
+      territoryPostmen.push({ beatId: t.beatId, beatNumber: t.beatNumber, postmanId, nearestDeliveryDistanceM });
+    }
+  }
+
+  const decision = decideAssignment({ name, location: { located, precision }, territories, territoryPostmen });
   const result = await applyDecision(deliveryId, delivery.status, decision, precision, territories);
   // Tell the postmen once the decision is committed: the new one (batched, or at once when URGENT) and the one who lost it.
   const now = result.status === "ASSIGNED" ? result.postmanId : null;
