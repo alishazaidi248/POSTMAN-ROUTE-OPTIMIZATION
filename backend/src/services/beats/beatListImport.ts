@@ -2,9 +2,10 @@ import fs from "fs";
 import path from "path";
 import { parse } from "csv-parse/sync";
 import ExcelJS from "exceljs";
+import pdfParse from "pdf-parse";
 import { AppError } from "../../utils/AppError";
 import { prisma } from "../../config/prisma";
-import { Polygon, checkTerritory, parseTerritoryCell } from "./territory";
+import { Polygon, analyseTerritory, parseTerritoryCell } from "./territory";
 import { canonical, normalizeValue } from "../addressing/normalize";
 
 /**
@@ -174,7 +175,34 @@ export async function readBeatListFile(filePath: string, originalName: string): 
     });
     return tableFromGrid(Array.from(grid, (r) => r ?? []), sheet.name);
   }
-  throw AppError.badRequest("Only Excel (.xlsx) and CSV (.csv) beat lists are supported.");
+  if (ext === ".pdf") {
+    const buffer = fs.readFileSync(filePath);
+    let text: string;
+    let numPages: number;
+    try {
+      const data = await pdfParse(buffer);
+      text = data.text ?? "";
+      numPages = data.numpages ?? 1;
+    } catch {
+      throw AppError.badRequest("This file could not be read as a PDF. Please check it opens correctly in a PDF viewer.");
+    }
+    // Same OCR-required heuristic as the delivery-list PDF reader: a scanned page yields almost no extracted text.
+    const meaningfulChars = text.replace(/\s/g, "").length;
+    if (meaningfulChars < 20 * Math.max(1, numPages)) {
+      throw AppError.badRequest(
+        "This PDF has no readable text (it is a scan or an image). Please export the beat list as Excel or CSV, or as a text-based PDF."
+      );
+    }
+    // A PDF has no cell grid: columns are separated by a tab or by two-or-more spaces, the same
+    // heuristic used for delivery-list PDFs elsewhere in the app.
+    const grid = text
+      .split("\n")
+      .map((line) => line.trim())
+      .filter(Boolean)
+      .map((line) => line.split(/\t|\s{2,}/).map((c) => c.trim()));
+    return tableFromGrid(grid);
+  }
+  throw AppError.badRequest("Only Excel (.xlsx), CSV (.csv) or a text-based PDF (.pdf) beat list is supported.");
 }
 
 // ── checking the rows ──────────────────────────────────────────────────────
@@ -286,12 +314,30 @@ export async function checkBeatList(
     officeByText.set(norm(o.name), o.id);
     officeByText.set(norm(o.code), o.id);
   }
+  // India Post names offices with a role suffix (S.O. = Sub Office, H.O. = Head Office, B.O. = Branch Office,
+  // or the spelled-out "Post Office" / "PO"). A beat list and the seeded office record often use different
+  // suffixes for the same office ("Bhandup West So" vs "Bhandup West Post Office"), so suffixes are stripped
+  // before comparing, as a fallback below the exact and partial matches.
+  const stripOfficeSuffix = (s: string) => s.replace(/\b(s\.?\s*o\.?|h\.?\s*o\.?|b\.?\s*o\.?|post\s*office|po)\.?\s*$/i, "").trim();
+  const officeByCore = new Map<string, string>();
+  for (const o of offices) {
+    const core = norm(stripOfficeSuffix(o.name));
+    if (core && !officeByCore.has(core)) officeByCore.set(core, o.id);
+  }
   const findOffice = (text: string): string | null => {
     const n = norm(text);
     const exact = officeByText.get(n);
     if (exact) return exact;
     const partial = offices.filter((o) => norm(o.name).includes(n) || n.includes(norm(o.name)));
-    return partial.length === 1 ? partial[0].id : null;
+    if (partial.length === 1) return partial[0].id;
+    const core = norm(stripOfficeSuffix(text));
+    const coreExact = core ? officeByCore.get(core) : undefined;
+    if (coreExact) return coreExact;
+    const corePartial = offices.filter((o) => {
+      const oc = norm(stripOfficeSuffix(o.name));
+      return oc && (oc.includes(core) || core.includes(oc));
+    });
+    return corePartial.length === 1 ? corePartial[0].id : null;
   };
 
   const structured = !!(mapping.locality || mapping.mainArea);
@@ -415,16 +461,29 @@ export async function checkBeatList(
         fail(err instanceof Error ? err.message : "The territory could not be read.");
       }
       if (territory) {
-        const verdict = await checkTerritory(prisma, territory);
-        if (verdict.valid) {
-          territoryState = "PRESENT";
-          centerLatitude = verdict.centerLatitude;
-          centerLongitude = verdict.centerLongitude;
+        if (officeId) {
+          const verdict = await analyseTerritory(prisma, territory, {
+            postOfficeId: officeId,
+            excludeBeatId: dbBeatId ?? undefined,
+            beatNumber
+          });
+          if (verdict.valid) {
+            territoryState = "PRESENT";
+            centerLatitude = verdict.centerLatitude;
+            centerLongitude = verdict.centerLongitude;
+            if (verdict.overlaps.length > 0) warn(verdict.overlaps.map((o) => o.message).join(" "));
+          } else {
+            territory = null;
+            territoryState = "INVALID";
+            invalidTerritory++;
+            fail(verdict.problems.join(" "));
+          }
         } else {
-          territory = null;
+          // The post office could not be resolved (already an error above); geometry cannot be checked
+          // against a specific office's other beats without knowing which office it belongs to.
           territoryState = "INVALID";
           invalidTerritory++;
-          fail(`The territory outline is not valid (${verdict.reason}).`);
+          territory = null;
         }
       }
     }

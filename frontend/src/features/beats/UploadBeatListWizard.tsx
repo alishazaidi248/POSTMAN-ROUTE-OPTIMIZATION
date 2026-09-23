@@ -75,8 +75,8 @@ export function UploadBeatListWizard({ onClose, onImported }: { onClose: () => v
   async function upload(file: File) {
     setError(null);
     setPreview(null);
-    if (!/\.(xlsx|csv)$/i.test(file.name)) {
-      setError("Please choose an Excel (.xlsx) or CSV (.csv) beat list.");
+    if (!/\.(xlsx|csv|pdf)$/i.test(file.name)) {
+      setError("Please choose an Excel (.xlsx), CSV (.csv) or PDF (.pdf) beat list.");
       return;
     }
     setBusy(true);
@@ -182,7 +182,7 @@ export function UploadBeatListWizard({ onClose, onImported }: { onClose: () => v
             <input
               ref={fileInput}
               type="file"
-              accept=".xlsx,.csv"
+              accept=".xlsx,.csv,.pdf"
               hidden
               data-testid="beat-file-input"
               onChange={(e) => {

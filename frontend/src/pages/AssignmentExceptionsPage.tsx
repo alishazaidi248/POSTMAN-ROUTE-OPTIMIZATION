@@ -2,9 +2,19 @@ import { useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { Link } from "react-router-dom";
 import { apiClient } from "../lib/apiClient";
+import { friendlyError } from "../lib/friendlyError";
+import { useToast } from "../components/Toast";
 import { Badge } from "../components/Badge";
 import { Modal } from "../components/Modal";
 import styles from "../styles/components.module.css";
+
+interface RetryGeocodeAllSummary {
+  processed: number;
+  succeeded: number;
+  failed: number;
+  resolved: number;
+  stillUnresolved: number;
+}
 
 interface ExceptionRow {
   id: string;
@@ -151,10 +161,12 @@ function ChooseBeatModal({ exception, onClose }: { exception: ExceptionRow; onCl
 
 export function AssignmentExceptionsPage() {
   const queryClient = useQueryClient();
+  const toast = useToast();
   const [correctingId, setCorrectingId] = useState<string | null>(null);
   const [assigningId, setAssigningId] = useState<string | null>(null);
-  const [retryError, setRetryError] = useState<string | null>(null);
-  const [assignError, setAssignError] = useState<string | null>(null);
+  const [retryingId, setRetryingId] = useState<string | null>(null);
+  const [retryAllBusy, setRetryAllBusy] = useState(false);
+  const [retryAllSummary, setRetryAllSummary] = useState<RetryGeocodeAllSummary | null>(null);
 
   const { data, isLoading } = useQuery<ExceptionRow[]>({
     queryKey: ["assignment-exceptions"],
@@ -172,21 +184,40 @@ export function AssignmentExceptionsPage() {
         beatId: exc.suggestedBeat!.id,
         reason: `Suggested beat accepted (${exc.confidence ?? "?"}% confidence)`
       }),
-    onSuccess: () => {
-      setAssignError(null);
-      queryClient.invalidateQueries({ queryKey: ["assignment-exceptions"] });
-    },
-    onError: (err: any) => setAssignError(err.response?.data?.error?.message ?? "Failed to assign")
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ["assignment-exceptions"] }),
+    onError: (err: unknown) => toast.error(friendlyError(err, "Failed to assign"))
   });
 
   async function retryGeocoding(exception: ExceptionRow) {
-    setRetryError(null);
+    setRetryingId(exception.id);
     try {
       const delivery = await apiClient.get(`/deliveries/${exception.deliveryId}`).then((r) => r.data);
       await apiClient.post(`/geocoding/retry/${delivery.addressId}`);
       queryClient.invalidateQueries({ queryKey: ["assignment-exceptions"] });
-    } catch (err: any) {
-      setRetryError(err.response?.data?.error?.message ?? "Retry failed");
+    } catch (err) {
+      toast.error(friendlyError(err, "Retry failed"));
+    } finally {
+      setRetryingId(null);
+    }
+  }
+
+  async function retryAllGeocoding() {
+    setRetryAllBusy(true);
+    setRetryAllSummary(null);
+    try {
+      const res = await apiClient.post<RetryGeocodeAllSummary>("/assignments/exceptions/retry-geocode-all");
+      setRetryAllSummary(res.data);
+      const { processed, resolved, stillUnresolved } = res.data;
+      toast.success(
+        processed === 0
+          ? "No exceptions needed a geocoding retry."
+          : `Retried ${processed} exception${processed === 1 ? "" : "s"}: ${resolved} resolved, ${stillUnresolved} still need review.`
+      );
+      queryClient.invalidateQueries({ queryKey: ["assignment-exceptions"] });
+    } catch (err) {
+      toast.error(friendlyError(err, "Retry Geocode All failed"));
+    } finally {
+      setRetryAllBusy(false);
     }
   }
 
@@ -201,8 +232,17 @@ export function AssignmentExceptionsPage() {
         location is too imprecise to decide, or the beat has no postman. <b>Assign</b> accepts the suggested beat,
         <b>Choose Beat</b> picks another, <b>Ignore</b> dismisses the item.
       </p>
-      {retryError && <p className={styles.errorText}>{retryError}</p>}
-      {assignError && <p className={styles.errorText}>{assignError}</p>}
+      <div className={styles.toolbar} style={{ marginBottom: 12 }}>
+        <button className={styles.button} disabled={retryAllBusy || data.length === 0} onClick={retryAllGeocoding}>
+          {retryAllBusy ? "Retrying All…" : "Retry Geocode All"}
+        </button>
+      </div>
+      {retryAllSummary && (
+        <p style={{ fontSize: 13, color: "var(--color-ink-500)", marginBottom: 12 }} data-testid="retry-all-summary">
+          Processed {retryAllSummary.processed}: {retryAllSummary.succeeded} succeeded, {retryAllSummary.failed} failed
+          ({retryAllSummary.resolved} newly assigned, {retryAllSummary.stillUnresolved} still need review).
+        </p>
+      )}
 
       <table className={styles.table}>
         <thead>
@@ -258,7 +298,9 @@ export function AssignmentExceptionsPage() {
                     <button className={styles.button} onClick={() => ignoreMutation.mutate(exc.id)}>Ignore</button>
                     {exc.reason !== "NO_POSTMAN_ASSIGNED" && (
                       <>
-                        <button className={styles.button} onClick={() => retryGeocoding(exc)}>Retry Geocode</button>
+                        <button className={styles.button} disabled={retryingId === exc.id} onClick={() => retryGeocoding(exc)}>
+                          {retryingId === exc.id ? "Retrying…" : "Retry Geocode"}
+                        </button>
                         <button className={styles.button} onClick={() => setCorrectingId(exc.id)}>Correct Location</button>
                       </>
                     )}

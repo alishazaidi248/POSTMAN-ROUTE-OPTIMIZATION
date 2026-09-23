@@ -26,7 +26,9 @@ Every beat has a `verificationStatus` (table `Beat`); the admin panel shows it w
 - A beat drawn on the map starts `VERIFIED` (the administrator drew and saved it). Editing a territory sets
   `PENDING_VERIFICATION` unless the request says `verified: true`.
 - **Nothing infers "verified"**: the Bhandup West set-up script (`scripts/setup-bhandup.ts`) imports territories inferred from
-  OpenStreetMap anchor points and leaves them `PENDING_VERIFICATION` - they are a starting point to check, not a survey.
+  OpenStreetMap anchor points and leaves them `PENDING_VERIFICATION` - they are a starting point to check, not a survey. The
+  inferred shape is an axis-aligned **rectangle** (the anchors' bounding box, with a margin; a single anchor gets a small
+  square around it) - not a circle, which a convex-hull-and-buffer around one or two points would degenerate into.
 
 ### What is checked when a territory is saved (`analyseTerritory`, PostGIS)
 
@@ -52,7 +54,7 @@ Workflow: **upload → validate → preview → map columns → review → impor
 
 | Call | What it does |
 |---|---|
-| `POST /` (multipart `file`, `.xlsx` or `.csv`) | Reads the list and **holds** it (`BeatImport`). Nothing is imported. Returns the checked rows. |
+| `POST /` (multipart `file`, `.xlsx`, `.csv` or a text-based `.pdf`) | Reads the list and **holds** it (`BeatImport`). Nothing is imported. Returns the checked rows. |
 | `GET /:id` | The checked list again (re-validated against the current database). |
 | `PUT /:id/mapping` | Change which column is which; the list is checked again. |
 | `GET /:id/errors.csv` | The problem report (one line per row that is skipped, warned or refused). |
@@ -61,8 +63,11 @@ Workflow: **upload → validate → preview → map columns → review → impor
 
 **The format is not assumed.** Columns are matched by common names (`Beat No`, `Beat Name` / `Sector`, `Post Office`,
 `Locality`, `Main Area`, `Pincode`, `Boundary` / `Territory`, `Latitude`, `Longitude`); the header row is found even below
-title rows; the administrator can correct any match. Only the beat number is required. The real Bhandup West beat list is a PDF,
-which is **not** parsed (CSV / XLSX only) - the importer supports the structure such a list has when exported to a table.
+title rows; the administrator can correct any match. Only the beat number is required. A `.pdf` is read as text (columns split
+on a tab or two-or-more spaces, the same heuristic as delivery-list PDFs); a scanned/image-only PDF is refused with a message
+asking for Excel, CSV or a text-based PDF instead. The post office column is matched against India Post's own naming
+(`... S.O.`, `H.O.`, `B.O.`, `Post Office`, `PO`): a role suffix on either side is stripped before comparing, so `"Bhandup West
+So"` in a file matches a `"Bhandup West Post Office"` record.
 
 ### Two shapes of list
 
@@ -74,9 +79,12 @@ which is **not** parsed (CSV / XLSX only) - the importer supports the structure 
   exactly what makes an address ambiguous.
 
 Row rules: a missing beat number, an unknown post office, a post office that is not the administrator's own, a main area
-without its locality, and a territory that cannot be read or that PostGIS rejects are **errors** (the row is not imported). A row
-that repeats a (beat, locality, main area) is **reported and adds nothing** - never dropped silently. An invalid pincode is
-ignored with a warning; a beat with no territory is a warning (imported as `NEEDS_REVIEW`).
+without its locality, and a territory that cannot be read, that PostGIS finds invalid, or that is too small / too large / too
+far from its post office are **errors** (the row is not imported) - the same checks `analyseTerritory` runs for a directly
+drawn territory. A territory that overlaps another active beat of the same office is a **warning**, not an error: the beat is
+still imported, with the overlap named in its message. A row that repeats a (beat, locality, main area) is **reported and adds
+nothing** - never dropped silently. An invalid pincode is ignored with a warning; a beat with no territory is a warning
+(imported as `NEEDS_REVIEW`).
 
 The preview counts, before anything is written: rows, new beats, existing beats receiving localities, locality records to add,
 repeated rows, unknown post offices, missing beat numbers, invalid rows, beats with no locality, beats without a territory.

@@ -199,6 +199,57 @@ describe("the decision: name first, weak geocoding never overrides it", () => {
     expect(d).toMatchObject({ action: "EXCEPTION", reason: "MULTIPLE_BEAT_MATCH" });
   });
 
+  describe("MULTIPLE_BEAT_MATCH tie-break: a candidate postman with a nearby delivery", () => {
+    const territories = [{ beatId: "b9", beatNumber: "9" }, { beatId: "b10", beatNumber: "10" }];
+    const location = { located: true, precision: "HOUSE" } as const;
+
+    it("exactly one candidate has a nearby delivery -> auto-assigns to that beat", () => {
+      const territoryPostmen = [
+        { beatId: "b9", beatNumber: "9", postmanId: "pm9", nearestDeliveryDistanceM: 120 },
+        { beatId: "b10", beatNumber: "10", postmanId: "pm10", nearestDeliveryDistanceM: null }
+      ];
+      const d = decideAssignment({ name: none, location, territories, territoryPostmen });
+      expect(d).toMatchObject({ action: "ASSIGN", method: "TERRITORY", beatId: "b9", confidence: 75 });
+      if (d.action === "ASSIGN") {
+        expect(d.explanation.evidence.join(" ")).toMatch(/120 m away/);
+      }
+    });
+
+    it("two candidates both have a nearby delivery -> still an exception (tie stays safe)", () => {
+      const territoryPostmen = [
+        { beatId: "b9", beatNumber: "9", postmanId: "pm9", nearestDeliveryDistanceM: 100 },
+        { beatId: "b10", beatNumber: "10", postmanId: "pm10", nearestDeliveryDistanceM: 200 }
+      ];
+      const d = decideAssignment({ name: none, location, territories, territoryPostmen });
+      expect(d).toMatchObject({ action: "EXCEPTION", reason: "MULTIPLE_BEAT_MATCH" });
+    });
+
+    it("no candidate has a nearby delivery (over threshold or none) -> still an exception (regression guard)", () => {
+      const territoryPostmen = [
+        { beatId: "b9", beatNumber: "9", postmanId: "pm9", nearestDeliveryDistanceM: 500 },
+        { beatId: "b10", beatNumber: "10", postmanId: "pm10", nearestDeliveryDistanceM: null }
+      ];
+      const d = decideAssignment({ name: none, location, territories, territoryPostmen });
+      expect(d).toMatchObject({ action: "EXCEPTION", reason: "MULTIPLE_BEAT_MATCH" });
+    });
+
+    it("never assigns to a postman merely nearby if he is not on one of the matched beats (candidates are always restricted to territories)", () => {
+      // Only beats 9 and 10 matched; a postman on some other beat is never a candidate in the first place - this is
+      // enforced by the caller (assignDeliveryToBeat only builds territoryPostmen from `territories`), so the pure
+      // function is only ever given candidates already restricted to the matched beats. Confirmed here structurally:
+      // a territoryPostmen entry not among `territories`' beatIds would be nonsensical input, not a case the function
+      // must special-case - the real restriction lives in the caller (see assignment.service.ts).
+      const territoryPostmen = [{ beatId: "b9", beatNumber: "9", postmanId: "pm9", nearestDeliveryDistanceM: 50 }];
+      const d = decideAssignment({ name: none, location, territories, territoryPostmen });
+      expect(d).toMatchObject({ action: "ASSIGN", beatId: "b9" });
+    });
+
+    it("territoryPostmen absent (older/other call sites) -> identical to pre-change behavior", () => {
+      const d = decideAssignment({ name: none, location, territories });
+      expect(d).toMatchObject({ action: "EXCEPTION", reason: "MULTIPLE_BEAT_MATCH" });
+    });
+  });
+
   it("no name match + a house-level location in no territory -> NO_BEAT_MATCH", () => {
     expect(decideAssignment({ name: none, location: { located: true, precision: "HOUSE" }, territories: [] })).toMatchObject({ action: "EXCEPTION", reason: "NO_BEAT_MATCH" });
   });

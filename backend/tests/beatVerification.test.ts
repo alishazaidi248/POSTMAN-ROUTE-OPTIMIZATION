@@ -148,10 +148,10 @@ describe("the beat-list import endpoints", () => {
     expect((await request(app).post("/api/v1/beats/import/imp-1/cancel").set(other)).status).toBe(404);
   });
 
-  it("uploading a file that is not Excel or CSV is refused in plain words", async () => {
+  it("uploading a file that is not Excel, CSV or PDF is refused in plain words", async () => {
     const res = await request(app).post("/api/v1/beats/import").set(bearer(token())).attach("file", Buffer.from("hello"), "notes.txt");
     expect(res.status).toBe(400);
-    expect(res.body.error.message).toMatch(/Only Excel \(\.xlsx\) and CSV \(\.csv\)/);
+    expect(res.body.error.message).toMatch(/Only Excel \(\.xlsx\), CSV \(\.csv\) or a text-based PDF \(\.pdf\)/);
   });
 
   it("uploading nothing is refused", async () => {

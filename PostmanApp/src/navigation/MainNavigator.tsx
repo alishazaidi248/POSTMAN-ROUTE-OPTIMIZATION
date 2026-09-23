@@ -13,9 +13,11 @@ import { IdCardScreen } from "../screens/account/IdCardScreen";
 import { NotificationsScreen } from "../screens/account/NotificationsScreen";
 import { OfflineSyncScreen } from "../screens/account/OfflineSyncScreen";
 import { Icon, IconName } from "../components/common/Icon";
+import { BrandMark } from "../components/common/BrandMark";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { usePushRegistration } from "../hooks/usePushRegistration";
 import { colors } from "../theme/colors";
+import { View } from "react-native";
 
 const Tab = createBottomTabNavigator<MainTabParamList>();
 const DeliveriesStack = createNativeStackNavigator<DeliveriesStackParamList>();
@@ -28,7 +30,12 @@ const headerOptions = {
   headerTintColor: colors.textPrimary,
   headerTitleStyle: { fontWeight: "600" as const, fontSize: 17 },
   headerShadowVisible: false,
-  contentStyle: { backgroundColor: colors.background }
+  contentStyle: { backgroundColor: colors.background },
+  headerLeft: () => (
+    <View style={{ marginLeft: 12 }}>
+      <BrandMark size={22} />
+    </View>
+  )
 };
 
 function DeliveriesStackNavigator() {

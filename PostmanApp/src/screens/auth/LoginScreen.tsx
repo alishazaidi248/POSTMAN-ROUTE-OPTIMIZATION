@@ -7,7 +7,7 @@ import { loginSchema, LoginFormValues } from "../../utils/validation";
 import { colors } from "../../theme/colors";
 import { radius, spacing } from "../../theme/spacing";
 import { typography } from "../../theme/typography";
-import { Icon } from "../../components/common/Icon";
+import { BrandMark } from "../../components/common/BrandMark";
 import { PrimaryButton } from "../../components/common/PrimaryButton";
 
 export function LoginScreen() {
@@ -42,7 +42,7 @@ export function LoginScreen() {
       <ScrollView style={styles.flex} contentContainerStyle={styles.container} keyboardShouldPersistTaps="handled">
         <View style={styles.brand}>
           <View style={styles.mark}>
-            <Icon name="package" size={30} color={colors.onPrimary} />
+            <BrandMark size={30} />
           </View>
           <Text style={styles.title}>Postman App</Text>
           <Text style={styles.subtitle}>Sign in to see today&rsquo;s deliveries.</Text>

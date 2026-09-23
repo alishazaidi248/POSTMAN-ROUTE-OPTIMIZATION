@@ -16,10 +16,13 @@ import { BeatRecord, isOverlapping, overlapLabel, territoryState } from "../feat
 import { AssignmentExceptionsPage } from "../pages/AssignmentExceptionsPage";
 import { ChangePasswordPage } from "../pages/ChangePasswordPage";
 import { ProofModeCard } from "../components/ProofModeCard";
+import { ToastProvider } from "../components/Toast";
 
 const wrap = (ui: React.ReactElement) => (
   <QueryClientProvider client={new QueryClient({ defaultOptions: { queries: { retry: false } } })}>
-    <MemoryRouter>{ui}</MemoryRouter>
+    <MemoryRouter>
+      <ToastProvider>{ui}</ToastProvider>
+    </MemoryRouter>
   </QueryClientProvider>
 );
 
@@ -97,6 +100,42 @@ describe("Assignment Exceptions page", () => {
     api.get.mockResolvedValue({ data: [] });
     render(wrap(<AssignmentExceptionsPage />));
     expect(await screen.findByText(/No open exceptions/)).toBeInTheDocument();
+  });
+
+  it("'Retry Geocode' shows a busy label while in flight and reports a failure as a toast, not a page crash", async () => {
+    api.get.mockImplementation((url: string) => (url === "/assignments/exceptions" ? Promise.resolve({ data: [exception] }) : Promise.resolve({ data: { addressId: "a1" } })));
+    let rejectRetry: (e: unknown) => void = () => {};
+    api.post.mockImplementation(() => new Promise((_resolve, reject) => (rejectRetry = reject)));
+    render(wrap(<AssignmentExceptionsPage />));
+
+    const button = await screen.findByRole("button", { name: "Retry Geocode" });
+    await userEvent.click(button);
+    expect(await screen.findByRole("button", { name: "Retrying…" })).toBeDisabled();
+
+    rejectRetry(Object.assign(new axios.AxiosError("x"), { response: { status: 400, data: { error: { message: "The geocoder is unavailable." } } } }));
+    expect(await screen.findByText("The geocoder is unavailable.")).toBeInTheDocument();
+    expect(await screen.findByRole("button", { name: "Retry Geocode" })).toBeInTheDocument(); // busy state cleared
+  });
+
+  it("'Retry Geocode All' posts to the bulk endpoint, shows a busy label, then renders the outcome summary", async () => {
+    api.get.mockResolvedValue({ data: [exception] });
+    api.post.mockResolvedValue({ data: { processed: 3, succeeded: 2, failed: 1, resolved: 1, stillUnresolved: 1 } });
+    render(wrap(<AssignmentExceptionsPage />));
+
+    const button = await screen.findByRole("button", { name: "Retry Geocode All" });
+    await userEvent.click(button);
+    await waitFor(() => expect(api.post).toHaveBeenCalledWith("/assignments/exceptions/retry-geocode-all"));
+    expect(await screen.findByTestId("retry-all-summary")).toHaveTextContent("Processed 3: 2 succeeded, 1 failed (1 newly assigned, 1 still need review).");
+  });
+
+  it("'Retry Geocode All' failing shows a toast, not a page crash, and clears the busy state", async () => {
+    api.get.mockResolvedValue({ data: [exception] });
+    api.post.mockRejectedValue(Object.assign(new axios.AxiosError("x"), { response: { status: 500, data: {} } }));
+    render(wrap(<AssignmentExceptionsPage />));
+
+    await userEvent.click(await screen.findByRole("button", { name: "Retry Geocode All" }));
+    expect(await screen.findByRole("button", { name: "Retry Geocode All" })).not.toBeDisabled();
+    expect(screen.queryByTestId("retry-all-summary")).toBeNull();
   });
 });
 

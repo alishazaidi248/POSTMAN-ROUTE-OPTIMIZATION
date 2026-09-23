@@ -12,6 +12,9 @@ const prismaMock = vi.hoisted(() => ({
 }));
 vi.mock("../src/config/prisma", () => ({ prisma: prismaMock }));
 
+const pdfParseMock = vi.hoisted(() => vi.fn());
+vi.mock("pdf-parse", () => ({ default: pdfParseMock }));
+
 import {
   RawRow,
   checkBeatList,
@@ -34,8 +37,14 @@ beforeEach(() => {
   prismaMock.postOffice.findMany.mockResolvedValue([OFFICE, OTHER]);
   prismaMock.beat.findMany.mockResolvedValue([{ id: "beat-b01", postOfficeId: "po1", beatNumber: "B01" }]);
   prismaMock.beatLocality.findMany.mockResolvedValue([]);
-  // PostGIS says every polygon handed to it is valid
-  prismaMock.$queryRaw.mockResolvedValue([{ valid: true, reason: "Valid Geometry", area: 200000, lat: 19.102, lng: 72.902 }]);
+  // analyseTerritory makes two $queryRaw calls per territory-bearing row, in order: validity/area/distance, then
+  // overlaps. PostGIS says every polygon handed to it is valid, well inside range of its office, and overlaps nothing.
+  let call = 0;
+  prismaMock.$queryRaw.mockImplementation(() =>
+    Promise.resolve(
+      ++call % 2 === 1 ? [{ valid: true, reason: "Valid Geometry", area: 200000, lat: 19.102, lng: 72.902, dist: 5000 }] : []
+    )
+  );
 });
 
 const scope = { scopeOfficeId: "po1", defaultOfficeId: "po1" };
@@ -167,10 +176,37 @@ describe("checkBeatList", () => {
       scope
     );
     expect(check.rows[0]).toMatchObject({ status: "ERROR", territoryState: "INVALID" });
-    expect(check.rows[0].messages.join(" ")).toMatch(/not valid \(Self-intersection\)/);
+    expect(check.rows[0].messages.join(" ")).toMatch(/not a valid shape \(Self-intersection\)/);
     expect(check.rows[1]).toMatchObject({ status: "ERROR", territoryState: "INVALID" });
     expect(check.summary.invalidTerritory).toBe(2);
     expect(importable).toHaveLength(0);
+  });
+
+  it("matches an India-Post office suffix (S.O., H.O., B.O., Post Office) against the seeded office name", async () => {
+    const { check, importable } = await checkBeatList(
+      { rows: rows({ "Beat No": "S1", "Beat Name": "A", "Post Office": "Bhandup West So" }) },
+      MAPPING,
+      scope
+    );
+    expect(check.rows[0].status).not.toBe("ERROR");
+    expect(check.rows[0]).toMatchObject({ postOfficeId: "po1", postOfficeName: OFFICE.name });
+    expect(importable[0].postOfficeId).toBe("po1");
+  });
+
+  it("a territory that overlaps another active beat is a warning, not an error, and still imports", async () => {
+    prismaMock.$queryRaw
+      .mockResolvedValueOnce([{ valid: true, reason: "Valid Geometry", area: 200000, lat: 19.102, lng: 72.902, dist: 4000 }])
+      .mockResolvedValueOnce([{ id: "beat-other", beatNumber: "B99", name: "Beat 99", area: 500 }]);
+    const { check, importable } = await checkBeatList(
+      { rows: rows({ "Beat No": "OV1", "Beat Name": "Overlap", "Post Office": OFFICE.name, Boundary: square }) },
+      MAPPING,
+      scope
+    );
+    expect(check.rows[0].status).toBe("WARNING");
+    expect(check.rows[0].territoryState).toBe("PRESENT");
+    expect(check.rows[0].messages.join(" ")).toMatch(/overlaps Beat B99/);
+    expect(importable).toHaveLength(1);
+    expect(importable[0].territory).not.toBeNull();
   });
 
   it("reports a file with no beat-number column as a file problem and imports nothing", async () => {
@@ -243,5 +279,26 @@ describe("readBeatListFile", () => {
     const fake = path.join(dir, "fake.xlsx");
     fs.writeFileSync(fake, "not really a workbook");
     await expect(readBeatListFile(fake, "fake.xlsx")).rejects.toThrow(/could not be read as an Excel workbook/);
+  });
+
+  it("reads a text-based PDF, splitting columns by tabs or wide gaps", async () => {
+    pdfParseMock.mockResolvedValueOnce({
+      text: "Beat No\tBeat Name\tPost Office\nB1\tOne\tBhandup West Post Office\nB2\tTwo\tBhandup West Post Office\n",
+      numpages: 1
+    });
+    const dir = tmp();
+    const file = path.join(dir, "list.pdf");
+    fs.writeFileSync(file, "dummy"); // pdf-parse is mocked; the bytes are never actually read as a PDF
+    const table = await readBeatListFile(file, "list.pdf");
+    expect(table.columns).toEqual(["Beat No", "Beat Name", "Post Office"]);
+    expect(table.rows.map((r) => r.cells["Beat No"])).toEqual(["B1", "B2"]);
+  });
+
+  it("refuses a scanned PDF that has no readable text, in plain words", async () => {
+    pdfParseMock.mockResolvedValueOnce({ text: "   \n  ", numpages: 1 });
+    const dir = tmp();
+    const file = path.join(dir, "scan.pdf");
+    fs.writeFileSync(file, "dummy");
+    await expect(readBeatListFile(file, "scan.pdf")).rejects.toThrow(/scan or an image/);
   });
 });

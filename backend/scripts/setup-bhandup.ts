@@ -22,7 +22,9 @@ import { randomPassword, requiredEnv } from "./lib/credentials";
 const API = process.env.API_URL ?? "http://localhost:4000/api/v1";
 const DATA = path.join(__dirname, "..", "data", "bhandup");
 const ADMIN = { email: process.env.ADMIN_EMAIL ?? "admin.bhandup@postal.local", get password() { return requiredEnv("ADMIN_PASSWORD", "the administrator's password"); } };
-const TERRITORY_RADIUS_M = 350;
+/** Margin added around a beat's anchors' bounding box, and the half-side of the square used when a beat has only one anchor. */
+const TERRITORY_MARGIN_M = 150;
+const TERRITORY_MIN_HALF_SIDE_M = 180;
 
 // ── helpers ──────────────────────────────────────────────────────────────────────────────────────────────────
 function parseCsv(text: string): string[][] {
@@ -121,14 +123,32 @@ function beatAnchors(beat: number, localities: string[], anchors: Record<string,
   return [...found].map(([key, a]) => ({ key, a }));
 }
 
-async function territoryWkt(points: { lat: number; lng: number }[]): Promise<string> {
-  const values = points.map((p) => `(${p.lng}, ${p.lat})`).join(",");
-  const rows = await prisma.$queryRawUnsafe<{ wkt: string }[]>(
-    `SELECT ST_AsText(ST_Multi(ST_Buffer(ST_ConvexHull(ST_Collect(ST_SetSRID(ST_MakePoint(x, y), 4326)))::geography, ${TERRITORY_RADIUS_M})::geometry)) AS wkt
-     FROM (VALUES ${values}) AS t(x, y)`
-  );
-  // a Polygon (not a MultiPolygon) is what the beat table stores
-  return rows[0].wkt.replace(/^MULTIPOLYGON\(\((.*)\)\)$/s, "POLYGON($1)");
+/**
+ * An axis-aligned rectangle (never a circle) around the beat's anchors: the bounding box of the points,
+ * expanded by a margin. A single anchor - the common case, since only a few landmarks are matched per
+ * beat - gets a small square around it instead of a degenerate point. Plain geometry, no PostGIS round trip.
+ */
+function territoryWkt(points: { lat: number; lng: number }[]): string {
+  const lat0 = points[0].lat;
+  const mLat = (m: number) => m / 111_320;
+  const mLng = (m: number, lat: number) => m / (111_320 * Math.cos((lat * Math.PI) / 180));
+
+  let minLat: number, maxLat: number, minLng: number, maxLng: number;
+  if (points.length === 1) {
+    const dLat = mLat(TERRITORY_MIN_HALF_SIDE_M);
+    const dLng = mLng(TERRITORY_MIN_HALF_SIDE_M, lat0);
+    minLat = lat0 - dLat; maxLat = lat0 + dLat;
+    minLng = points[0].lng - dLng; maxLng = points[0].lng + dLng;
+  } else {
+    const dLat = mLat(TERRITORY_MARGIN_M);
+    const dLng = mLng(TERRITORY_MARGIN_M, lat0);
+    minLat = Math.min(...points.map((p) => p.lat)) - dLat;
+    maxLat = Math.max(...points.map((p) => p.lat)) + dLat;
+    minLng = Math.min(...points.map((p) => p.lng)) - dLng;
+    maxLng = Math.max(...points.map((p) => p.lng)) + dLng;
+  }
+  const ring: [number, number][] = [[minLng, minLat], [maxLng, minLat], [maxLng, maxLat], [minLng, maxLat], [minLng, minLat]];
+  return `POLYGON((${ring.map(([lng, lat]) => `${lng} ${lat}`).join(", ")}))`;
 }
 
 async function beats() {
@@ -151,7 +171,7 @@ async function beats() {
     const localities = [...byBeat.get(n)!];
     const an = beatAnchors(n, localities, anchors);
     plan.push({ beat: n, localities, anchors: an });
-    wktOf.set(n, an.length ? await territoryWkt(an.map((x) => x.a)) : "");
+    wktOf.set(n, an.length ? territoryWkt(an.map((x) => x.a)) : "");
   }
   const written = new Set<number>();
   for (const r of dir) {
@@ -185,7 +205,7 @@ async function beats() {
           setNo: 1,
           localities: p.localities,
           territorySource: p.anchors.length
-            ? { method: `convex hull of ${p.anchors.length} OpenStreetMap anchor(s), buffered ${TERRITORY_RADIUS_M} m - inferred, not surveyed`, anchors: p.anchors.map((x) => ({ key: x.key, osm: x.a.osm, name: x.a.osmName, lat: x.a.lat, lng: x.a.lng })) }
+            ? { method: `bounding rectangle around ${p.anchors.length} OpenStreetMap anchor(s) - inferred, not surveyed`, anchors: p.anchors.map((x) => ({ key: x.key, osm: x.a.osm, name: x.a.osmName, lat: x.a.lat, lng: x.a.lng })) }
             : { method: "none - no OpenStreetMap anchor found for any locality of this beat" }
         }
       }
