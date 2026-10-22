@@ -1,5 +1,6 @@
 import { useQuery } from "@tanstack/react-query";
 import { apiClient } from "../lib/apiClient";
+import { beatLabel } from "../lib/beatLabel";
 import { StatCard } from "../components/StatCard";
 import { Badge } from "../components/Badge";
 import { ProofModeCard } from "../components/ProofModeCard";
@@ -9,7 +10,7 @@ interface DashboardSummary {
   cards: Record<string, number>;
   assignmentExceptions: number;
   recentImports: { id: string; originalFilename: string; status: string; totalRows: number; createdAt: string }[];
-  beatWorkload: { beatId: string; _count: number }[];
+  beatWorkload: { beatId: string; beatNumber: string | null; beatName: string | null; _count: number }[];
 }
 
 export function DashboardPage() {
@@ -91,7 +92,7 @@ export function DashboardPage() {
           <tbody>
             {data.beatWorkload.map((w) => (
               <tr key={w.beatId}>
-                <td>{w.beatId}</td>
+                <td>{w.beatNumber ? beatLabel({ beatNumber: w.beatNumber, name: w.beatName ?? "" }) : w.beatId}</td>
                 <td>{w._count}{w._count > 50 ? " — High workload" : ""}</td>
               </tr>
             ))}
