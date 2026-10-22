@@ -62,6 +62,18 @@ export function ImportDetailPage() {
             </button>
           </div>
         )}
+
+        {importRecord.status === "PROCESSING" && (
+          <div className={styles.toolbar} style={{ flexDirection: "column", alignItems: "flex-start" }}>
+            <p style={{ fontSize: 13, color: "var(--color-ink-500)" }}>
+              Still being imported, or it was interrupted (e.g. by a server restart) and is stuck. Rows already
+              saved are not undone. Cancelling stops it here; re-upload the file to import what is left.
+            </p>
+            <button className={styles.buttonDanger} onClick={() => cancelMutation.mutate()} disabled={cancelMutation.isPending}>
+              {cancelMutation.isPending ? "Cancelling…" : "Cancel Import"}
+            </button>
+          </div>
+        )}
       </div>
 
       {rows && (
