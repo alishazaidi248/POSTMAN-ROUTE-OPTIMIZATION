@@ -14,7 +14,6 @@
         "NSLocationWhenInUseUsageDescription": "Used to show your position on the delivery map and record delivery locations while you are on a route.",
         "NSLocationAlwaysAndWhenInUseUsageDescription": "Used to keep your route location up to date while the app is in the background during an active delivery run.",
         "UIBackgroundModes": [
-          "location",
           "location"
         ],
         "ITSAppUsesNonExemptEncryption": false

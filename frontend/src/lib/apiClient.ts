@@ -1,6 +1,11 @@
 import axios from "axios";
 
-export const apiClient = axios.create({ baseURL: "/api/v1" });
+// Relative by default (Vite's dev proxy forwards it to the backend - see vite.config.ts). Hosting the admin panel
+// and the backend on different origins needs this set at build time (VITE_API_BASE_URL=https://api.example.com/api/v1),
+// since a static host has no proxy of its own.
+export const API_BASE_URL = import.meta.env.VITE_API_BASE_URL ?? "/api/v1";
+
+export const apiClient = axios.create({ baseURL: API_BASE_URL });
 
 let accessToken: string | null = localStorage.getItem("accessToken");
 let refreshToken: string | null = localStorage.getItem("refreshToken");
@@ -33,7 +38,7 @@ apiClient.interceptors.response.use(
       try {
         if (!refreshPromise) {
           refreshPromise = axios
-            .post("/api/v1/auth/refresh", { refreshToken })
+            .post(`${API_BASE_URL}/auth/refresh`, { refreshToken })
             .then((res) => {
               setTokens(res.data);
               return res.data.accessToken as string;

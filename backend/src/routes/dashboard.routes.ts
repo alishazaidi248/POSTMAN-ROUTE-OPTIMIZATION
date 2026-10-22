@@ -33,11 +33,19 @@ dashboardRouter.get(
       })
     ]);
 
-    const beatWorkload = await prisma.delivery.groupBy({
+    const workloadByBeat = await prisma.delivery.groupBy({
       by: ["beatId"],
       where: { ...deliveryWhere, beatId: { not: null } },
       _count: true
     });
+    const beatNames = await prisma.beat.findMany({
+      where: { id: { in: workloadByBeat.map((w) => w.beatId as string) } },
+      select: { id: true, beatNumber: true, name: true }
+    });
+    const beatById = new Map(beatNames.map((b) => [b.id, b]));
+    const beatWorkload = workloadByBeat
+      .map((w) => ({ beatId: w.beatId as string, beatNumber: beatById.get(w.beatId as string)?.beatNumber ?? null, beatName: beatById.get(w.beatId as string)?.name ?? null, _count: w._count }))
+      .sort((a, b) => b._count - a._count);
 
     res.json({
       cards: { total, assigned, unassigned, delivered, pending, failed, rescheduled, activePostmen, activeBeats },

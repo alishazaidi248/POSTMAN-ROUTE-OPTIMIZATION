@@ -18,12 +18,18 @@ const mockHistory = { current: null as unknown };
 const mockUseHistory = jest.fn((..._args: unknown[]) => mockHistory.current);
 jest.mock("../../src/hooks/useDeliveryHistory", () => ({ useDeliveryHistory: (...args: unknown[]) => mockUseHistory(...args) }));
 
-const NOW = new Date(2026, 8, 21, 12, 0, 0); // 21 Sep 2026, midday (local)
+const NOW = new Date(2026, 8, 21, 12, 0, 0); // 21 Sep 2026, midday (local) - fixed, for the pure functions below which take `now` explicitly
 const at = (dayOffset: number, hour: number, minute = 0) => new Date(2026, 8, 21 + dayOffset, hour, minute).toISOString();
 const finished = (id: string, status: "DELIVERED" | "RETURNED", finishedAt: string): FinishedDelivery => ({
   ...makeDelivery(id, status, { recipient: { id: `r${id}`, name: `Person ${id}`, phone: null, altPhone: null } }),
   finishedAt
 });
+
+// DeliveryHistoryView itself groups by the REAL current date (groupByDay(rows) with no `now` override - that's the
+// correct production behaviour), so its fixtures must be relative to the real "today", not the fixed NOW above, or
+// the "Yesterday" label would only ever be correct on the one day this file happened to be written.
+const today = new Date();
+const realAt = (dayOffset: number, hour: number, minute = 0) => new Date(today.getFullYear(), today.getMonth(), today.getDate() + dayOffset, hour, minute).toISOString();
 
 type Node = { children?: (Node | string)[] | null } | string | null;
 /** All the words on screen, joined. */
@@ -36,10 +42,10 @@ function collectText(node: Node | Node[]): string {
 
 function hook(over: Record<string, unknown> = {}) {
   const rows = [
-    finished("a", "DELIVERED", at(-1, 16, 30)),
-    finished("b", "DELIVERED", at(-1, 9, 5)),
-    finished("c", "RETURNED", at(-3, 11)),
-    finished("d", "DELIVERED", at(-3, 10))
+    finished("a", "DELIVERED", realAt(-1, 16, 30)),
+    finished("b", "DELIVERED", realAt(-1, 9, 5)),
+    finished("c", "RETURNED", realAt(-3, 11)),
+    finished("d", "DELIVERED", realAt(-3, 10))
   ];
   return {
     rows,

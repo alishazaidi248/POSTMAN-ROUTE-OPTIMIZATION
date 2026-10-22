@@ -11,7 +11,7 @@ reportsRouter.get(
   "/postmen",
   asyncHandler(async (req, res) => {
     const postOfficeId = resolvePostOfficeScope(req);
-    const postmen = await prisma.postman.findMany({ where: postOfficeId ? { postOfficeId } : undefined });
+    const postmen = await prisma.postman.findMany({ where: postOfficeId ? { postOfficeId } : undefined, orderBy: { name: "asc" } });
 
     const report = await Promise.all(
       postmen.map(async (p) => {
@@ -48,7 +48,11 @@ reportsRouter.get(
   "/beats",
   asyncHandler(async (req, res) => {
     const postOfficeId = resolvePostOfficeScope(req);
-    const beats = await prisma.beat.findMany({ where: postOfficeId ? { postOfficeId } : undefined });
+    // beat_number is text ("1".."26", or "B201"-style), so it is sorted numeric-aware in JS rather than with a
+    // plain string ORDER BY (which would read "1, 10, 11, ..., 2, 20, ...").
+    const beats = (await prisma.beat.findMany({ where: postOfficeId ? { postOfficeId } : undefined })).sort((a, b) =>
+      a.beatNumber.localeCompare(b.beatNumber, undefined, { numeric: true })
+    );
 
     const report = await Promise.all(
       beats.map(async (b) => {

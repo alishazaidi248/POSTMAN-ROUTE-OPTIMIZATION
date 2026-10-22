@@ -3,6 +3,7 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { Link } from "react-router-dom";
 import { apiClient } from "../lib/apiClient";
 import { friendlyError } from "../lib/friendlyError";
+import { beatLabel } from "../lib/beatLabel";
 import { useToast } from "../components/Toast";
 import { Badge } from "../components/Badge";
 import { Modal } from "../components/Modal";
@@ -33,12 +34,6 @@ interface ExceptionRow {
     recipient: { name: string; phone: string };
     address: { addressLine1: string; addressLine2: string | null; area: string | null; city: string; pincode: string; latitude: number | null; longitude: number | null };
   };
-}
-
-/** "B20 — Farid Nagar": the beat number and the descriptive part of its name (never "Beat 20 — Beat 20"). */
-function beatLabel(b: { beatNumber: string; name: string }) {
-  const rest = b.name.replace(/^\s*beat\s*[-#]?\s*\d+\s*[-:–—]?\s*/i, "").trim();
-  return rest ? `B${b.beatNumber} — ${rest}` : `B${b.beatNumber}`;
 }
 
 /** Address lines without repeating a part another line already contains. */

@@ -85,7 +85,7 @@ beatsRouter.get(
     const beats = await prisma.$queryRaw<any[]>(Prisma.sql`
       ${beatSelect}
       WHERE (${postOfficeId}::text IS NULL OR b."postOfficeId" = ${postOfficeId})
-      ORDER BY po.name ASC, b.beat_number ASC
+      ORDER BY po.name ASC, length(b.beat_number) ASC, b.beat_number ASC
     `);
     const pairs = await overlapPairs(prisma, postOfficeId ?? null);
     const overlapsOf = (id: string) =>
@@ -111,7 +111,7 @@ beatsRouter.get(
              (SELECT COUNT(*)::int FROM "Delivery" d WHERE d."beatId" = b.id) AS deliveries
       FROM "Beat" b
       WHERE b.status = 'ACTIVE' AND (${postOfficeId}::text IS NULL OR b."postOfficeId" = ${postOfficeId})
-      ORDER BY b.beat_number
+      ORDER BY length(b.beat_number), b.beat_number
     `);
     const pairs = await overlapPairs(prisma, postOfficeId ?? null);
     const overlapping = new Set(pairs.flatMap((p) => [p.a.id, p.b.id]));
