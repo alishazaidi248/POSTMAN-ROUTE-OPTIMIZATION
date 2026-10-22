@@ -181,7 +181,7 @@ export async function analyseTerritory(
       WHERE (${ctx.excludeBeatId ?? null}::text IS NULL OR o.id <> ${ctx.excludeBeatId ?? null})
         AND ST_Intersects(t.g, o.boundary)
         AND ST_Area(ST_Intersection(t.g, o.boundary)::geography) > ${TERRITORY_LIMITS.overlapToleranceM2}
-      ORDER BY o.beat_number
+      ORDER BY length(o.beat_number), o.beat_number
     `);
     overlaps = found.map((o) => ({
       id: o.id,
@@ -221,7 +221,7 @@ export async function overlapPairs(db: Db, postOfficeId: string | null): Promise
       AND (${postOfficeId}::text IS NULL OR a."postOfficeId" = ${postOfficeId})
       AND ST_Intersects(a.boundary, b.boundary)
       AND ST_Area(ST_Intersection(a.boundary, b.boundary)::geography) > ${TERRITORY_LIMITS.overlapToleranceM2}
-    ORDER BY a.beat_number, b.beat_number
+    ORDER BY length(a.beat_number), a.beat_number, length(b.beat_number), b.beat_number
   `);
   return rows.map((r) => ({
     a: { id: r.aId, beatNumber: r.aNo },
