@@ -34,11 +34,20 @@ import { optimizationRouter } from "./routes/optimization.routes";
 import { researchRouter } from "./routes/research.routes";
 import { dataQualityRouter } from "./routes/dataQuality.routes";
 
+/** CORS_ORIGIN is comma-separated (the admin panel and the Postman app's web build run on different
+ * origins in dev). "*" reflects whatever Origin the browser sent instead of the literal string "*" -
+ * the CORS spec forbids ACAO: * together with credentials, which this API requires. */
+function corsOrigin(): boolean | ((origin: string | undefined, cb: (err: Error | null, allow?: boolean) => void) => void) {
+  const allowed = env.corsOrigin.split(",").map((o) => o.trim()).filter(Boolean);
+  if (allowed.includes("*")) return true;
+  return (origin, cb) => cb(null, !origin || allowed.includes(origin));
+}
+
 export function createApp() {
   const app = express();
 
   app.use(helmet());
-  app.use(cors({ origin: env.corsOrigin, credentials: true }));
+  app.use(cors({ origin: corsOrigin(), credentials: true }));
   // Profile pictures only (never the upload folder as a whole). Names are random UUIDs, they are served
   // as images and nothing else, and the other apps (admin panel, mobile app) may embed them.
   app.use(
