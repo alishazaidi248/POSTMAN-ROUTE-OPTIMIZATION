@@ -15,7 +15,7 @@ interface Props {
 
 /** [ Navigate ] [ Start Delivery | Mark Delivered ] — used on the card and the map sheet. */
 export function DeliveryActionBar({ delivery, status, latitude, longitude }: Props) {
-  const { primary, run, navigate, isPending, canNavigate } = useDeliveryActions(delivery, status, {
+  const { primary, run, navigate, isPending, canNavigate, signatureModal } = useDeliveryActions(delivery, status, {
     latitude,
     longitude
   });
@@ -36,6 +36,7 @@ export function DeliveryActionBar({ delivery, status, latitude, longitude }: Pro
       {primary ? (
         <PrimaryButton label={primary.label} onPress={run} loading={isPending} style={styles.button} />
       ) : null}
+      {signatureModal}
     </View>
   );
 }

@@ -44,7 +44,7 @@ export function OfflineSyncScreen() {
           {queue.map((item) => (
             <View key={item.id} style={styles.row}>
               <Text style={styles.rowTitle}>{statusLabel(item.status)}</Text>
-              <Text style={styles.caption}>Saved {formatRelativeTime(item.queuedAt)}{item.proofUri ? " · photo saved" : ""}{item.attempts > 0 ? ` · tried ${item.attempts} time${item.attempts === 1 ? "" : "s"}` : ""}</Text>
+              <Text style={styles.caption}>Saved {formatRelativeTime(item.queuedAt)}{item.proofUri ? (item.proofType === "SIGNATURE" ? " · signature saved" : " · photo saved") : ""}{item.attempts > 0 ? ` · tried ${item.attempts} time${item.attempts === 1 ? "" : "s"}` : ""}</Text>
             </View>
           ))}
         </View>

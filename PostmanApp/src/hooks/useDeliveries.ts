@@ -67,9 +67,10 @@ interface UpdateStatusInput {
   latitude?: number;
   longitude?: number;
   accuracyMeters?: number;
-  /** A proof photo on the device; it is sent before the status change (or queued with it when offline). */
+  /** A proof file on the device (a photo or a signature); it is sent before the status change (or queued with it when offline). */
   proofUri?: string;
   proofCapturedAt?: string;
+  proofType?: "PHOTO" | "SIGNATURE";
 }
 
 /**
@@ -91,7 +92,13 @@ export function useUpdateDeliveryStatus() {
       }
       try {
         if (input.proofUri) {
-          await deliveryApi.uploadProof(input.deliveryId, { uri: input.proofUri, latitude: input.latitude, longitude: input.longitude, capturedAt: input.proofCapturedAt });
+          await deliveryApi.uploadProof(input.deliveryId, {
+            uri: input.proofUri,
+            type: input.proofType,
+            latitude: input.latitude,
+            longitude: input.longitude,
+            capturedAt: input.proofCapturedAt
+          });
         }
         const location = input.latitude !== undefined && input.longitude !== undefined ? { latitude: input.latitude, longitude: input.longitude, accuracyMeters: input.accuracyMeters } : undefined;
         const delivery = location

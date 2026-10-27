@@ -60,8 +60,10 @@ export function DeliveryDetailPage() {
         {data.proof && (
           <div>
             <h3 className={styles.sectionTitle} style={{ marginTop: 16 }}>Proof of delivery</h3>
-            <p style={{ fontSize: 12 }}>Photo taken {new Date(data.proof.capturedAt).toLocaleString()}</p>
-            <ProofPhoto deliveryId={data.id} />
+            <p style={{ fontSize: 12 }}>
+              {data.proof.type === "SIGNATURE" ? "Signature captured" : "Photo taken"} {new Date(data.proof.capturedAt).toLocaleString()}
+            </p>
+            <ProofPhoto deliveryId={data.id} isSignature={data.proof.type === "SIGNATURE"} />
           </div>
         )}
       </div>

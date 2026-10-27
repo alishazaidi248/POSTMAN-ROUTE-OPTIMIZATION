@@ -2,10 +2,11 @@ import { useEffect, useState } from "react";
 import { apiClient } from "../lib/apiClient";
 
 /**
- * The photo a postman took as proof of a delivery. It is private: there is no public URL, so it is fetched with the
- * signed-in administrator's token and shown from a temporary object URL that is released when the panel closes.
+ * The photo (or signature) a postman captured as proof of a delivery. It is private: there is no public URL, so
+ * it is fetched with the signed-in administrator's token and shown from a temporary object URL that is released
+ * when the panel closes.
  */
-export function ProofPhoto({ deliveryId }: { deliveryId: string }) {
+export function ProofPhoto({ deliveryId, isSignature }: { deliveryId: string; isSignature?: boolean }) {
   const [url, setUrl] = useState<string | null>(null);
   const [failed, setFailed] = useState(false);
 
@@ -26,7 +27,14 @@ export function ProofPhoto({ deliveryId }: { deliveryId: string }) {
     };
   }, [deliveryId]);
 
-  if (failed) return <p>The photo could not be loaded.</p>;
-  if (!url) return <p>Loading photo…</p>;
-  return <img src={url} alt="Proof of delivery" data-testid="proof-photo" style={{ maxWidth: "100%", maxHeight: 320, borderRadius: 8 }} />;
+  if (failed) return <p>The {isSignature ? "signature" : "photo"} could not be loaded.</p>;
+  if (!url) return <p>Loading {isSignature ? "signature" : "photo"}…</p>;
+  return (
+    <img
+      src={url}
+      alt={isSignature ? "Recipient's signature" : "Proof of delivery"}
+      data-testid="proof-photo"
+      style={{ maxWidth: "100%", maxHeight: 320, borderRadius: 8, background: isSignature ? "#FFFFFF" : undefined }}
+    />
+  );
 }

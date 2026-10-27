@@ -93,6 +93,7 @@ enum AssignmentMethod {
 enum ProofMode {
   NONE
   PHOTO
+  SIGNATURE
 }
 
 enum GeocodingStatus {
