@@ -321,7 +321,8 @@ const receiveProof: RequestHandler = (req: Request, res: Response, next: NextFun
   });
 };
 
-/** The postman the delivery belongs to (or an administrator of its post office) adds the photo while it is out for delivery. */
+/** The postman the delivery belongs to (or an administrator of its post office) adds the proof - a photo or a
+ * rasterised signature, both sent as one image file - while it is out for delivery. */
 deliveriesRouter.post(
   "/:id/proof",
   requireRole("ADMIN", "SUPER_ADMIN", "POSTMAN"),
@@ -332,10 +333,12 @@ deliveriesRouter.post(
     await assertPostmanOwnsDelivery(req, existing.assignedPostmanId);
     const num = (v: unknown) => (typeof v === "string" && v !== "" && Number.isFinite(Number(v)) ? Number(v) : undefined);
     const capturedAt = typeof req.body?.capturedAt === "string" && !Number.isNaN(Date.parse(req.body.capturedAt)) ? new Date(req.body.capturedAt) : undefined;
+    const type = req.body?.type === "SIGNATURE" ? "SIGNATURE" : "PHOTO";
     const proof = await saveDeliveryProof({
       deliveryId: existing.id,
       buffer: req.file?.buffer,
       userId: req.user!.sub,
+      type,
       latitude: num(req.body?.latitude),
       longitude: num(req.body?.longitude),
       capturedAt: capturedAt && capturedAt.getTime() <= Date.now() + 60_000 ? capturedAt : undefined
@@ -344,16 +347,16 @@ deliveriesRouter.post(
   })
 );
 
-/** The photo itself: only for the office's administrators and the delivery's own postman, never cached or shared. */
+/** The proof image itself: only for the office's administrators and the delivery's own postman, never cached or shared. */
 deliveriesRouter.get(
   "/:id/proof",
   asyncHandler(async (req, res) => {
     const delivery = await prisma.delivery.findUniqueOrThrow({ where: { id: req.params.id }, include: { proof: true } });
     assertOwnsResource(req, delivery.postOfficeId);
     await assertPostmanOwnsDelivery(req, delivery.assignedPostmanId);
-    if (!delivery.proof) throw AppError.notFound("This delivery has no proof photo");
+    if (!delivery.proof) throw AppError.notFound("This delivery has no proof of delivery");
     const file = proofPhotoPath(delivery.proof.storageKey);
-    if (!fs.existsSync(file)) throw AppError.notFound("This delivery has no proof photo");
+    if (!fs.existsSync(file)) throw AppError.notFound("This delivery has no proof of delivery");
     res.setHeader("Content-Type", delivery.proof.contentType);
     res.setHeader("Cache-Control", "private, no-store");
     res.setHeader("X-Content-Type-Options", "nosniff");

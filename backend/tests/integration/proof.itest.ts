@@ -16,6 +16,8 @@ const sign = (u: { id: string; role: string; officeId: string | null }) =>
 
 // the smallest valid JPEG header + padding: enough for the type check, which reads the bytes, not the name
 const JPEG = Buffer.concat([Buffer.from([0xff, 0xd8, 0xff, 0xe0, 0, 16]), Buffer.from([0x4a, 0x46, 0x49, 0x46, 0, 1, 1, 0, 0, 1, 0, 1, 0, 0]), Buffer.alloc(200, 1)]);
+// the PNG magic bytes + padding, standing in for a rasterised signature pad export
+const PNG = Buffer.concat([Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]), Buffer.alloc(200, 1)]);
 
 let officeId: string, otherOfficeId: string;
 let admin: { id: string; role: string; officeId: string | null };
@@ -41,10 +43,13 @@ beforeEach(async () => {
 });
 afterAll(() => prisma.$disconnect());
 
-const setMode = (mode: "NONE" | "PHOTO") => prisma.postOffice.update({ where: { id: officeId }, data: { proofMode: mode } });
+const setMode = (mode: "NONE" | "PHOTO" | "SIGNATURE") => prisma.postOffice.update({ where: { id: officeId }, data: { proofMode: mode } });
 const deliver = (who = pm) => request(app).post(`/api/v1/deliveries/${deliveryId}/status`).set(sign(who)).send({ status: "DELIVERED" });
-const upload = (who = pm, buf: Buffer = JPEG, name = "door.jpg") =>
-  request(app).post(`/api/v1/deliveries/${deliveryId}/proof`).set(sign(who)).field("latitude", "19.1467").field("longitude", "72.9347").attach("photo", buf, name);
+const upload = (who = pm, buf: Buffer = JPEG, name = "door.jpg", type?: "PHOTO" | "SIGNATURE") => {
+  const req = request(app).post(`/api/v1/deliveries/${deliveryId}/proof`).set(sign(who)).field("latitude", "19.1467").field("longitude", "72.9347");
+  if (type) req.field("type", type);
+  return req.attach("photo", buf, name);
+};
 
 describe("a post office that does not require proof", () => {
   it("completes a delivery with a status change alone", async () => {
@@ -121,12 +126,42 @@ describe("a post office that requires a photo", () => {
   });
 });
 
+describe("a post office that requires a signature", () => {
+  beforeEach(() => setMode("SIGNATURE"));
+
+  it("refuses DELIVERED without the signature - the reason says so, not the photo wording", async () => {
+    const res = await deliver();
+    expect(res.status).toBe(400);
+    expect(res.body.error.message).toMatch(/signature.*required/i);
+    expect(res.body.error.details).toEqual({ proofRequired: true });
+    expect((await prisma.delivery.findUniqueOrThrow({ where: { id: deliveryId } })).status).toBe("OUT_FOR_DELIVERY");
+  });
+
+  it("accepts DELIVERED once the signature is stored, typed SIGNATURE", async () => {
+    const up = await upload(pm, PNG, "signature.png", "SIGNATURE");
+    expect(up.status).toBe(201);
+    expect(up.body).toMatchObject({ contentType: "image/png" });
+    expect((await deliver()).status).toBe(200);
+
+    const stored = await prisma.deliveryProof.findUniqueOrThrow({ where: { deliveryId } });
+    expect(stored).toMatchObject({ type: "SIGNATURE", capturedById: pm.id });
+  });
+
+  it("a plain photo still satisfies it - the server only requires SOME proof, not a matching type (the native app's fallback relies on this)", async () => {
+    await upload(); // the default JPEG, no explicit type → stored as PHOTO
+    expect((await deliver()).status).toBe(200);
+    expect((await prisma.deliveryProof.findUniqueOrThrow({ where: { deliveryId } })).type).toBe("PHOTO");
+  });
+});
+
 describe("the proof setting", () => {
   it("is changed by the office's administrator, audited, and refused for anyone else", async () => {
     const put = (who: typeof admin, mode: string) => request(app).put(`/api/v1/post-offices/${officeId}/proof-mode`).set(sign(who)).send({ proofMode: mode });
     expect((await put(admin, "PHOTO")).status).toBe(200);
     expect((await prisma.postOffice.findUniqueOrThrow({ where: { id: officeId } })).proofMode).toBe("PHOTO");
     expect((await prisma.auditLog.findMany({ where: { action: "PROOF_MODE_CHANGED" } })).length).toBe(1);
+    expect((await put(admin, "SIGNATURE")).status).toBe(200);
+    expect((await prisma.postOffice.findUniqueOrThrow({ where: { id: officeId } })).proofMode).toBe("SIGNATURE");
     expect((await put(outsideAdmin, "NONE")).status).toBe(404);
     expect((await put(pm, "NONE")).status).toBe(403);
     expect((await put(admin, "OTP")).status).toBe(422); // not implemented: not accepted

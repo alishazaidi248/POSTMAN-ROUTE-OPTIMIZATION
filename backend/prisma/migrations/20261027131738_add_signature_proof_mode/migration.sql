@@ -1,0 +1,2 @@
+-- AlterEnum
+ALTER TYPE "ProofMode" ADD VALUE 'SIGNATURE';

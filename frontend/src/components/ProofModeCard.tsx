@@ -4,19 +4,21 @@ import { friendlyError } from "../lib/friendlyError";
 import { useAuth } from "../lib/auth";
 import styles from "../styles/components.module.css";
 
+type ProofMode = "NONE" | "PHOTO" | "SIGNATURE";
+
 interface Office {
   id: string;
   name: string;
-  proofMode: "NONE" | "PHOTO";
+  proofMode: ProofMode;
 }
 
-/** What the post office requires as proof of delivery. The server enforces it: with PHOTO, DELIVERED is refused without the photo. */
+/** What the post office requires as proof of delivery. The server enforces it: with PHOTO or SIGNATURE, DELIVERED is refused without it. */
 export function ProofModeCard() {
   const { user } = useAuth();
   const queryClient = useQueryClient();
   const offices = useQuery<Office[]>({ queryKey: ["post-offices"], queryFn: () => apiClient.get("/post-offices").then((r) => r.data) });
   const change = useMutation({
-    mutationFn: (v: { id: string; proofMode: "NONE" | "PHOTO" }) => apiClient.put(`/post-offices/${v.id}/proof-mode`, { proofMode: v.proofMode }),
+    mutationFn: (v: { id: string; proofMode: ProofMode }) => apiClient.put(`/post-offices/${v.id}/proof-mode`, { proofMode: v.proofMode }),
     onSuccess: () => queryClient.invalidateQueries({ queryKey: ["post-offices"] })
   });
   if (!user || user.role === "POSTMAN" || !offices.data?.length) return null;
@@ -32,16 +34,17 @@ export function ProofModeCard() {
             className={styles.input}
             value={o.proofMode}
             disabled={change.isPending}
-            onChange={(e) => change.mutate({ id: o.id, proofMode: e.target.value as "NONE" | "PHOTO" })}
+            onChange={(e) => change.mutate({ id: o.id, proofMode: e.target.value as ProofMode })}
           >
             <option value="NONE">Nothing extra (a status change is enough)</option>
             <option value="PHOTO">A photo of the delivery</option>
+            <option value="SIGNATURE">The recipient's signature</option>
           </select>
         </div>
       ))}
       {change.isError && <p className={styles.errorText}>{friendlyError(change.error, "The setting could not be changed.")}</p>}
       <p style={{ fontSize: 12, color: "var(--color-ink-500)" }}>
-        With a photo required, the server refuses to mark a delivery as delivered until the postman has added it. Photos are private to this post office.
+        With a photo or signature required, the server refuses to mark a delivery as delivered until the postman has added it. Both are private to this post office.
       </p>
     </div>
   );
