@@ -60,8 +60,10 @@ export async function processQueue(queryClient: QueryClient): Promise<SyncSummar
 
 type ApplyResult = "synced" | "conflict" | "network-failure";
 
-/** A photo that still cannot be sent after this many tries is reported instead of being retried for ever. */
+/** A proof file that still cannot be sent after this many tries is reported instead of being retried for ever. */
 export const MAX_PROOF_ATTEMPTS = 8;
+
+const proofWord = (type: "PHOTO" | "SIGNATURE" | undefined) => (type === "SIGNATURE" ? "signature" : "photo");
 
 async function applyMutation(mutation: DeliveryStatusMutation): Promise<ApplyResult> {
   try {
@@ -70,6 +72,7 @@ async function applyMutation(mutation: DeliveryStatusMutation): Promise<ApplyRes
     if (mutation.proofUri) {
       await deliveryApi.uploadProof(mutation.deliveryId, {
         uri: mutation.proofUri,
+        type: mutation.proofType,
         latitude: mutation.latitude,
         longitude: mutation.longitude,
         capturedAt: mutation.proofCapturedAt
@@ -89,7 +92,7 @@ async function applyMutation(mutation: DeliveryStatusMutation): Promise<ApplyRes
         attemptedStatus: mutation.status,
         serverStatus: "OUT_FOR_DELIVERY",
         detectedAt: new Date().toISOString(),
-        reason: "The delivery photo could not be sent. Open the delivery and take it again."
+        reason: `The delivery ${proofWord(mutation.proofType)} could not be sent. Open the delivery and capture it again.`
       });
       return "conflict";
     }
@@ -101,13 +104,20 @@ async function applyMutation(mutation: DeliveryStatusMutation): Promise<ApplyRes
         // record has moved since this mutation was queued offline.
         try {
           const serverDelivery = await deliveryApi.getById(mutation.deliveryId);
-          const photoMissing = (err.details as { proofRequired?: boolean } | undefined)?.proofRequired === true;
+          const proofMissing = (err.details as { proofRequired?: boolean } | undefined)?.proofRequired === true;
           useOfflineStore.getState().addConflict({
             deliveryId: mutation.deliveryId,
             attemptedStatus: mutation.status,
             serverStatus: serverDelivery.status,
             detectedAt: new Date().toISOString(),
-            ...(photoMissing ? { reason: "This post office requires a photo of the delivery, and none reached the server. Open the delivery and take it again." } : {})
+            ...(proofMissing
+              ? {
+                  reason:
+                    mutation.proofType === "SIGNATURE"
+                      ? "This post office requires the recipient's signature, and none reached the server. Open the delivery and capture it again."
+                      : "This post office requires a photo of the delivery, and none reached the server. Open the delivery and take it again."
+                }
+              : {})
           });
         } catch {
           // Even the refresh failed; still resolve as a conflict rather than

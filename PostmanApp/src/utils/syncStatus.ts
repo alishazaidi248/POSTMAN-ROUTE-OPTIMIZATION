@@ -22,6 +22,7 @@ export interface SyncItem {
   /** For a queued change: how often sending it has been tried. */
   attempts?: number;
   hasPhoto?: boolean;
+  proofType?: "PHOTO" | "SIGNATURE";
 }
 
 /** The changes not yet on the server, newest first: queued ones and conflicts (a conflicted change has left the queue). */
@@ -32,7 +33,7 @@ export function buildSyncItems(queue: readonly DeliveryStatusMutation[], conflic
     ...queue
       // a queued change for a delivery that also has a conflict is superseded by it
       .filter((m) => !conflicted.has(m.deliveryId))
-      .map((m): SyncItem => ({ deliveryId: m.deliveryId, state: "QUEUED", status: m.status, at: m.queuedAt, attempts: m.attempts, hasPhoto: !!m.proofUri }))
+      .map((m): SyncItem => ({ deliveryId: m.deliveryId, state: "QUEUED", status: m.status, at: m.queuedAt, attempts: m.attempts, hasPhoto: !!m.proofUri, proofType: m.proofType }))
   ];
   return items.sort((a, b) => new Date(b.at).getTime() - new Date(a.at).getTime());
 }

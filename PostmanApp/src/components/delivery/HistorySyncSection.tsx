@@ -42,7 +42,7 @@ export function HistorySyncSection({ items, isOnline, fromCache, nameOf, onOpenS
               </Text>
               <Text style={styles.caption}>
                 {statusLabel(item.status)} \u00b7 {formatDateTime(item.at)}
-                {item.hasPhoto ? " \u00b7 photo saved" : ""}
+                {item.hasPhoto ? (item.proofType === "SIGNATURE" ? " \u00b7 signature saved" : " \u00b7 photo saved") : ""}
                 {item.state === "CONFLICT" && item.reason ? `\n${item.reason}` : item.state === "CONFLICT" && item.serverStatus ? `\nThe server says: ${statusLabel(item.serverStatus)}` : ""}
               </Text>
             </View>

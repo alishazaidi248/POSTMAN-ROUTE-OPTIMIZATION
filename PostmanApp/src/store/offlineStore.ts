@@ -12,9 +12,10 @@ export interface DeliveryStatusMutation {
   latitude?: number;
   longitude?: number;
   accuracyMeters?: number;
-  /** A proof photo saved on the device (file path) that must reach the server BEFORE this status change. */
+  /** A proof file saved on the device (file path) that must reach the server BEFORE this status change. */
   proofUri?: string;
   proofCapturedAt?: string;
+  proofType?: "PHOTO" | "SIGNATURE";
   queuedAt: string;
   attempts: number;
   lastError?: string;
