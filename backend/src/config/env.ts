@@ -57,7 +57,7 @@ export const env = {
   alnsPreserveClusters: (process.env.ROUTE_ALNS_PRESERVE_CLUSTERS ?? "true") !== "false",
   twoOptMaxMillis: Number(process.env.ROUTE_2OPT_MAX_MS ?? 1500),
   twoOptMaxPasses: Number(process.env.ROUTE_2OPT_MAX_PASSES ?? 500),
-  defaultServiceTimeMinutes: Number(process.env.DEFAULT_SERVICE_TIME_MINUTES ?? 3),
+  defaultServiceTimeMinutes: Number(process.env.DEFAULT_SERVICE_TIME_MINUTES ?? 10),
 
   // Push notifications through Expo's push service. A token is only ever registered by a phone that has one, so leaving
   // this on with no phones does nothing. EXPO_ACCESS_TOKEN is optional (needed only if enhanced push security is enabled
