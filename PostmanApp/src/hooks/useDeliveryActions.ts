@@ -1,4 +1,4 @@
-import { useCallback } from "react";
+import React, { useCallback, useState } from "react";
 import { useUpdateDeliveryStatus } from "./useDeliveries";
 import { Delivery, DeliveryStatus } from "../types/delivery";
 import { formatAddress } from "../utils/formatting";
@@ -6,8 +6,9 @@ import { openNavigation } from "../utils/navigation";
 import { notify, confirmAction } from "../utils/alerts";
 import { canTransition } from "../utils/status";
 import { usePostmanProfile } from "./usePostmanProfile";
-import { takeProofPhoto } from "../services/proofService";
+import { takeProofPhoto, saveProofSignature } from "../services/proofService";
 import { getFreshFix } from "../services/lastFix";
+import { SignaturePadModal } from "../components/proof/SignaturePadModal";
 
 export interface PrimaryAction {
   label: string;
@@ -54,7 +55,35 @@ export function useDeliveryActions(delivery: Delivery, status: DeliveryStatus, c
   const profile = usePostmanProfile();
   const primary = primaryActionFor(status);
   // What the post office requires is the server's setting, read from the postman's own profile.
-  const proofRequired = profile.data?.postOffice?.proofMode === "PHOTO";
+  const proofMode = profile.data?.postOffice?.proofMode;
+  const [signatureVisible, setSignatureVisible] = useState(false);
+
+  // Shared by both proof paths (camera photo, and the signature pad's onSave) so "Delivered" is sent the
+  // same way either way, with or without a proof attached.
+  const finish = useCallback(
+    (proof?: { proofUri: string; proofCapturedAt: string; proofType: "PHOTO" | "SIGNATURE" }) => {
+      if (!primary) return;
+      // Where the postman IS when they act (never the address's own coordinates): the server uses it, when it is a
+      // good fix, to learn where this address is.
+      const fix = primary.next === "DELIVERED" ? getFreshFix() : null;
+      const location = fix ? { latitude: fix.latitude, longitude: fix.longitude, ...(fix.accuracy != null ? { accuracyMeters: fix.accuracy } : {}) } : {};
+
+      updateStatus.mutate(
+        { deliveryId: delivery.id, status: primary.next, ...proof, ...location },
+        {
+          onSuccess: (result) => {
+            if (result.queued) {
+              notify("Saved offline", "This update will sync automatically when you're back online.");
+            }
+          },
+          onError: (err) => {
+            notify("Couldn't update status", err instanceof Error ? err.message : "Please try again.");
+          }
+        }
+      );
+    },
+    [primary, updateStatus, delivery]
+  );
 
   const run = useCallback(async () => {
     if (!primary) return;
@@ -68,9 +97,14 @@ export function useDeliveryActions(delivery: Delivery, status: DeliveryStatus, c
       if (!ok) return;
     }
 
-    // A required photo is taken BEFORE anything is sent, so "Delivered" is never recorded without it (the server refuses that too).
-    let proof: { proofUri: string; proofCapturedAt: string } | undefined;
-    if (primary.next === "DELIVERED" && proofRequired) {
+    // A required proof is captured BEFORE anything is sent, so "Delivered" is never recorded without it (the
+    // server refuses that too). A photo is a single camera call; a signature needs an on-screen pad, so it opens
+    // the modal and waits for its onSave/onFallbackToPhoto instead of continuing here.
+    if (primary.next === "DELIVERED" && proofMode === "SIGNATURE") {
+      setSignatureVisible(true);
+      return;
+    }
+    if (primary.next === "DELIVERED" && proofMode === "PHOTO") {
       const taken = await takeProofPhoto();
       if (!taken.ok) {
         notify(
@@ -81,28 +115,40 @@ export function useDeliveryActions(delivery: Delivery, status: DeliveryStatus, c
         );
         return;
       }
-      proof = { proofUri: taken.photo.uri, proofCapturedAt: taken.photo.capturedAt };
+      finish({ proofUri: taken.photo.uri, proofCapturedAt: taken.photo.capturedAt, proofType: "PHOTO" });
+      return;
     }
 
-    // Where the postman IS when they act (never the address's own coordinates): the server uses it, when it is a good fix,
-    // to learn where this address is.
-    const fix = primary.next === "DELIVERED" ? getFreshFix() : null;
-    const location = fix ? { latitude: fix.latitude, longitude: fix.longitude, ...(fix.accuracy != null ? { accuracyMeters: fix.accuracy } : {}) } : {};
+    finish();
+  }, [primary, proofMode, finish, delivery]);
 
-    updateStatus.mutate(
-      { deliveryId: delivery.id, status: primary.next, ...proof, ...location },
-      {
-        onSuccess: (result) => {
-          if (result.queued) {
-            notify("Saved offline", "This update will sync automatically when you're back online.");
-          }
-        },
-        onError: (err) => {
-          notify("Couldn't update status", err instanceof Error ? err.message : "Please try again.");
-        }
+  const saveSignature = useCallback(
+    async (pngDataUrl: string) => {
+      setSignatureVisible(false);
+      const saved = await saveProofSignature(pngDataUrl);
+      if (!saved.ok) {
+        notify("Signature needed", "The signature could not be saved. Please try again.");
+        return;
       }
-    );
-  }, [primary, updateStatus, delivery, proofRequired]);
+      finish({ proofUri: saved.photo.uri, proofCapturedAt: saved.photo.capturedAt, proofType: "SIGNATURE" });
+    },
+    [finish]
+  );
+
+  const fallbackToPhoto = useCallback(async () => {
+    setSignatureVisible(false);
+    const taken = await takeProofPhoto();
+    if (!taken.ok) {
+      notify(
+        "Photo needed",
+        taken.reason === "PERMISSION_DENIED"
+          ? "This post office requires proof of delivery. Allow camera access in Settings to complete it."
+          : "This post office requires proof of delivery. Take the photo to complete it."
+      );
+      return;
+    }
+    finish({ proofUri: taken.photo.uri, proofCapturedAt: taken.photo.capturedAt, proofType: "PHOTO" });
+  }, [finish]);
 
   const navigate = useCallback(async () => {
     const opened = await openNavigation({
@@ -116,5 +162,12 @@ export function useDeliveryActions(delivery: Delivery, status: DeliveryStatus, c
     }
   }, [coords.latitude, coords.longitude, delivery]);
 
-  return { primary, run, navigate, isPending: updateStatus.isPending, canNavigate: canNavigateTo(status) };
+  const signatureModal = React.createElement(SignaturePadModal, {
+    visible: signatureVisible,
+    onCancel: () => setSignatureVisible(false),
+    onSave: saveSignature,
+    onFallbackToPhoto: fallbackToPhoto
+  });
+
+  return { primary, run, navigate, isPending: updateStatus.isPending, canNavigate: canNavigateTo(status), signatureModal };
 }
