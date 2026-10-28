@@ -5,7 +5,7 @@ import { radius, spacing } from "../../theme/spacing";
 import { typography } from "../../theme/typography";
 import { ActiveRouteResponse, OptimizationStop } from "../../types/route";
 import { formatDistance } from "../../utils/distance";
-import { formatDurationMinutes } from "../../utils/formatting";
+import { formatDurationMinutes, formatTime } from "../../utils/formatting";
 
 interface Props {
   route: ActiveRouteResponse;
@@ -97,8 +97,9 @@ export function RouteSummaryCard({
   );
 }
 
+// When the route was last worked out - meaningful to a postman, unlike its internal version number.
 function versionLine(route: ActiveRouteResponse): string {
-  return `Route v${route.version}`;
+  return `Planned at ${formatTime(route.generatedAt)}`;
 }
 
 function Stat({ label, value }: { label: string; value: string }) {

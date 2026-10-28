@@ -6,12 +6,22 @@ import { LocationFix, LocationPermissionState, TrackingMode } from "../types/loc
 // through deliveries.
 const INTERVAL_MS: Record<TrackingMode, number> = {
   ACTIVE_ROUTE: 30_000,
-  IDLE: 120_000
+  IDLE: 120_000,
+  NAVIGATING: 1_000
 };
 const DISTANCE_INTERVAL_M: Record<TrackingMode, number> = {
   ACTIVE_ROUTE: 25,
-  IDLE: 100
+  IDLE: 100,
+  NAVIGATING: 3
 };
+const ACCURACY: Record<TrackingMode, Location.Accuracy> = {
+  ACTIVE_ROUTE: Location.Accuracy.Balanced,
+  IDLE: Location.Accuracy.Balanced,
+  NAVIGATING: Location.Accuracy.BestForNavigation
+};
+
+// The platform reports -1 (iOS) or NaN when it has no heading/speed; the app treats those as unknown.
+const known = (value: number | null | undefined) => (value != null && Number.isFinite(value) && value >= 0 ? value : null);
 
 export async function getPermissionState(): Promise<LocationPermissionState> {
   const servicesEnabled = await Location.hasServicesEnabledAsync();
@@ -52,7 +62,7 @@ export function watchPosition(
 ): Promise<Location.LocationSubscription> {
   return Location.watchPositionAsync(
     {
-      accuracy: Location.Accuracy.Balanced,
+      accuracy: ACCURACY[mode],
       timeInterval: INTERVAL_MS[mode],
       distanceInterval: DISTANCE_INTERVAL_M[mode]
     },
@@ -61,7 +71,9 @@ export function watchPosition(
         latitude: position.coords.latitude,
         longitude: position.coords.longitude,
         accuracy: position.coords.accuracy,
-        timestamp: position.timestamp
+        timestamp: position.timestamp,
+        heading: known(position.coords.heading),
+        speed: known(position.coords.speed)
       })
   );
 }

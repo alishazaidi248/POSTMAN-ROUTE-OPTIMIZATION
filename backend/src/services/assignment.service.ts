@@ -155,12 +155,94 @@ export async function runPool<T>(items: T[], limit: number, worker: (item: T) =>
 
 // ── postman <-> beat ───────────────────────────────────────────────────────
 
-async function activePostmanOfBeat(db: Db, beatId: string) {
-  const row = await db.postmanBeatAssignment.findFirst({
+/** All postmen currently covering a beat, oldest assignment first (stable order, so re-syncing the same
+ * roster always cuts the same slices). A beat normally has one, but splitting a heavy beat across several is
+ * an explicit choice - see divideBeatDeliveries. */
+async function activePostmenOfBeat(db: Db, beatId: string): Promise<string[]> {
+  const rows = await db.postmanBeatAssignment.findMany({
     where: { beatId, isActive: true, postman: { status: "ACTIVE" } },
+    orderBy: { startDate: "asc" },
     select: { postmanId: true }
   });
-  return row?.postmanId ?? null;
+  return rows.map((r) => r.postmanId);
+}
+
+/** For a single delivery arriving between full beat resyncs (an import, a geocode retry): among a beat's
+ * active postmen, whichever one currently holds the fewest open deliveries of that beat gets it, so one-at-a-
+ * time arrivals don't pile onto whoever happened to be first. syncBeatDeliveries, not this, is what actually
+ * divides a beat's existing load when its postmen change - this just keeps things even in between. */
+async function pickLeastLoadedPostman(db: Db, beatId: string, postmanIds: string[]): Promise<string | null> {
+  if (postmanIds.length <= 1) return postmanIds[0] ?? null;
+  const counts = await db.delivery.groupBy({
+    by: ["assignedPostmanId"],
+    where: { beatId, assignedPostmanId: { in: postmanIds }, status: { in: AUTO_ASSIGNABLE_STATUSES } },
+    _count: true
+  });
+  const loadOf = new Map(counts.map((c) => [c.assignedPostmanId, c._count]));
+  return postmanIds.reduce((best, id) => ((loadOf.get(id) ?? 0) < (loadOf.get(best) ?? 0) ? id : best));
+}
+
+interface GeoDeliveryInput {
+  id: string;
+  latitude: number | null;
+  longitude: number | null;
+}
+
+/**
+ * Splits a beat's open deliveries across its active postmen. One postman: everything stays with them. More
+ * than one is an explicit choice (a heavy beat split so no single postman drowns): deliveries are ordered by
+ * compass angle around the group's centre and cut into as many contiguous, near-equal slices as there are
+ * postmen, so each share is a geographically sensible patch rather than a scattered pick-list - and it stays
+ * close to what the route optimizer would cluster together anyway. A delivery with no usable coordinates can't
+ * be placed by angle, so those are spread round-robin instead. Ties sort by id, so two runs over the same set
+ * of deliveries and postmen always cut in exactly the same place - no reshuffling between syncs.
+ */
+export function divideBeatDeliveries<T extends GeoDeliveryInput>(
+  deliveries: T[],
+  postmanIds: string[],
+  fallbackCenter?: { latitude: number; longitude: number }
+): Map<string, T[]> {
+  const plan = new Map<string, T[]>(postmanIds.map((id) => [id, []]));
+  if (postmanIds.length === 0) return plan;
+  if (postmanIds.length === 1) {
+    plan.set(postmanIds[0], deliveries);
+    return plan;
+  }
+
+  const assignContiguous = (items: T[]) => {
+    const n = postmanIds.length;
+    const base = Math.floor(items.length / n);
+    const extra = items.length % n;
+    let cursor = 0;
+    postmanIds.forEach((postmanId, i) => {
+      const count = base + (i < extra ? 1 : 0);
+      plan.get(postmanId)!.push(...items.slice(cursor, cursor + count));
+      cursor += count;
+    });
+  };
+
+  const located = deliveries.filter((d) => d.latitude != null && d.longitude != null);
+  const unlocated = deliveries.filter((d) => d.latitude == null || d.longitude == null);
+
+  if (located.length === 0) {
+    assignContiguous(deliveries);
+    return plan;
+  }
+
+  const center = fallbackCenter ?? {
+    latitude: located.reduce((sum, d) => sum + d.latitude!, 0) / located.length,
+    longitude: located.reduce((sum, d) => sum + d.longitude!, 0) / located.length
+  };
+
+  const ordered = [...located].sort((a, b) => {
+    const angleA = Math.atan2(a.latitude! - center.latitude, a.longitude! - center.longitude);
+    const angleB = Math.atan2(b.latitude! - center.latitude, b.longitude! - center.longitude);
+    return angleA - angleB || a.id.localeCompare(b.id);
+  });
+
+  assignContiguous(ordered);
+  unlocated.forEach((d, i) => plan.get(postmanIds[i % postmanIds.length])!.push(d));
+  return plan;
 }
 
 /** A postman's currently-held, not-yet-finished deliveries: what "he already works near here" is measured against. */
@@ -185,15 +267,16 @@ async function nearestActiveDeliveryDistanceM(db: Db, postmanId: string, point: 
 }
 
 /**
- * Makes every open delivery of `beatId` match the beat's CURRENT active postman:
- *   - a postman covers the beat  -> their parcels move to that postman (SORTED -> ASSIGNED)
- *   - nobody covers it           -> the parcels are released (ASSIGNED -> SORTED) and a
- *                                   NO_POSTMAN_ASSIGNED exception is opened for the admin
+ * Makes every open delivery of `beatId` match the beat's CURRENT active postmen:
+ *   - one or more postmen cover the beat -> their parcels are divided between them (see divideBeatDeliveries)
+ *     and move to whoever now holds that share (SORTED -> ASSIGNED)
+ *   - nobody covers it                   -> the parcels are released (ASSIGNED -> SORTED) and a
+ *                                           NO_POSTMAN_ASSIGNED exception is opened for the admin
  * Parcels an admin assigned by hand (an override in the history) and parcels already
  * out for delivery are never touched.
  */
 export async function syncBeatDeliveries(db: Db, beatId: string, changedBy?: string, sink?: AssignmentChange[]) {
-  const postmanId = await activePostmanOfBeat(db, beatId);
+  const postmanIds = await activePostmenOfBeat(db, beatId);
 
   const deliveries = await db.delivery.findMany({
     where: {
@@ -201,26 +284,21 @@ export async function syncBeatDeliveries(db: Db, beatId: string, changedBy?: str
       status: { in: AUTO_ASSIGNABLE_STATUSES },
       assignmentHistory: { none: { isOverride: true } }
     },
-    select: { id: true, status: true, assignedPostmanId: true, trackingId: true, priority: true }
+    select: {
+      id: true,
+      status: true,
+      assignedPostmanId: true,
+      trackingId: true,
+      priority: true,
+      address: { select: { latitude: true, longitude: true } }
+    }
   });
 
   let assigned = 0;
   let released = 0;
 
-  for (const d of deliveries) {
-    if (postmanId) {
-      if (d.assignedPostmanId === postmanId && d.status !== "SORTED") continue;
-      await db.delivery.update({
-        where: { id: d.id },
-        data: { assignedPostmanId: postmanId, status: d.status === "SORTED" ? "ASSIGNED" : d.status }
-      });
-      await db.deliveryAssignmentHistory.create({
-        data: { deliveryId: d.id, beatId, postmanId, reason: "BEAT_POSTMAN_CHANGED", changedBy }
-      });
-      await resolveExceptions(db, d.id, ["NO_POSTMAN_ASSIGNED", "INACTIVE_POSTMAN"]);
-      sink?.push({ deliveryId: d.id, trackingId: d.trackingId, priority: d.priority, fromPostmanId: d.assignedPostmanId, toPostmanId: postmanId });
-      assigned++;
-    } else {
+  if (postmanIds.length === 0) {
+    for (const d of deliveries) {
       if (d.assignedPostmanId === null && d.status === "SORTED") continue;
       await db.delivery.update({
         where: { id: d.id },
@@ -233,18 +311,53 @@ export async function syncBeatDeliveries(db: Db, beatId: string, changedBy?: str
       sink?.push({ deliveryId: d.id, trackingId: d.trackingId, priority: d.priority, fromPostmanId: d.assignedPostmanId, toPostmanId: null });
       released++;
     }
+    return { assigned, released, postmanIds };
   }
 
-  return { assigned, released, postmanId };
+  // A beat split across more than one postman needs a geographic centre to cut slices around; the beat's own
+  // centre (when set) is more stable across resyncs than recomputing a centroid from whichever deliveries
+  // happen to be open right now.
+  let center: { latitude: number; longitude: number } | undefined;
+  if (postmanIds.length > 1) {
+    const beat = await db.beat.findUnique({ where: { id: beatId }, select: { centerLatitude: true, centerLongitude: true } });
+    if (beat?.centerLatitude != null && beat?.centerLongitude != null) center = { latitude: beat.centerLatitude, longitude: beat.centerLongitude };
+  }
+  const plan = divideBeatDeliveries(
+    deliveries.map((d) => ({ id: d.id, latitude: d.address.latitude, longitude: d.address.longitude })),
+    postmanIds,
+    center
+  );
+  const targetPostmanOf = new Map<string, string>();
+  for (const [postmanId, share] of plan) for (const d of share) targetPostmanOf.set(d.id, postmanId);
+
+  for (const d of deliveries) {
+    const postmanId = targetPostmanOf.get(d.id)!;
+    if (d.assignedPostmanId === postmanId && d.status !== "SORTED") continue;
+    await db.delivery.update({
+      where: { id: d.id },
+      data: { assignedPostmanId: postmanId, status: d.status === "SORTED" ? "ASSIGNED" : d.status }
+    });
+    await db.deliveryAssignmentHistory.create({
+      data: { deliveryId: d.id, beatId, postmanId, reason: "BEAT_POSTMAN_CHANGED", changedBy }
+    });
+    await resolveExceptions(db, d.id, ["NO_POSTMAN_ASSIGNED", "INACTIVE_POSTMAN"]);
+    sink?.push({ deliveryId: d.id, trackingId: d.trackingId, priority: d.priority, fromPostmanId: d.assignedPostmanId, toPostmanId: postmanId });
+    assigned++;
+  }
+
+  return { assigned, released, postmanIds };
 }
 
 /**
  * The single writer for "postman X covers beat Y" (beatId = null clears it).
- * Keeps at most one active assignment per beat and per postman, keeps the
- * denormalised Postman.assignedBeatId right for everyone it touches, and then
- * re-syncs the parcels of every beat that changed hands. Runs inside the
- * caller's transaction so it can be combined with other writes (creating a beat
- * and giving it a postman is ONE atomic step).
+ * A postman still covers at most one beat at a time, but a beat may now have
+ * more than one active postman - joining a beat never displaces anyone
+ * already covering it (their deliveries just split between them instead, see
+ * syncBeatDeliveries). Keeps the denormalised Postman.assignedBeatId right for
+ * the postman it touches, and then re-syncs the parcels of every beat that
+ * changed hands. Runs inside the caller's transaction so it can be combined
+ * with other writes (creating a beat and giving it a postman is ONE atomic
+ * step).
  */
 export async function assignPostmanToBeatTx(tx: Prisma.TransactionClient, postmanId: string, beatId: string | null, changedBy?: string, sink?: AssignmentChange[]) {
   const postman = await tx.postman.findUniqueOrThrow({ where: { id: postmanId } });
@@ -268,18 +381,6 @@ export async function assignPostmanToBeatTx(tx: Prisma.TransactionClient, postma
   });
 
   if (beatId) {
-    // Whoever held the beat before is displaced.
-    const displaced = await tx.postmanBeatAssignment.findMany({
-      where: { beatId, isActive: true, postmanId: { not: postmanId } },
-      select: { postmanId: true }
-    });
-    await tx.postmanBeatAssignment.updateMany({
-      where: { beatId, isActive: true },
-      data: { isActive: false, endDate: new Date() }
-    });
-    for (const { postmanId: displacedId } of displaced) {
-      await tx.postman.update({ where: { id: displacedId }, data: { assignedBeatId: null } });
-    }
     await tx.postmanBeatAssignment.create({ data: { beatId, postmanId } });
     affectedBeats.add(beatId);
   }
@@ -388,15 +489,24 @@ export async function assignDeliveryToBeat(deliveryId: string): Promise<AssignRe
   // A MULTIPLE_BEAT_MATCH tie-break needs to know, for each matched beat, who covers it and whether that postman
   // already has a nearby delivery - a DB/geo lookup the pure decision function cannot do itself, so it is done here
   // and passed in. Only computed when it could actually matter (more than one territory, and a strong enough
-  // location that decideAssignment would even reach that branch).
+  // location that decideAssignment would even reach that branch). A beat split across several postmen is
+  // represented by whichever of them already has the nearest delivery to this address.
   let territoryPostmen: NearbyPostmanCandidate[] | undefined;
   if (territories.length > 1 && located && isStrong(precision)) {
     territoryPostmen = [];
     for (const t of territories) {
-      const postmanId = await activePostmanOfBeat(prisma, t.beatId);
-      if (!postmanId) continue;
-      const nearestDeliveryDistanceM = await nearestActiveDeliveryDistanceM(prisma, postmanId, { latitude: a.latitude!, longitude: a.longitude! }, deliveryId);
-      territoryPostmen.push({ beatId: t.beatId, beatNumber: t.beatNumber, postmanId, nearestDeliveryDistanceM });
+      const postmanIds = await activePostmenOfBeat(prisma, t.beatId);
+      if (postmanIds.length === 0) continue;
+      let bestPostmanId = postmanIds[0];
+      let bestDistanceM: number | null = null;
+      for (const postmanId of postmanIds) {
+        const d = await nearestActiveDeliveryDistanceM(prisma, postmanId, { latitude: a.latitude!, longitude: a.longitude! }, deliveryId);
+        if (d != null && (bestDistanceM == null || d < bestDistanceM)) {
+          bestDistanceM = d;
+          bestPostmanId = postmanId;
+        }
+      }
+      territoryPostmen.push({ beatId: t.beatId, beatNumber: t.beatNumber, postmanId: bestPostmanId, nearestDeliveryDistanceM: bestDistanceM });
     }
   }
 
@@ -439,7 +549,7 @@ async function applyDecision(
     }
 
     const { beatId, method, confidence, explanation } = decision;
-    const postmanId = await activePostmanOfBeat(tx, beatId);
+    const postmanId = await pickLeastLoadedPostman(tx, beatId, await activePostmenOfBeat(tx, beatId));
 
     await tx.delivery.update({
       where: { id: deliveryId },
@@ -558,8 +668,9 @@ export async function overrideAssignment(params: {
     if (postman.status !== "ACTIVE") throw AppError.conflict("Only an active postman can be assigned deliveries");
   }
 
-  // "Choose Beat" without a postman: the parcel goes to whoever covers that beat now.
-  const postmanId = params.postmanId ?? (params.beatId ? (await activePostmanOfBeat(prisma, params.beatId)) ?? undefined : undefined);
+  // "Choose Beat" without a postman: the parcel goes to whoever covers that beat now (the least
+  // loaded of them, when more than one does).
+  const postmanId = params.postmanId ?? (params.beatId ? (await pickLeastLoadedPostman(prisma, params.beatId, await activePostmenOfBeat(prisma, params.beatId))) ?? undefined : undefined);
 
   const postmanChanged = !!postmanId && postmanId !== existing.assignedPostmanId;
   // A parcel handed to a different postman must be started by them, so it goes

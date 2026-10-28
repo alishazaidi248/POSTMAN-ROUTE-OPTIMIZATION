@@ -31,8 +31,12 @@ jest.mock("../../src/api/deliveryApi", () => ({ deliveryApi: { updateStatus: jes
 const mockData = {
   profile: { current: null as unknown },
   stats: { current: null as unknown },
-  map: { current: null as unknown }
+  map: { current: null as unknown },
+  fix: { current: null as unknown }
 };
+jest.mock("../../src/hooks/useLocation", () => ({
+  useLocation: () => ({ permission: "GRANTED", fix: mockData.fix.current, requestPermission: jest.fn() })
+}));
 jest.mock("../../src/hooks/usePostmanProfile", () => ({ usePostmanProfile: () => mockData.profile.current }));
 jest.mock("../../src/hooks/useOfflineSync", () => ({
   useOfflineSync: () => ({ isOnline: true, queueLength: 0, conflicts: [], clearConflict: jest.fn(), sync: jest.fn() })
@@ -66,10 +70,13 @@ function profile(photo: string | null = null) {
   };
 }
 
-function withData() {
-  const route = makeRoute([makeStop("a", 1), makeStop("b", 2)]);
-  const views = buildStopViews([makeDelivery("a", "ASSIGNED"), makeDelivery("b", "ASSIGNED")], route);
+function withData(deliveries = [makeDelivery("a", "ASSIGNED"), makeDelivery("b", "ASSIGNED")]) {
+  // Stop a is first on the route but 2.8 km further from the test position below than stop b.
+  const route = makeRoute([makeStop("a", 1, { latitude: 19.2, longitude: 72.93 }), makeStop("b", 2, { latitude: 19.175, longitude: 72.93 })]);
+  const views = buildStopViews(deliveries, route);
+  mockData.fix.current = null;
   mockData.map.current = {
+    views,
     isLoading: false,
     isRefreshing: false,
     refetch: jest.fn(),
@@ -135,23 +142,53 @@ describe("HomeScreen", () => {
     expect(screen.getByText("B201 — Sector 3")).toBeTruthy();
   });
 
-  it("shows today's numbers: total, completed and remaining", () => {
+  it("shows today's numbers, with a total that always adds up (delivered + failed + to go)", () => {
+    mockData.stats.current = { data: { today: { total: 2, completed: 11, failed: 1, remaining: 13 }, completionRate: 0.46 }, refetch: jest.fn() };
     wrap(<HomeScreen />);
-    expect(screen.getByText("24 Deliveries")).toBeTruthy();
-    expect(screen.getByText("11")).toBeTruthy();
-    expect(screen.getByText("13")).toBeTruthy();
-    expect(screen.getByText("Completed")).toBeTruthy();
-    expect(screen.getByText("Remaining")).toBeTruthy();
+    expect(screen.getByText("13 to go")).toBeTruthy();
+    expect(screen.getByText(/ \/ 25/)).toBeTruthy();
+    expect(screen.getByText("delivered")).toBeTruthy();
+    expect(screen.getByText("1 could not be delivered today")).toBeTruthy();
   });
 
-  it("shows the next delivery with its address, distance, arrival time, Navigate and Start Delivery", () => {
+  it("lists every delivery still to do, in route order while the location is unknown", () => {
     wrap(<HomeScreen />);
-    expect(screen.getByText("Recipient a")).toBeTruthy();
-    expect(screen.getByText(/a Station Road/)).toBeTruthy();
-    expect(screen.getByText("1.2 km · 3m")).toBeTruthy();
-    expect(screen.getByText(/^ETA \d/)).toBeTruthy();
-    expect(screen.getByLabelText("Navigate")).toBeTruthy();
+    expect(screen.getByText("To deliver · in route order")).toBeTruthy();
+    expect(screen.getByText(/Turn on location/)).toBeTruthy();
+    const names = screen.getAllByText(/^Recipient [ab]$/).map((n) => n.props.children);
+    expect(names).toEqual(["Recipient a", "Recipient b"]);
+    expect(screen.getByText("1.2 km · 3m")).toBeTruthy(); // distance from the previous stop, as on the Deliveries tab
+    expect(screen.getAllByLabelText("Navigate")).toHaveLength(2);
+  });
+
+  it("with the phone's location, puts the closest delivery first and says how far each one is", () => {
+    withData();
+    mockData.fix.current = { latitude: 19.17, longitude: 72.93, accuracy: 10, timestamp: 0 };
+    wrap(<HomeScreen />);
+    expect(screen.getByText("To deliver · nearest first")).toBeTruthy();
+    const names = screen.getAllByText(/^Recipient [ab]$/).map((n) => n.props.children);
+    expect(names).toEqual(["Recipient b", "Recipient a"]);
+    expect(screen.getByText("556 m away")).toBeTruthy();
+    expect(screen.getByText("3.3 km away")).toBeTruthy();
+  });
+
+  it("a card opens to the same actions as everywhere else (Start Delivery)", () => {
+    wrap(<HomeScreen />);
+    expect(screen.queryByLabelText("Start Delivery")).toBeNull();
+    fireEvent.press(screen.getByLabelText(/^Delivery 1 for Recipient a/));
     expect(screen.getByLabelText("Start Delivery")).toBeTruthy();
+  });
+
+  it("shows what was finished today below, and leaves earlier days to History", () => {
+    withData([
+      makeDelivery("a", "ASSIGNED"),
+      makeDelivery("today", "DELIVERED", { updatedAt: new Date().toISOString() }),
+      makeDelivery("lastweek", "DELIVERED")
+    ]);
+    wrap(<HomeScreen />);
+    expect(screen.getByText("Done today · 1")).toBeTruthy();
+    expect(screen.getByText("Recipient today")).toBeTruthy();
+    expect(screen.queryByText("Recipient lastweek")).toBeNull();
   });
 
   it("opens the route map from 'View Route'", () => {
@@ -161,7 +198,7 @@ describe("HomeScreen", () => {
   });
 
   it("says so when everything is done", () => {
-    mockData.map.current = { ...(mockData.map.current as object), next: null, remaining: 0 };
+    withData([makeDelivery("a", "DELIVERED", { updatedAt: new Date().toISOString() })]);
     wrap(<HomeScreen />);
     expect(screen.getByText(/All done for today/)).toBeTruthy();
   });

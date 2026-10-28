@@ -59,6 +59,13 @@ export const env = {
   twoOptMaxPasses: Number(process.env.ROUTE_2OPT_MAX_PASSES ?? 500),
   defaultServiceTimeMinutes: Number(process.env.DEFAULT_SERVICE_TIME_MINUTES ?? 10),
 
+  // In-app turn-by-turn directions. Each is an OSRM-compatible route endpoint up to (not including) the coordinates,
+  // e.g. https://routing.openstreetmap.de/routed-bike/route/v1/driving. Kept apart from OSRM_BASE_URL because postmen
+  // cycle and walk: a car profile sends them round one-way streets and misses footpaths. Empty: falls back to
+  // OSRM_BASE_URL's profile (with a warning), then to a straight line.
+  navigationBikeRouteUrl: (process.env.NAVIGATION_BIKE_ROUTE_URL ?? "").replace(/\/+$/, ""),
+  navigationFootRouteUrl: (process.env.NAVIGATION_FOOT_ROUTE_URL ?? "").replace(/\/+$/, ""),
+
   // Push notifications through Expo's push service. A token is only ever registered by a phone that has one, so leaving
   // this on with no phones does nothing. EXPO_ACCESS_TOKEN is optional (needed only if enhanced push security is enabled
   // on the Expo project) and is a secret: it is read from the environment and never stored or logged.

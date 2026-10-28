@@ -29,7 +29,7 @@ const wrap = (ui: React.ReactElement) => (
 const beat = (over: Partial<BeatRecord> = {}): BeatRecord => ({
   id: "b1", postOfficeId: "po1", postOfficeName: "Bhandup West", beatNumber: "20", name: "Beat 20 - Farid Nagar", status: "ACTIVE",
   verificationStatus: "VERIFIED", verifiedAt: null, verifiedByName: null, hasTerritory: true, boundary: null, centerLatitude: null, centerLongitude: null,
-  deliveryCount: 0, assignedPostmanId: null, assignedPostmanName: null, createdAt: "", updatedAt: "", ...over
+  deliveryCount: 0, assignedPostmanId: null, assignedPostmanName: null, assignedPostmen: [], createdAt: "", updatedAt: "", ...over
 });
 
 beforeEach(() => vi.clearAllMocks());

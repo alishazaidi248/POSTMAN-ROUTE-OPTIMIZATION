@@ -7,7 +7,8 @@ import { LocationFix, LocationPermissionState, TrackingMode } from "../types/loc
 
 const PING_INTERVAL_MS: Record<TrackingMode, number> = {
   ACTIVE_ROUTE: 30_000,
-  IDLE: 180_000
+  IDLE: 180_000,
+  NAVIGATING: 30_000
 };
 
 /**

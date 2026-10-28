@@ -64,40 +64,76 @@ export function VerifyBeatDialog({ beat, onClose, onDone }: { beat: BeatRecord; 
   );
 }
 
-/** Choose (or clear) the postman who covers a beat. */
+/**
+ * Who covers a beat. More than one postman can cover the same beat at once - its deliveries then split
+ * between them (by geography, roughly evenly) - so this adds and removes postmen individually rather than
+ * replacing a single choice.
+ */
 export function AssignPostmanDialog({ beat, onClose, onDone }: { beat: BeatRecord; onClose: () => void; onDone: () => void }) {
   const toast = useToast();
-  const [postmanId, setPostmanId] = useState(beat.assignedPostmanId ?? "");
+  const [postmanId, setPostmanId] = useState("");
   const postmen = useQuery<PostmanOption[]>({ queryKey: ["postmen-for-assignment"], queryFn: () => apiClient.get("/postmen").then((r) => r.data) });
-  const options = (postmen.data ?? []).filter((p) => !p.postOffice || p.postOffice.id === beat.postOfficeId);
+  const assignedIds = new Set(beat.assignedPostmen.map((p) => p.id));
+  const options = (postmen.data ?? []).filter((p) => (!p.postOffice || p.postOffice.id === beat.postOfficeId) && !assignedIds.has(p.id));
 
-  const assign = useMutation({
-    mutationFn: () => apiClient.post(`/beats/${beat.id}/assign-postman`, { postmanId: postmanId || null }),
+  const add = useMutation({
+    mutationFn: (id: string) => apiClient.post(`/beats/${beat.id}/assign-postman`, { postmanId: id }),
     onSuccess: () => {
-      toast.success(postmanId ? "Postman assigned successfully." : "Postman removed from this beat.");
+      toast.success("Postman added to this beat.");
+      setPostmanId("");
+      onDone();
+    }
+  });
+
+  const remove = useMutation({
+    mutationFn: (id: string) => apiClient.post(`/postmen/${id}/assign-beat`, { beatId: null }),
+    onSuccess: () => {
+      toast.success("Postman removed from this beat.");
       onDone();
     }
   });
 
   return (
-    <Modal title={`Assign postman to beat ${beat.beatNumber}`} onClose={onClose} width={420}>
-      <div className={styles.field}>
-        <label htmlFor="assign-postman">Postman</label>
+    <Modal title={`Postmen for beat ${beat.beatNumber}`} onClose={onClose} width={440}>
+      {beat.assignedPostmen.length > 0 ? (
+        <ul style={{ listStyle: "none", margin: 0, padding: 0 }}>
+          {beat.assignedPostmen.map((p) => (
+            <li key={p.id} style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "4px 0" }}>
+              <span>{p.name} ({p.employeeId})</span>
+              <button className={`${styles.btn} ${styles.btnSmall}`} onClick={() => remove.mutate(p.id)} disabled={remove.isPending}>
+                Remove
+              </button>
+            </li>
+          ))}
+        </ul>
+      ) : (
+        <p style={{ fontSize: 13, color: "var(--color-ink-500)", margin: 0 }}>Not assigned.</p>
+      )}
+
+      <div className={styles.field} style={{ marginTop: 12 }}>
+        <label htmlFor="assign-postman">Add a postman</label>
         <select id="assign-postman" className={styles.input} value={postmanId} onChange={(e) => setPostmanId(e.target.value)}>
-          <option value="">Not assigned</option>
+          <option value="">Choose a postman</option>
           {options.map((p) => (
             <option key={p.id} value={p.id}>{p.name} ({p.employeeId})</option>
           ))}
         </select>
       </div>
       <p style={{ fontSize: 13, color: "var(--color-ink-500)", margin: 0 }}>
-        The beat&rsquo;s parcels move to this postman straight away, and appear in their app.
+        Adding a second (or third) postman splits the beat&rsquo;s parcels between everyone covering it, by
+        geography, roughly evenly; removing one hands their share to whoever is left.
       </p>
-      {assign.isError && <p className={styles.errorText}>{friendlyError(assign.error, "The postman could not be assigned.")}</p>}
+      {(add.isError || remove.isError) && (
+        <p className={styles.errorText}>{friendlyError(add.error ?? remove.error, "That could not be saved.")}</p>
+      )}
       <div className={styles.actions}>
-        <button className={styles.btn} onClick={onClose}>Cancel</button>
-        <button className={`${styles.btn} ${styles.btnPrimary}`} onClick={() => assign.mutate()} disabled={assign.isPending}>
-          {assign.isError ? "Try Again" : assign.isPending ? "Saving..." : "Save"}
+        <button className={styles.btn} onClick={onClose}>Close</button>
+        <button
+          className={`${styles.btn} ${styles.btnPrimary}`}
+          onClick={() => postmanId && add.mutate(postmanId)}
+          disabled={!postmanId || add.isPending}
+        >
+          {add.isPending ? "Adding..." : "Add"}
         </button>
       </div>
     </Modal>

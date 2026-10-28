@@ -1,5 +1,5 @@
 import { ActiveBadge, OverlapBadge, VerificationBadge } from "./StatusBadge";
-import { BeatRecord, deliveriesOf, formatWhen, territoryLabel, territoryState } from "./beatTypes";
+import { BeatRecord, assignedPostmenLabel, deliveriesOf, formatWhen, territoryLabel, territoryState } from "./beatTypes";
 import { OtherFeature } from "./BeatMap";
 import { Icon } from "../../components/icons";
 import styles from "./beats.module.css";
@@ -59,7 +59,10 @@ export function BeatDetailsPanel({ beat, onClose, onEditBeat, onAssign, onVerify
         <dl className={styles.facts}>
           <div className={styles.fact}><dt>Post office</dt><dd>{beat.postOfficeName}</dd></div>
           <div className={styles.fact}><dt>Territory</dt><dd>{territoryLabel(beat)}</dd></div>
-          <div className={styles.fact}><dt>Assigned postman</dt><dd>{beat.assignedPostmanName ?? "Not assigned"}</dd></div>
+          <div className={styles.fact}>
+            <dt>{(beat.assignedPostmen?.length ?? 0) > 1 ? "Assigned postmen" : "Assigned postman"}</dt>
+            <dd>{assignedPostmenLabel(beat)}</dd>
+          </div>
           <div className={styles.fact}><dt>Deliveries</dt><dd>{deliveries}</dd></div>
           <div className={styles.fact}><dt>Last updated</dt><dd>{formatWhen(beat.updatedAt)}</dd></div>
         </dl>

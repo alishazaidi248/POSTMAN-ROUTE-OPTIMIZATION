@@ -18,6 +18,8 @@ export interface BeatRecord {
   deliveryCount: number | string;
   assignedPostmanId: string | null;
   assignedPostmanName: string | null;
+  /** Everyone currently covering this beat (its deliveries split between them when there's more than one). */
+  assignedPostmen: { id: string; name: string; employeeId: string }[];
   /** Other active beats whose territory overlaps this one (from PostGIS). */
   overlaps?: { id: string; beatNumber: string; areaSqm: number }[];
   createdAt: string;
@@ -84,5 +86,11 @@ export function boundsOf(polygon: GeoJSON.Polygon): [[number, number], [number, 
 export function matchesSearch(b: BeatRecord, query: string): boolean {
   const q = query.trim().toLowerCase();
   if (!q) return true;
-  return [b.beatNumber, b.name, b.postOfficeName, b.assignedPostmanName ?? ""].some((v) => v.toLowerCase().includes(q));
+  return [b.beatNumber, b.name, b.postOfficeName, ...(b.assignedPostmen ?? []).map((p) => p.name)].some((v) => v.toLowerCase().includes(q));
+}
+
+/** "Ramesh Kadam" / "Ramesh Kadam, Sunita Pawar" / "Not assigned". */
+export function assignedPostmenLabel(b: BeatRecord): string {
+  const names = (b.assignedPostmen ?? []).map((p) => p.name);
+  return names.length > 0 ? names.join(", ") : "Not assigned";
 }

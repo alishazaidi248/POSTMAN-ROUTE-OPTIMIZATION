@@ -1,6 +1,7 @@
 import React from "react";
 import { Pressable, StyleSheet, Text, View } from "react-native";
 import { formatAddressShort, formatTime } from "../../utils/formatting";
+import { formatDistance } from "../../utils/distance";
 import { legLabel, StopState, StopView } from "../../utils/routeView";
 import { useDeliveryActions } from "../../hooks/useDeliveryActions";
 import { colors } from "../../theme/colors";
@@ -18,6 +19,8 @@ interface Props {
   onToggle: () => void;
   /** Opens the full details screen (history, call recipient, any status). */
   onOpenDetails: () => void;
+  /** On a list sorted by how near each stop is (Home): "350 m away" replaces the distance from the previous stop. */
+  distanceFromMe?: number | null;
 }
 
 const BADGE_BG: Record<StopState, string> = {
@@ -38,7 +41,7 @@ function badgeText(view: StopView): string {
  * Expanded:  also phone, parcels, priority and the buttons for the next step (Start Delivery / Mark Delivered).
  * Only fields that exist on the Delivery model are shown - there is no weight or notes field, so none is invented.
  */
-export function DeliveryCard({ view, expanded, onToggle, onOpenDetails }: Props) {
+export function DeliveryCard({ view, expanded, onToggle, onOpenDetails, distanceFromMe }: Props) {
   const { delivery, status } = view;
   const leg = legLabel(view);
   const address = formatAddressShort(delivery.address);
@@ -69,7 +72,12 @@ export function DeliveryCard({ view, expanded, onToggle, onOpenDetails }: Props)
         </Text>
 
         <View style={styles.metaRow}>
-          {leg ? (
+          {distanceFromMe != null && !finished ? (
+            <View style={styles.meta}>
+              <Icon name="navigate" size={14} color={colors.mapCurrent} />
+              <Text style={[styles.metaText, styles.away]}>{formatDistance(distanceFromMe)} away</Text>
+            </View>
+          ) : leg && distanceFromMe === undefined ? (
             <View style={styles.meta}>
               <Icon name="navigate" size={14} color={colors.textSecondary} />
               <Text style={styles.metaText}>{leg}</Text>
@@ -101,7 +109,7 @@ export function DeliveryCard({ view, expanded, onToggle, onOpenDetails }: Props)
           <Field label="Tracking ID" value={delivery.trackingId} />
           {delivery.beat ? <Field label="Beat" value={delivery.beat.beatNumber} /> : null}
 
-          <DeliveryActionBar delivery={delivery} status={status} latitude={view.latitude} longitude={view.longitude} />
+          <DeliveryActionBar delivery={delivery} status={status} />
 
           <Pressable onPress={onOpenDetails} accessibilityRole="link" accessibilityLabel="Open full details">
             <Text style={styles.detailsLink}>Full details, history &amp; other outcomes ›</Text>
@@ -114,11 +122,11 @@ export function DeliveryCard({ view, expanded, onToggle, onOpenDetails }: Props)
 
 /** The one action a postman wants on the list itself: get directions to this stop. */
 function CollapsedNavigate({ view }: { view: StopView }) {
-  const { navigate, canNavigate } = useDeliveryActions(view.delivery, view.status, { latitude: view.latitude, longitude: view.longitude });
+  const { navigate, canNavigate } = useDeliveryActions(view.delivery, view.status);
   if (!canNavigate) return null;
   return (
     <View style={styles.footer}>
-      <PrimaryButton label="Navigate" variant="secondary" onPress={navigate} style={styles.navigateButton} accessibilityHint="Opens directions to this address in your maps app" />
+      <PrimaryButton label="Navigate" variant="secondary" onPress={navigate} style={styles.navigateButton} accessibilityHint="Shows turn-by-turn directions to this address" />
     </View>
   );
 }
@@ -159,6 +167,7 @@ const styles = StyleSheet.create({
   metaRow: { flexDirection: "row", alignItems: "center", gap: spacing.lg, flexWrap: "wrap", marginTop: 2 },
   meta: { flexDirection: "row", alignItems: "center", gap: 5 },
   metaText: { ...typography.caption, color: colors.textSecondary },
+  away: { color: colors.mapCurrent, fontWeight: "600" },
   queued: { ...typography.caption, color: colors.warning },
   footer: { paddingHorizontal: spacing.lg, paddingBottom: spacing.lg },
   navigateButton: { minHeight: 44 },

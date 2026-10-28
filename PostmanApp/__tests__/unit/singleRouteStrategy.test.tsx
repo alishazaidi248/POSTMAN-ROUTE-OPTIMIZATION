@@ -28,7 +28,9 @@ jest.mock("../../src/api/axiosClient", () => ({
   axiosClient: { get: jest.fn().mockResolvedValue({ data: { route: null } }), post: jest.fn().mockResolvedValue({ data: { routeId: "r" } }) },
   setUnauthorizedHandler: jest.fn()
 }));
-jest.mock("../../src/utils/navigation", () => ({ openNavigation: jest.fn().mockResolvedValue(true) }));
+const mockNavigate = jest.fn();
+// Navigate opens the in-app directions screen; these components render outside a navigator here.
+jest.mock("@react-navigation/native", () => ({ ...jest.requireActual("@react-navigation/native"), useNavigation: () => ({ navigate: mockNavigate }) }));
 jest.mock("../../src/utils/alerts", () => ({ notify: jest.fn(), confirmAction: jest.fn().mockResolvedValue(true) }));
 
 import { axiosClient } from "../../src/api/axiosClient";
@@ -126,7 +128,7 @@ describe("what the postman sees", () => {
       />
     );
     expect(screen.getByText(/Optimized Route/)).toBeTruthy();
-    expect(screen.getByText("Route v1")).toBeTruthy();
+    expect(screen.getByText(/^Planned at /)).toBeTruthy();
     expect(screen.queryByText(/DBSCAN|Nearest|2-opt|cluster|method/i)).toBeNull();
   });
 

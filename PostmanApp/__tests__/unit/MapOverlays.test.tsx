@@ -1,5 +1,5 @@
 import React from "react";
-import { fireEvent, render, screen, waitFor } from "@testing-library/react-native";
+import { fireEvent, render, screen } from "@testing-library/react-native";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 
 /* eslint-disable import/first -- jest.mock calls are hoisted above these imports. */
@@ -17,13 +17,14 @@ jest.mock("../../src/storage/offlineStorage", () => ({
 jest.mock("../../src/api/deliveryApi", () => ({
   deliveryApi: { updateStatus: jest.fn(), getById: jest.fn(), listMine: jest.fn() }
 }));
-jest.mock("../../src/utils/navigation", () => ({ openNavigation: jest.fn().mockResolvedValue(true) }));
+const mockNavigate = jest.fn();
+// Navigate opens the in-app directions screen; these components render outside a navigator here.
+jest.mock("@react-navigation/native", () => ({ ...jest.requireActual("@react-navigation/native"), useNavigation: () => ({ navigate: mockNavigate }) }));
 jest.mock("../../src/utils/alerts", () => ({ notify: jest.fn(), confirmAction: jest.fn().mockResolvedValue(true) }));
 
 import { NextStopBanner } from "../../src/components/map/NextStopBanner";
 import { SelectedDeliverySheet } from "../../src/components/map/SelectedDeliverySheet";
 import { RouteSummaryCard } from "../../src/components/route/RouteSummaryCard";
-import { openNavigation } from "../../src/utils/navigation";
 import { buildStopViews, findNextStop } from "../../src/utils/routeView";
 import { makeDelivery, makeRoute, makeStop } from "../_support/fixtures";
 
@@ -53,15 +54,12 @@ describe("NextStopBanner — 'what is next, how far, how do I get there?'", () =
     expect(screen.getByText(/1\.2 km · 3m · ETA/)).toBeTruthy();
   });
 
-  it("navigates to the next stop's coordinates", async () => {
+  it("opens in-app directions to the next stop", () => {
     render(
       <NextStopBanner next={findNextStop(views)} total={2} allDone={false} recalculating={false} onRecalculate={jest.fn()} onFocusNext={jest.fn()} />
     );
     fireEvent.press(screen.getByLabelText("Navigate"));
-    await waitFor(() => expect(openNavigation).toHaveBeenCalled());
-    const target = (openNavigation as jest.Mock).mock.calls[0][0];
-    expect(target.latitude).toBeCloseTo(19.15, 6);
-    expect(target.longitude).toBeCloseTo(72.94, 6);
+    expect(mockNavigate).toHaveBeenCalledWith("TurnByTurn", { deliveryId: "a" });
   });
 
   it("focuses the map on the next stop and can recalculate the route", () => {

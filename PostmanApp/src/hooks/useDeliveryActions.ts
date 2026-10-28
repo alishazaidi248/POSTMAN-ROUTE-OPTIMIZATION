@@ -1,8 +1,8 @@
 import React, { useCallback, useState } from "react";
+import { useNavigation } from "@react-navigation/native";
 import { useUpdateDeliveryStatus } from "./useDeliveries";
 import { Delivery, DeliveryStatus } from "../types/delivery";
 import { formatAddress } from "../utils/formatting";
-import { openNavigation } from "../utils/navigation";
 import { notify, confirmAction } from "../utils/alerts";
 import { canTransition } from "../utils/status";
 import { usePostmanProfile } from "./usePostmanProfile";
@@ -38,11 +38,6 @@ export function canNavigateTo(status: DeliveryStatus): boolean {
   return status === "ASSIGNED" || status === "OUT_FOR_DELIVERY" || status === "RESCHEDULED";
 }
 
-interface Coordinates {
-  latitude: number | null;
-  longitude: number | null;
-}
-
 /**
  * Shared by the Deliveries card and the Map's selected-delivery sheet so both
  * behave identically: same button, same confirmation, same offline queueing,
@@ -50,7 +45,8 @@ interface Coordinates {
  * POST /deliveries/:id/status (backend validates) and, when offline, the
  * existing offline queue — there is no second path.
  */
-export function useDeliveryActions(delivery: Delivery, status: DeliveryStatus, coords: Coordinates) {
+export function useDeliveryActions(delivery: Delivery, status: DeliveryStatus) {
+  const navigation = useNavigation();
   const updateStatus = useUpdateDeliveryStatus();
   const profile = usePostmanProfile();
   const primary = primaryActionFor(status);
@@ -150,17 +146,10 @@ export function useDeliveryActions(delivery: Delivery, status: DeliveryStatus, c
     finish({ proofUri: taken.photo.uri, proofCapturedAt: taken.photo.capturedAt, proofType: "PHOTO" });
   }, [finish]);
 
-  const navigate = useCallback(async () => {
-    const opened = await openNavigation({
-      latitude: coords.latitude ?? delivery.address.latitude,
-      longitude: coords.longitude ?? delivery.address.longitude,
-      address: delivery.address,
-      label: delivery.recipient.name
-    });
-    if (!opened) {
-      notify("Couldn't open maps", "No maps app could be opened on this device.");
-    }
-  }, [coords.latitude, coords.longitude, delivery]);
+  // Directions open inside the app; its navigation screen still offers Google Maps.
+  const navigate = useCallback(() => {
+    navigation.navigate("TurnByTurn", { deliveryId: delivery.id });
+  }, [navigation, delivery.id]);
 
   const signatureModal = React.createElement(SignaturePadModal, {
     visible: signatureVisible,

@@ -26,6 +26,7 @@ import { hasRoadGeometry } from "../../types/route";
 import { useRouteStore } from "../../store/routeStore";
 import { SegmentedControl } from "../../components/common/SegmentedControl";
 import { isPastFinished } from "../../utils/history";
+import { todayCounts } from "../../utils/todayCounts";
 import { DeliveryHistoryView } from "./DeliveryHistoryView";
 
 type Nav = NativeStackNavigationProp<DeliveriesStackParamList, "DeliveriesList">;
@@ -88,6 +89,7 @@ function TodayDeliveries() {
     return <ErrorState message="We could not load your deliveries. Check your connection and try again." onRetry={() => deliveriesQuery.refetch()} />;
   }
 
+  const counts = statsQuery.data ? todayCounts(statsQuery.data, { completed: 0, remaining: 0 }) : null;
   const routeSummary = route
     ? [
         `${route.solution.stops.length} stop${route.solution.stops.length === 1 ? "" : "s"} to go`,
@@ -104,15 +106,15 @@ function TodayDeliveries() {
       <View style={styles.header}>
         <View style={styles.headerTop}>
           <Text style={styles.date}>{formatDate(new Date().toISOString())}</Text>
-          {statsQuery.data ? (
+          {counts ? (
             <Text style={styles.count}>
-              {statsQuery.data.today.completed} of {statsQuery.data.today.total} completed
+              {counts.completed} of {counts.total} completed
             </Text>
           ) : null}
         </View>
-        {statsQuery.data && statsQuery.data.today.total > 0 ? (
+        {counts && counts.total > 0 ? (
           <View style={styles.track}>
-            <View style={[styles.fill, { width: `${Math.round((statsQuery.data.today.completed / statsQuery.data.today.total) * 100)}%` }]} />
+            <View style={[styles.fill, { width: `${Math.round((counts.completed / counts.total) * 100)}%` }]} />
           </View>
         ) : null}
         {routeSummary ? (

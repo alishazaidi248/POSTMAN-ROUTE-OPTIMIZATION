@@ -29,10 +29,15 @@ export type MainTabParamList = {
   AccountTab: NavigatorScreenParams<AccountStackParamList>;
 };
 
+/** Signed in: the four tabs, with full-screen turn-by-turn navigation opening over them (and over the tab bar). */
+export type SignedInStackParamList = {
+  Main: NavigatorScreenParams<MainTabParamList>;
+  TurnByTurn: { deliveryId: string };
+};
+
 export type RootStackParamList = {
   Auth: NavigatorScreenParams<AuthStackParamList>;
-  Main: NavigatorScreenParams<MainTabParamList>;
-};
+} & SignedInStackParamList;
 
 declare global {
   namespace ReactNavigation {
