@@ -133,7 +133,7 @@ export function DeliveryDetailsScreen() {
 
       <View style={styles.card}>
         <Text style={styles.eyebrow}>Actions</Text>
-        <DeliveryActionBar delivery={delivery} status={status} latitude={view?.latitude ?? null} longitude={view?.longitude ?? null} />
+        <DeliveryActionBar delivery={delivery} status={status} />
         <StatusActionButtons currentStatus={status} submitting={updateStatus.isPending} onSelect={handleSelect} hidePrimary />
         {finalStatus && !updateStatus.isPending ? <Text style={styles.caption}>No further changes are available for this delivery.</Text> : null}
       </View>

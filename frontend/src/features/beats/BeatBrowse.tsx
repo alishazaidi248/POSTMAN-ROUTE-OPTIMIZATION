@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { ActiveBadge, OverlapBadge, VerificationBadge } from "./StatusBadge";
-import { BeatRecord, VERIFICATION_COLOR, deliveriesOf, formatWhen, isOverlapping, matchesSearch, territoryState } from "./beatTypes";
+import { BeatRecord, VERIFICATION_COLOR, assignedPostmenLabel, deliveriesOf, formatWhen, isOverlapping, matchesSearch, territoryState } from "./beatTypes";
 import { Icon } from "../../components/icons";
 import styles from "./beats.module.css";
 
@@ -138,7 +138,9 @@ export function BeatTable({ beats, selectedId, onView, emptyMessage }: { beats: 
                     <OverlapBadge beat={b} />
                     {b.status === "INACTIVE" && <ActiveBadge active={false} />}
                   </td>
-                  <td>{b.assignedPostmanName ?? <span className={styles.muted}>Not assigned</span>}</td>
+                  <td>
+                    {b.assignedPostmen?.length ? assignedPostmenLabel(b) : <span className={styles.muted}>Not assigned</span>}
+                  </td>
                   <td>{deliveriesOf(b)}</td>
                   <td>{formatWhen(b.updatedAt)}</td>
                   <td><button className={`${styles.btn} ${styles.btnSmall}`} onClick={() => onView(b)}>View</button></td>

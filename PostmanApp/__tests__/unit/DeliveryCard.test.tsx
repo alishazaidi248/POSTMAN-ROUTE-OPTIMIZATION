@@ -17,7 +17,9 @@ jest.mock("../../src/storage/offlineStorage", () => ({
 jest.mock("../../src/api/deliveryApi", () => ({
   deliveryApi: { updateStatus: jest.fn(), getById: jest.fn(), listMine: jest.fn() }
 }));
-jest.mock("../../src/utils/navigation", () => ({ openNavigation: jest.fn().mockResolvedValue(true) }));
+const mockNavigate = jest.fn();
+// Navigate opens the in-app directions screen; these components render outside a navigator here.
+jest.mock("@react-navigation/native", () => ({ ...jest.requireActual("@react-navigation/native"), useNavigation: () => ({ navigate: mockNavigate }) }));
 jest.mock("../../src/utils/alerts", () => ({
   notify: jest.fn(),
   confirmAction: jest.fn().mockResolvedValue(true)
@@ -25,7 +27,6 @@ jest.mock("../../src/utils/alerts", () => ({
 
 import { DeliveryCard } from "../../src/components/delivery/DeliveryCard";
 import { deliveryApi } from "../../src/api/deliveryApi";
-import { openNavigation } from "../../src/utils/navigation";
 import { confirmAction, notify } from "../../src/utils/alerts";
 import { useOfflineStore } from "../../src/store/offlineStore";
 import { ApiError } from "../../src/types/api";
@@ -126,23 +127,10 @@ describe("DeliveryCard — expanded (only fields the Delivery model actually has
 });
 
 describe("DeliveryCard — Navigate", () => {
-  it("navigates to the delivery's real coordinates and address", async () => {
-    renderCard(viewFor("OUT_FOR_DELIVERY"), true);
-
-    fireEvent.press(screen.getByLabelText("Navigate"));
-
-    await waitFor(() => expect(openNavigation).toHaveBeenCalledTimes(1));
-    const target = (openNavigation as jest.Mock).mock.calls[0][0];
-    expect(target.latitude).toBeCloseTo(19.17, 5); // the route stop's coordinates (19.14 + 3/100)
-    expect(target.longitude).toBeCloseTo(72.96, 5);
-    expect(target.address.addressLine1).toBe("d1 Station Road");
-  });
-
-  it("tells the postman when no maps app could be opened", async () => {
-    (openNavigation as jest.Mock).mockResolvedValueOnce(false);
+  it("opens the app's own turn-by-turn screen for this delivery (not an outside maps app)", () => {
     renderCard(viewFor("OUT_FOR_DELIVERY"), true);
     fireEvent.press(screen.getByLabelText("Navigate"));
-    await waitFor(() => expect(notify).toHaveBeenCalledWith("Couldn't open maps", expect.any(String)));
+    expect(mockNavigate).toHaveBeenCalledWith("TurnByTurn", { deliveryId: "d1" });
   });
 
   it("is not offered for a delivery that is already done", () => {

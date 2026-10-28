@@ -11,6 +11,7 @@ import { recordAudit } from "../services/audit.service";
 import { FinishedStatus, listFinishedDeliveries } from "../services/deliveryHistory.service";
 import { registerPushToken, removePushToken } from "../services/push.service";
 import { AppError } from "../utils/AppError";
+import { getDirections, TravelMode } from "../services/navigation/directions.service";
 
 /**
  * Self-service endpoints for the React Native postman app (spec §36 gap
@@ -253,6 +254,57 @@ meRouter.post(
     });
 
     res.status(201).json(toPostmanRoute(route));
+  })
+);
+
+const navigationSchema = z.object({
+  params: z.object({ deliveryId: z.string().uuid() }),
+  query: z
+    .object({
+      fromLat: z.coerce.number().min(-90).max(90).optional(),
+      fromLng: z.coerce.number().min(-180).max(180).optional(),
+      mode: z.enum(["BIKE", "FOOT"]).optional()
+    })
+    .refine((q) => (q.fromLat === undefined) === (q.fromLng === undefined), {
+      message: "fromLat and fromLng must be sent together"
+    })
+});
+
+/**
+ * Turn-by-turn directions from the postman to one of THEIR deliveries, for the app's own navigation screen. Starts at
+ * the app's GPS fix when it sends one, else the last location it reported, else the post office.
+ */
+meRouter.get(
+  "/navigation/:deliveryId",
+  validate(navigationSchema),
+  asyncHandler(async (req, res) => {
+    const postman = await resolveSelfPostman(req);
+    // validate() checks the query but only writes the body back, so values arrive as strings and defaults apply here.
+    const { fromLat, fromLng } = req.query as Record<string, string | undefined>;
+    const mode = (req.query.mode as TravelMode | undefined) ?? "BIKE";
+
+    // Someone else's delivery is "not found", exactly like GET /deliveries/:id.
+    const delivery = await prisma.delivery.findFirst({
+      where: { id: req.params.deliveryId, assignedPostmanId: postman.id },
+      select: { address: { select: { latitude: true, longitude: true } } }
+    });
+    if (!delivery) throw AppError.notFound("Delivery not found");
+    const { latitude, longitude } = delivery.address;
+    if (latitude == null || longitude == null) {
+      throw AppError.badRequest("This address is not on the map yet, so directions can't be shown. Search it in Google Maps instead.");
+    }
+
+    let from = fromLat !== undefined && fromLng !== undefined ? { latitude: Number(fromLat), longitude: Number(fromLng) } : null;
+    if (!from) {
+      const last = await prisma.postmanLocationHistory.findFirst({ where: { postmanId: postman.id }, orderBy: { recordedAt: "desc" } });
+      if (last) from = { latitude: last.latitude, longitude: last.longitude };
+    }
+    if (!from) {
+      const office = await prisma.postOffice.findUniqueOrThrow({ where: { id: postman.postOfficeId }, select: { latitude: true, longitude: true } });
+      from = office;
+    }
+
+    res.json(await getDirections(from, { latitude, longitude }, mode));
   })
 );
 

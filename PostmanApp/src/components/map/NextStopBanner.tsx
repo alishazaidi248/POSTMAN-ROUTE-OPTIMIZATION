@@ -1,9 +1,8 @@
 import React from "react";
+import { useNavigation } from "@react-navigation/native";
 import { ActivityIndicator, Pressable, StyleSheet, Text, View } from "react-native";
 import { StopView, legLabel } from "../../utils/routeView";
 import { formatAddressShort, formatTime } from "../../utils/formatting";
-import { openNavigation } from "../../utils/navigation";
-import { notify } from "../../utils/alerts";
 import { colors } from "../../theme/colors";
 import { radius, spacing, touchTarget } from "../../theme/spacing";
 import { typography } from "../../theme/typography";
@@ -25,6 +24,7 @@ interface Props {
  * blue marker on the map itself.
  */
 export function NextStopBanner({ next, total, allDone, recalculating, onRecalculate, onFocusNext }: Props) {
+  const navigation = useNavigation();
   if (!next) {
     return (
       <View style={styles.banner}>
@@ -35,16 +35,7 @@ export function NextStopBanner({ next, total, allDone, recalculating, onRecalcul
 
   const leg = legLabel(next);
   const name = next.delivery.recipient.name;
-
-  const navigate = async () => {
-    const ok = await openNavigation({
-      latitude: next.latitude,
-      longitude: next.longitude,
-      address: next.delivery.address,
-      label: name
-    });
-    if (!ok) notify("Couldn't open maps", "No maps app could be opened on this device.");
-  };
+  const navigate = () => navigation.navigate("TurnByTurn", { deliveryId: next.delivery.id });
 
   return (
     <View style={styles.banner}>

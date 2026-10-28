@@ -45,7 +45,7 @@ export function SelectedDeliverySheet({ view, onClose, onOpenDetails }: Props) {
         {`Parcels: ${delivery.parcelCount}${delivery.parcelType ? ` · ${delivery.parcelType}` : ""} · Priority: ${delivery.priority}`}
       </Text>
 
-      <DeliveryActionBar delivery={delivery} status={status} latitude={view.latitude} longitude={view.longitude} />
+      <DeliveryActionBar delivery={delivery} status={status} />
 
       <Pressable onPress={onOpenDetails} accessibilityRole="link" accessibilityLabel="Open full details">
         <Text style={styles.link}>Full details &amp; other outcomes ›</Text>

@@ -9,28 +9,26 @@ interface Props {
   delivery: Delivery;
   /** Effective status (includes a queued offline change). */
   status: DeliveryStatus;
-  latitude: number | null;
-  longitude: number | null;
+  /** False on the navigation screen itself, where the postman is already navigating. */
+  showNavigate?: boolean;
 }
 
 /** [ Navigate ] [ Start Delivery | Mark Delivered ] — used on the card and the map sheet. */
-export function DeliveryActionBar({ delivery, status, latitude, longitude }: Props) {
-  const { primary, run, navigate, isPending, canNavigate, signatureModal } = useDeliveryActions(delivery, status, {
-    latitude,
-    longitude
-  });
+export function DeliveryActionBar({ delivery, status, showNavigate = true }: Props) {
+  const { primary, run, navigate, isPending, canNavigate, signatureModal } = useDeliveryActions(delivery, status);
 
-  if (!canNavigate && !primary) return null;
+  const offerNavigate = canNavigate && showNavigate;
+  if (!offerNavigate && !primary) return null;
 
   return (
     <View style={styles.row}>
-      {canNavigate ? (
+      {offerNavigate ? (
         <PrimaryButton
           label="Navigate"
           variant="secondary"
           onPress={navigate}
           style={styles.button}
-          accessibilityHint="Opens turn-by-turn directions to this address in your maps app"
+          accessibilityHint="Shows turn-by-turn directions to this address"
         />
       ) : null}
       {primary ? (

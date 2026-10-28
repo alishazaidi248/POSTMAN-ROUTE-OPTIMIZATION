@@ -1,11 +1,12 @@
 import React from "react";
 import { createBottomTabNavigator } from "@react-navigation/bottom-tabs";
 import { createNativeStackNavigator } from "@react-navigation/native-stack";
-import { AccountStackParamList, DeliveriesStackParamList, MainTabParamList, MapStackParamList } from "./types";
+import { AccountStackParamList, DeliveriesStackParamList, MainTabParamList, MapStackParamList, SignedInStackParamList } from "./types";
 import { HomeScreen } from "../screens/home/HomeScreen";
 import { DeliveriesScreen } from "../screens/deliveries/DeliveriesScreen";
 import { DeliveryDetailsScreen } from "../screens/deliveries/DeliveryDetailsScreen";
 import { MapScreen } from "../screens/map/MapScreen";
+import { TurnByTurnScreen } from "../screens/navigation/TurnByTurnScreen";
 import { AccountScreen } from "../screens/account/AccountScreen";
 import { ProfileScreen } from "../screens/account/ProfileScreen";
 import { SettingsScreen } from "../screens/account/SettingsScreen";
@@ -19,6 +20,7 @@ import { usePushRegistration } from "../hooks/usePushRegistration";
 import { colors } from "../theme/colors";
 import { View } from "react-native";
 
+const SignedInStack = createNativeStackNavigator<SignedInStackParamList>();
 const Tab = createBottomTabNavigator<MainTabParamList>();
 const DeliveriesStack = createNativeStackNavigator<DeliveriesStackParamList>();
 const MapStack = createNativeStackNavigator<MapStackParamList>();
@@ -75,9 +77,9 @@ function tabIcon(name: IconName) {
   return TabIcon;
 }
 
-// Four bottom tabs: Home (today at a glance), Deliveries, Map and Account. Secondary screens live in each
+// Four bottom tabs: Home (today's deliveries, nearest first), Map, Deliveries and Account. Secondary screens live in each
 // tab's own stack.
-export function MainNavigator() {
+function MainTabs() {
   // The bar's height follows the device's own bottom inset (gesture bar, home indicator) instead of a fixed number, and the
   // label gets a line height taller than its font, so the text is never clipped at the bottom edge.
   usePushRegistration();
@@ -90,15 +92,30 @@ export function MainNavigator() {
         headerShown: false,
         tabBarActiveTintColor: colors.primary,
         tabBarInactiveTintColor: colors.textDisabled,
-        tabBarLabelStyle: { fontSize: 11, lineHeight: 15, fontWeight: "600" },
+        tabBarLabelStyle: { fontSize: 11, lineHeight: 16, fontWeight: "600", marginBottom: 2 },
         tabBarAllowFontScaling: false,
-        tabBarStyle: { height: 56 + bottom, paddingBottom: bottom, paddingTop: 6, backgroundColor: colors.surface, borderTopColor: colors.border }
+        tabBarStyle: { height: 62 + bottom, paddingBottom: bottom, paddingTop: 6, backgroundColor: colors.surface, borderTopColor: colors.border }
       }}
     >
       <Tab.Screen name="HomeTab" component={HomeScreen} options={{ title: "Home", tabBarIcon: tabIcon("home") }} />
-      <Tab.Screen name="DeliveriesTab" component={DeliveriesStackNavigator} options={{ title: "Deliveries", tabBarIcon: tabIcon("list") }} />
       <Tab.Screen name="MapTab" component={MapStackNavigator} options={{ title: "Map", tabBarIcon: tabIcon("map") }} />
+      <Tab.Screen name="DeliveriesTab" component={DeliveriesStackNavigator} options={{ title: "Deliveries", tabBarIcon: tabIcon("list") }} />
       <Tab.Screen name="AccountTab" component={AccountStackNavigator} options={{ title: "Account", tabBarIcon: tabIcon("user") }} />
     </Tab.Navigator>
+  );
+}
+
+/** The tabs, plus turn-by-turn navigation over the whole screen (no tab bar while riding). */
+export function MainNavigator() {
+  return (
+    <SignedInStack.Navigator screenOptions={{ headerShown: false }}>
+      <SignedInStack.Screen name="Main" component={MainTabs} />
+      <SignedInStack.Screen
+        name="TurnByTurn"
+        component={TurnByTurnScreen}
+        // No swipe-to-dismiss: a thumb brushing the edge on a bumpy road must not end navigation. "End" or Back does.
+        options={{ animation: "slide_from_bottom", gestureEnabled: false }}
+      />
+    </SignedInStack.Navigator>
   );
 }

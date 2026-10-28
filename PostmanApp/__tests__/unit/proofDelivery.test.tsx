@@ -21,7 +21,9 @@ jest.mock("../../src/api/deliveryApi", () => ({
 }));
 jest.mock("../../src/api/postmanApi", () => ({ postmanApi: { getProfile: jest.fn(), getStats: jest.fn() } }));
 jest.mock("../../src/services/proofService", () => ({ takeProofPhoto: jest.fn(), discardProofPhoto: jest.fn() }));
-jest.mock("../../src/utils/navigation", () => ({ openNavigation: jest.fn().mockResolvedValue(true) }));
+const mockNavigate = jest.fn();
+// Navigate opens the in-app directions screen; these components render outside a navigator here.
+jest.mock("@react-navigation/native", () => ({ ...jest.requireActual("@react-navigation/native"), useNavigation: () => ({ navigate: mockNavigate }) }));
 jest.mock("../../src/utils/alerts", () => ({ notify: jest.fn(), confirmAction: jest.fn().mockResolvedValue(true) }));
 
 import { DeliveryCard } from "../../src/components/delivery/DeliveryCard";

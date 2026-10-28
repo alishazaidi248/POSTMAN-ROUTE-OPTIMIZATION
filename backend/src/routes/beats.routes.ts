@@ -30,11 +30,17 @@ const beatSelect = Prisma.sql`
          (b.boundary IS NOT NULL) AS "hasTerritory",
          ST_AsGeoJSON(b.boundary)::json AS boundary,
          (SELECT COUNT(*)::int FROM "Delivery" d WHERE d."beatId" = b.id) AS "deliveryCount",
+         -- A beat may have more than one active postman (its deliveries then split between them - see
+         -- syncBeatDeliveries). assignedPostmanId/Name are kept for older callers and always mean the
+         -- longest-serving one; assignedPostmen is everyone currently covering the beat.
          (SELECT pba."postmanId" FROM "PostmanBeatAssignment" pba
-            WHERE pba."beatId" = b.id AND pba."isActive" = true LIMIT 1) AS "assignedPostmanId",
+            WHERE pba."beatId" = b.id AND pba."isActive" = true ORDER BY pba."startDate" ASC LIMIT 1) AS "assignedPostmanId",
          (SELECT p.name FROM "PostmanBeatAssignment" pba
             JOIN "Postman" p ON p.id = pba."postmanId"
-            WHERE pba."beatId" = b.id AND pba."isActive" = true LIMIT 1) AS "assignedPostmanName"
+            WHERE pba."beatId" = b.id AND pba."isActive" = true ORDER BY pba."startDate" ASC LIMIT 1) AS "assignedPostmanName",
+         (SELECT COALESCE(json_agg(json_build_object('id', p.id, 'name', p.name, 'employeeId', p."employeeId") ORDER BY pba."startDate" ASC), '[]'::json)
+            FROM "PostmanBeatAssignment" pba JOIN "Postman" p ON p.id = pba."postmanId"
+            WHERE pba."beatId" = b.id AND pba."isActive" = true) AS "assignedPostmen"
   FROM "Beat" b
   JOIN "PostOffice" po ON po.id = b."postOfficeId"
 `;
