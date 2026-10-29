@@ -33,14 +33,16 @@ import { auditLogsRouter } from "./routes/auditLogs.routes";
 import { optimizationRouter } from "./routes/optimization.routes";
 import { researchRouter } from "./routes/research.routes";
 import { dataQualityRouter } from "./routes/dataQuality.routes";
+import { isLocalNetworkOrigin } from "./utils/localNetwork";
 
 /** CORS_ORIGIN is comma-separated (the admin panel and the Postman app's web build run on different
  * origins in dev). "*" reflects whatever Origin the browser sent instead of the literal string "*" -
- * the CORS spec forbids ACAO: * together with credentials, which this API requires. */
+ * the CORS spec forbids ACAO: * together with credentials, which this API requires. Outside production, pages
+ * served from this machine or the local network are allowed too: the LAN IP changes with the Wi-Fi. */
 function corsOrigin(): boolean | ((origin: string | undefined, cb: (err: Error | null, allow?: boolean) => void) => void) {
   const allowed = env.corsOrigin.split(",").map((o) => o.trim()).filter(Boolean);
   if (allowed.includes("*")) return true;
-  return (origin, cb) => cb(null, !origin || allowed.includes(origin));
+  return (origin, cb) => cb(null, !origin || allowed.includes(origin) || (!env.isProduction && isLocalNetworkOrigin(origin)));
 }
 
 export function createApp() {
